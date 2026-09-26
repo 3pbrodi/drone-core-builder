@@ -15,13 +15,13 @@ export const Route = createFileRoute("/ai-build")({
       {
         name: "description",
         content:
-          "Pick a budget and a color, add special wishes, and get a suggested drone parts list.",
+          "Pick a budget and a color, choose how you want to fly, add special wishes, and get a suggested drone parts list.",
       },
       { property: "og:title", content: "AI Build — DroneCores" },
       {
         property: "og:description",
         content:
-          "Pick a budget and a color, add special wishes, and get a suggested drone parts list.",
+          "Pick a budget and a color, choose how you want to fly, add special wishes, and get a suggested drone parts list.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -49,7 +49,14 @@ const COLOR_OPTIONS: { name: string; hex: string }[] = [
   { name: "Forest Green", hex: "#22C55E" },
 ];
 
-const STEP_LABELS = ["Budget", "Preferred color", "Special wishes"];
+const STEP_LABELS = ["Budget", "Preferred color", "Flying style", "Special wishes"];
+
+const STYLE_OPTIONS: { name: string; hint: string }[] = [
+  { name: "FPV", hint: "Fly through goggles — fast and immersive" },
+  { name: "Cinematic", hint: "Smooth, steady video of your trips" },
+  { name: "Racing", hint: "Maximum speed on a race track" },
+  { name: "Long Range", hint: "Fly far and explore wide landscapes" },
+];
 
 function formatBudget(value: number) {
   return `$${value.toLocaleString("en-US")}`;
@@ -58,10 +65,68 @@ function formatBudget(value: number) {
 function buildSuggestion(
   budget: number,
   colorName: string | null,
+  styleName: string | null,
 ): Suggestion {
   const colorPart = colorName
     ? `Custom shell in ${colorName}`
     : "Classic factory shell";
+
+  if (styleName === "FPV") {
+    return {
+      name: "Immersive FPV Build",
+      parts: [
+        "5-inch freestyle frame with soft-mounted motors",
+        "Punchy 2207 motors for quick, snappy moves",
+        "Digital FPV camera — crystal clear through goggles",
+        "6S 1300 mAh battery for nimble, agile flying",
+        colorPart,
+      ],
+      why: `FPV is all about feeling every move, so this build favors quick response over long flight times. Your ${formatBudget(budget)} budget covers it comfortably.`,
+    };
+  }
+
+  if (styleName === "Cinematic") {
+    return {
+      name: "Backpack Cinematic Build",
+      parts: [
+        "220mm folding frame — small enough for a backpack",
+        "Efficient 2306 motors — long flight times, low noise",
+        "4K camera with a 3-axis gimbal for steady footage",
+        "6S 3000 mAh battery — around 25 minutes of flying",
+        colorPart,
+      ],
+      why: `Cinematic flying lives on smooth footage, so the gimbal and big battery do the heavy lifting. Your ${formatBudget(budget)} budget covers everything here with room to spare.`,
+    };
+  }
+
+  if (styleName === "Racing") {
+    return {
+      name: "Track Rocket Build",
+      parts: [
+        "5-inch stiff racing frame — zero flex at speed",
+        "High-KV 2207 motors for explosive acceleration",
+        "Lightweight analog FPV camera — lowest possible lag",
+        "Small 6S 850 mAh battery to keep weight down",
+        colorPart,
+      ],
+      why: `Racing drones shed every gram they can, so this build is deliberately minimal. Your ${formatBudget(budget)} budget leaves room for spare props — you will need them.`,
+    };
+  }
+
+  if (styleName === "Long Range") {
+    return {
+      name: "Long-Range Explorer Build",
+      parts: [
+        "7-inch long frame with large, efficient props",
+        "Low-KV motors tuned for calm, quiet efficiency",
+        "GPS + return-to-home for hands-off safety",
+        "High-capacity 6S 4000 mAh battery — very long flights",
+        colorPart,
+      ],
+      why: `Long range is about efficiency and safety, so big slow propellers and GPS keep you flying far and coming home. Your ${formatBudget(budget)} budget fits this build well.`,
+    };
+  }
+
 
   if (budget < 700) {
     return {
