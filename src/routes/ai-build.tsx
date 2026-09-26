@@ -173,23 +173,25 @@ function AiBuildPage() {
   const [step, setStep] = useState(0);
   const [budget, setBudget] = useState(1000);
   const [color, setColor] = useState<string | null>(null);
+  const [style, setStyle] = useState<string | null>(null);
   const [wishes, setWishes] = useState("");
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
 
   const finish = () => {
-    setSuggestion(buildSuggestion(budget, color));
-    setStep(3);
+    setSuggestion(buildSuggestion(budget, color, style));
+    setStep(4);
   };
 
   const startOver = () => {
     setStep(0);
     setBudget(1000);
     setColor(null);
+    setStyle(null);
     setWishes("");
     setSuggestion(null);
   };
 
-  const nextStep = () => setStep((current) => Math.min(current + 1, 3));
+  const nextStep = () => setStep((current) => Math.min(current + 1, 4));
   const prevStep = () => setStep((current) => Math.max(current - 1, 0));
 
   const buttonBase =
@@ -198,7 +200,7 @@ function AiBuildPage() {
   const questionCard = (children: React.ReactNode) => (
     <section className="rounded-3xl border border-border bg-card p-8 shadow-sm sm:p-10">
       <p className="text-xs font-semibold uppercase tracking-widest text-primary">
-        Step {step + 1} of 3 — {STEP_LABELS[step]}
+        Step {step + 1} of 4 — {STEP_LABELS[step]}
       </p>
       {children}
     </section>
@@ -239,7 +241,7 @@ function AiBuildPage() {
     <PageShell
       eyebrow="Path 3"
       title="AI Build"
-      description="Answer three quick questions — budget, color, and any special wishes — and get a suggested parts list you can open in the custom builder."
+      description="Answer four quick questions — budget, color, flying style, and any special wishes — and get a suggested parts list you can open in the custom builder."
     >
       {/* Progress dots */}
       <div className="mb-6 flex items-center gap-3" aria-hidden>
@@ -247,7 +249,7 @@ function AiBuildPage() {
           <div key={label} className="flex flex-1 items-center gap-3">
             <div
               className={`h-1.5 flex-1 rounded-full transition-colors ${
-                index <= Math.min(step, 2) ? "bg-primary" : "bg-muted"
+                index <= Math.min(step, 3) ? "bg-primary" : "bg-muted"
               }`}
             />
           </div>
