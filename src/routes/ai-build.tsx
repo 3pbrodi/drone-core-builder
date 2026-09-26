@@ -74,7 +74,7 @@ const IDEAS: { text: string; suggestion: Suggestion }[] = [
 ];
 
 function AiBuildPage() {
-  const [idea, setIdea] = useState(IDEAS[0].text);
+  const [idea, setIdea] = useState(IDEAS[0]?.text ?? "");
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
 
   const generate = () => {
