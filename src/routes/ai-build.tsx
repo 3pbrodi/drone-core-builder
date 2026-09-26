@@ -132,7 +132,7 @@ function AiBuildPage() {
     "inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition-all active:scale-[0.98]";
 
   const questionCard = (children: React.ReactNode) => (
-    <section className="rounded-3xl border border-border bg-card p-6 shadow-sm sm:p-7">
+    <section className="rounded-3xl border border-border bg-card p-8 shadow-sm sm:p-10">
       <p className="text-xs font-semibold uppercase tracking-widest text-primary">
         Step {step + 1} of 3 — {STEP_LABELS[step]}
       </p>
@@ -195,7 +195,7 @@ function AiBuildPage() {
           {step === 0 &&
             questionCard(
               <>
-                <h2 className="mt-2 font-display text-lg font-semibold text-foreground">
+                <h2 className="mt-3 font-display text-2xl font-semibold text-foreground">
                   What is your budget?
                 </h2>
                 <p className="mt-1 text-sm text-muted-foreground">
@@ -228,7 +228,7 @@ function AiBuildPage() {
           {step === 1 &&
             questionCard(
               <>
-                <h2 className="mt-2 font-display text-lg font-semibold text-foreground">
+                <h2 className="mt-3 font-display text-2xl font-semibold text-foreground">
                   What color should your drone be?
                 </h2>
                 <p className="mt-1 text-sm text-muted-foreground">
@@ -269,7 +269,7 @@ function AiBuildPage() {
           {step === 2 &&
             questionCard(
               <>
-                <h2 className="mt-2 font-display text-lg font-semibold text-foreground">
+                <h2 className="mt-3 font-display text-2xl font-semibold text-foreground">
                   Any special wishes?
                 </h2>
                 <p className="mt-1 text-sm text-muted-foreground">
@@ -283,7 +283,7 @@ function AiBuildPage() {
                   id="special-wishes"
                   value={wishes}
                   onChange={(event) => setWishes(event.target.value)}
-                  rows={4}
+                  rows={6}
                   className="mt-4 w-full resize-none rounded-2xl border border-input bg-background p-4 text-sm text-foreground outline-none transition-colors focus:border-primary/50 focus:ring-2 focus:ring-ring"
                   placeholder="For example: it must fit in my school bag, and I want it as quiet as possible"
                 />
