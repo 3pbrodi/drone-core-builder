@@ -1,6 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { Sparkles } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  RotateCcw,
+  SkipForward,
+  Sparkles,
+} from "lucide-react";
 import { PageShell } from "@/components/PageShell";
 
 export const Route = createFileRoute("/ai-build")({
@@ -10,13 +16,13 @@ export const Route = createFileRoute("/ai-build")({
       {
         name: "description",
         content:
-          "Describe what you want to do with your drone in one sentence and get a suggested parts list.",
+          "Pick a budget and a color, add special wishes, and get a suggested drone parts list.",
       },
       { property: "og:title", content: "AI Build — DroneCores" },
       {
         property: "og:description",
         content:
-          "Describe what you want to do with your drone in one sentence and get a suggested parts list.",
+          "Pick a budget and a color, add special wishes, and get a suggested drone parts list.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -31,103 +37,294 @@ type Suggestion = {
   why: string;
 };
 
-const IDEAS: { text: string; suggestion: Suggestion }[] = [
-  {
-    text: "A travel drone that fits in a backpack and films 4K",
-    suggestion: {
-      name: "Backpack Cinematic Build",
-      parts: [
-        "220mm folding frame — small enough for a backpack",
-        "Efficient 2306 motors — long flight times, low noise",
-        "4K camera with a 3-axis gimbal for steady footage",
-        "6S 3000 mAh battery — around 25 minutes of flying",
-      ],
-      why: "Foldable parts keep it portable, while the gimbal and big battery do the heavy lifting for video quality.",
-    },
-  },
-  {
-    text: "My very first FPV racer — I've never flown before",
-    suggestion: {
+const BUDGET_MIN = 300;
+const BUDGET_MAX = 3000;
+const BUDGET_STEP = 50;
+
+const COLOR_OPTIONS: { name: string; hex: string }[] = [
+  { name: "Sky Blue", hex: "#3B82F6" },
+  { name: "Midnight Black", hex: "#1E293B" },
+  { name: "Arctic White", hex: "#F1F5F9" },
+  { name: "Racing Red", hex: "#EF4444" },
+  { name: "Sunset Orange", hex: "#F97316" },
+  { name: "Forest Green", hex: "#22C55E" },
+];
+
+const STEP_LABELS = ["Budget", "Preferred color", "Special wishes"];
+
+function formatBudget(value: number) {
+  return `$${value.toLocaleString("en-US")}`;
+}
+
+function buildSuggestion(
+  budget: number,
+  colorName: string | null,
+): Suggestion {
+  const colorPart = colorName
+    ? `Custom shell in ${colorName}`
+    : "Classic factory shell";
+
+  if (budget < 700) {
+    return {
       name: "First Racer Build",
       parts: [
         "Tiny 95mm whoop frame — survives crashes",
         "Gentle 1103 motors — smooth and forgiving to fly",
         "Ducted prop guards — safe around people and furniture",
         "Basic analog FPV camera — simple and cheap to replace",
+        colorPart,
       ],
-      why: "Small, protected props and mild power mean your first crashes cost almost nothing.",
-    },
-  },
-  {
-    text: "A quiet photography drone for early mornings",
-    suggestion: {
-      name: "Silent Shutter Build",
+      why: `Your ${formatBudget(budget)} budget fits this comfortably. Small, protected props and mild power mean your first crashes cost almost nothing.`,
+    };
+  }
+
+  if (budget <= 1500) {
+    return {
+      name: "Backpack Cinematic Build",
       parts: [
-        "7-inch long frame with large, slow-spinning props",
-        "Low-KV motors tuned for quiet efficiency",
-        "Micro 4/3 camera with fast low-light lens",
-        "GPS + return-to-home for calm, hands-off hovering",
+        "220mm folding frame — small enough for a backpack",
+        "Efficient 2306 motors — long flight times, low noise",
+        "4K camera with a 3-axis gimbal for steady footage",
+        "6S 3000 mAh battery — around 25 minutes of flying",
+        colorPart,
       ],
-      why: "Big slow propellers are dramatically quieter than small fast ones — perfect for sunrise shoots.",
-    },
-  },
-];
+      why: `Your ${formatBudget(budget)} budget covers everything here with room to spare. Foldable parts keep it portable, while the gimbal and big battery do the heavy lifting for video quality.`,
+    };
+  }
+
+  return {
+    name: "Silent Shutter Pro Build",
+    parts: [
+      "7-inch long frame with large, slow-spinning props",
+      "Low-KV motors tuned for quiet efficiency",
+      "Micro 4/3 camera with fast low-light lens",
+      "GPS + return-to-home for calm, hands-off hovering",
+      colorPart,
+    ],
+    why: `Your ${formatBudget(budget)} budget unlocks premium parts. Big slow propellers are dramatically quieter than small fast ones — perfect for sunrise shoots.`,
+  };
+}
 
 function AiBuildPage() {
-  const [idea, setIdea] = useState(IDEAS[0]?.text ?? "");
+  const [step, setStep] = useState(0);
+  const [budget, setBudget] = useState(1000);
+  const [color, setColor] = useState<string | null>(null);
+  const [wishes, setWishes] = useState("");
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
 
-  const generate = () => {
-    setSuggestion(IDEAS.find((item) => item.text === idea)?.suggestion ?? null);
+  const finish = () => {
+    setSuggestion(buildSuggestion(budget, color));
+    setStep(3);
   };
+
+  const startOver = () => {
+    setStep(0);
+    setBudget(1000);
+    setColor(null);
+    setWishes("");
+    setSuggestion(null);
+  };
+
+  const nextStep = () => setStep((current) => Math.min(current + 1, 3));
+  const prevStep = () => setStep((current) => Math.max(current - 1, 0));
+
+  const buttonBase =
+    "inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition-all active:scale-[0.98]";
+
+  const questionCard = (children: React.ReactNode) => (
+    <section className="rounded-3xl border border-border bg-card p-6 shadow-sm sm:p-7">
+      <p className="text-xs font-semibold uppercase tracking-widest text-primary">
+        Step {step + 1} of 3 — {STEP_LABELS[step]}
+      </p>
+      {children}
+    </section>
+  );
+
+  const navigationRow = (continueLabel: string, onContinue: () => void) => (
+    <div className="mt-6 flex flex-wrap items-center gap-3">
+      {step > 0 && (
+        <button
+          type="button"
+          onClick={prevStep}
+          className={`${buttonBase} border border-border text-muted-foreground hover:border-primary/40 hover:text-primary`}
+        >
+          <ArrowLeft className="h-4 w-4" aria-hidden />
+          Back
+        </button>
+      )}
+      <button
+        type="button"
+        onClick={nextStep}
+        className={`${buttonBase} border border-border text-muted-foreground hover:border-primary/40 hover:text-foreground`}
+      >
+        <SkipForward className="h-4 w-4" aria-hidden />
+        Skip
+      </button>
+      <button
+        type="button"
+        onClick={onContinue}
+        className={`${buttonBase} bg-primary text-primary-foreground hover:bg-primary/90 ml-auto`}
+      >
+        {continueLabel}
+        <ArrowRight className="h-4 w-4" aria-hidden />
+      </button>
+    </div>
+  );
 
   return (
     <PageShell
       eyebrow="Path 3"
       title="AI Build"
-      description="Tell the AI what you want to do with your drone — it suggests a parts list you can open in the custom builder."
+      description="Answer three quick questions — budget, color, and any special wishes — and get a suggested parts list you can open in the custom builder."
     >
-      <div className="grid gap-6 lg:grid-cols-2">
-        <section className="rounded-3xl border border-border bg-card p-6 shadow-sm sm:p-7">
-          <h2 className="font-display text-lg font-semibold text-foreground">
-            What do you want to fly?
-          </h2>
-          <label htmlFor="ai-idea" className="mt-4 block text-sm font-medium text-muted-foreground">
-            Describe your dream drone
-          </label>
-          <textarea
-            id="ai-idea"
-            value={idea}
-            onChange={(event) => setIdea(event.target.value)}
-            rows={3}
-            className="mt-2 w-full resize-none rounded-2xl border border-input bg-background p-4 text-sm text-foreground outline-none transition-colors focus:border-primary/50 focus:ring-2 focus:ring-ring"
-            placeholder="For example: a small drone for filming my mountain bike runs"
-          />
-          <div className="mt-4 flex flex-wrap gap-2">
-            {IDEAS.map((sampleIdea) => (
-              <button
-                key={sampleIdea.text}
-                type="button"
-                onClick={() => setIdea(sampleIdea.text)}
-                className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-all active:scale-95 ${
-                  idea === sampleIdea.text
-                    ? "border-primary bg-secondary text-secondary-foreground"
-                    : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
-                }`}
-              >
-                {sampleIdea.text}
-              </button>
-            ))}
+      {/* Progress dots */}
+      <div className="mb-6 flex items-center gap-3" aria-hidden>
+        {STEP_LABELS.map((label, index) => (
+          <div key={label} className="flex flex-1 items-center gap-3">
+            <div
+              className={`h-1.5 flex-1 rounded-full transition-colors ${
+                index <= Math.min(step, 2) ? "bg-primary" : "bg-muted"
+              }`}
+            />
           </div>
-          <button
-            type="button"
-            onClick={generate}
-            className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-all hover:bg-primary/90 active:scale-[0.98] sm:w-auto"
-          >
-            <Sparkles className="h-4 w-4" aria-hidden />
-            Generate my build
-          </button>
-        </section>
+        ))}
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div>
+          {step === 0 &&
+            questionCard(
+              <>
+                <h2 className="mt-2 font-display text-lg font-semibold text-foreground">
+                  What is your budget?
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Drag the slider to set how much you want to spend.
+                </p>
+                <p className="mt-6 text-center font-display text-4xl font-bold text-primary tabular-nums">
+                  {formatBudget(budget)}
+                </p>
+                <label htmlFor="budget-slider" className="sr-only">
+                  Budget in dollars
+                </label>
+                <input
+                  id="budget-slider"
+                  type="range"
+                  min={BUDGET_MIN}
+                  max={BUDGET_MAX}
+                  step={BUDGET_STEP}
+                  value={budget}
+                  onChange={(event) => setBudget(Number(event.target.value))}
+                  className="mt-4 w-full accent-primary"
+                />
+                <div className="mt-1 flex justify-between text-xs text-muted-foreground">
+                  <span>{formatBudget(BUDGET_MIN)}</span>
+                  <span>{formatBudget(BUDGET_MAX)}</span>
+                </div>
+                {navigationRow("Continue", nextStep)}
+              </>,
+            )}
+
+          {step === 1 &&
+            questionCard(
+              <>
+                <h2 className="mt-2 font-display text-lg font-semibold text-foreground">
+                  What color should your drone be?
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Pick a shell color — you can skip this and decide later.
+                </p>
+                <div className="mt-5 grid grid-cols-3 gap-3" role="radiogroup" aria-label="Preferred color">
+                  {COLOR_OPTIONS.map((option) => {
+                    const selected = color === option.name;
+                    return (
+                      <button
+                        key={option.name}
+                        type="button"
+                        role="radio"
+                        aria-checked={selected}
+                        onClick={() => setColor(option.name)}
+                        className={`flex flex-col items-center gap-2 rounded-2xl border p-3 transition-all active:scale-95 ${
+                          selected
+                            ? "border-primary bg-secondary"
+                            : "border-border hover:border-primary/40"
+                        }`}
+                      >
+                        <span
+                          className="h-9 w-9 rounded-full border border-border shadow-sm"
+                          style={{ backgroundColor: option.hex }}
+                          aria-hidden
+                        />
+                        <span className="text-xs font-medium text-foreground">
+                          {option.name}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {navigationRow("Continue", nextStep)}
+              </>,
+            )}
+
+          {step === 2 &&
+            questionCard(
+              <>
+                <h2 className="mt-2 font-display text-lg font-semibold text-foreground">
+                  Any special wishes?
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Personalizations, things the drone must do — anything at all.
+                  This one is optional.
+                </p>
+                <label htmlFor="special-wishes" className="sr-only">
+                  Special wishes or personalizations
+                </label>
+                <textarea
+                  id="special-wishes"
+                  value={wishes}
+                  onChange={(event) => setWishes(event.target.value)}
+                  rows={4}
+                  className="mt-4 w-full resize-none rounded-2xl border border-input bg-background p-4 text-sm text-foreground outline-none transition-colors focus:border-primary/50 focus:ring-2 focus:ring-ring"
+                  placeholder="For example: it must fit in my school bag, and I want it as quiet as possible"
+                />
+                {navigationRow("See my build", finish)}
+              </>,
+            )}
+
+          {step === 3 && (
+            <section className="flex h-full flex-col items-start justify-center rounded-3xl border border-border bg-card p-6 shadow-sm sm:p-7">
+              <p className="text-xs font-semibold uppercase tracking-widest text-primary">
+                Your answers
+              </p>
+              <dl className="mt-4 space-y-3 text-sm">
+                <div className="flex items-center gap-2">
+                  <dt className="font-semibold text-foreground">Budget:</dt>
+                  <dd className="text-muted-foreground">{formatBudget(budget)}</dd>
+                </div>
+                <div className="flex items-center gap-2">
+                  <dt className="font-semibold text-foreground">Color:</dt>
+                  <dd className="text-muted-foreground">
+                    {color ?? "Skipped — you pick later"}
+                  </dd>
+                </div>
+                <div className="flex items-start gap-2">
+                  <dt className="shrink-0 font-semibold text-foreground">Wishes:</dt>
+                  <dd className="text-muted-foreground">
+                    {wishes.trim() ? wishes.trim() : "Skipped"}
+                  </dd>
+                </div>
+              </dl>
+              <button
+                type="button"
+                onClick={startOver}
+                className={`${buttonBase} mt-6 border border-border text-muted-foreground hover:border-primary/40 hover:text-primary`}
+              >
+                <RotateCcw className="h-4 w-4" aria-hidden />
+                Start over
+              </button>
+            </section>
+          )}
+        </div>
 
         <section aria-live="polite">
           {suggestion ? (
@@ -140,8 +337,14 @@ function AiBuildPage() {
               </h2>
               <ul className="mt-4 space-y-2.5">
                 {suggestion.parts.map((part) => (
-                  <li key={part} className="flex items-start gap-2.5 text-sm text-foreground">
-                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" aria-hidden />
+                  <li
+                    key={part}
+                    className="flex items-start gap-2.5 text-sm text-foreground"
+                  >
+                    <span
+                      className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary"
+                      aria-hidden
+                    />
                     {part}
                   </li>
                 ))}
@@ -154,16 +357,17 @@ function AiBuildPage() {
             <div className="flex h-full min-h-64 flex-col items-center justify-center rounded-3xl border border-dashed border-border p-8 text-center">
               <Sparkles className="h-8 w-8 text-primary" aria-hidden />
               <p className="mt-4 max-w-xs text-sm text-muted-foreground">
-                Tap a sample idea above (or type your own), then hit{" "}
-                <span className="font-semibold text-foreground">Generate my build</span> to see a
-                suggested parts list.
+                Answer the three questions and your suggested parts list will
+                appear here.
               </p>
             </div>
           )}
-          <p className="mt-4 text-xs text-muted-foreground">
-            Sample preview — this demo answers from a fixed list. Real AI builds arrive in a later
-            step.
-          </p>
+          {!suggestion && (
+            <p className="mt-4 text-xs text-muted-foreground">
+              Sample preview — this demo answers from a fixed list. Real AI
+              builds arrive in a later step.
+            </p>
+          )}
         </section>
       </div>
     </PageShell>
