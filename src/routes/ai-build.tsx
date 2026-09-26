@@ -5,7 +5,6 @@ import {
   ArrowRight,
   RotateCcw,
   SkipForward,
-  Sparkles,
 } from "lucide-react";
 import { PageShell } from "@/components/PageShell";
 
@@ -190,7 +189,7 @@ function AiBuildPage() {
         ))}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className={step === 3 ? "grid gap-6 lg:grid-cols-2" : "mx-auto w-full max-w-2xl"}>
         <div>
           {step === 0 &&
             questionCard(
@@ -326,8 +325,8 @@ function AiBuildPage() {
           )}
         </div>
 
-        <section aria-live="polite">
-          {suggestion ? (
+        {step === 3 && suggestion && (
+          <section aria-live="polite">
             <article className="h-full rounded-3xl border border-primary/30 bg-brand-soft p-6 shadow-sm sm:p-7">
               <p className="text-xs font-semibold uppercase tracking-widest text-primary">
                 AI suggestion
@@ -353,22 +352,12 @@ function AiBuildPage() {
                 {suggestion.why}
               </p>
             </article>
-          ) : (
-            <div className="flex h-full min-h-64 flex-col items-center justify-center rounded-3xl border border-dashed border-border p-8 text-center">
-              <Sparkles className="h-8 w-8 text-primary" aria-hidden />
-              <p className="mt-4 max-w-xs text-sm text-muted-foreground">
-                Answer the three questions and your suggested parts list will
-                appear here.
-              </p>
-            </div>
-          )}
-          {!suggestion && (
             <p className="mt-4 text-xs text-muted-foreground">
               Sample preview — this demo answers from a fixed list. Real AI
               builds arrive in a later step.
             </p>
-          )}
-        </section>
+          </section>
+        )}
       </div>
     </PageShell>
   );
