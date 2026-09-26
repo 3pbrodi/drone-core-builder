@@ -25,6 +25,12 @@ export const Route = createFileRoute("/ai-build")({
   component: AiBuildPage,
 });
 
+type Suggestion = {
+  name: string;
+  parts: string[];
+  why: string;
+};
+
 const IDEAS: { text: string; suggestion: Suggestion }[] = [
   {
     text: "A travel drone that fits in a backpack and films 4K",
@@ -68,11 +74,11 @@ const IDEAS: { text: string; suggestion: Suggestion }[] = [
 ];
 
 function AiBuildPage() {
-  const [idea, setIdea] = useState(IDEAS[0]);
+  const [idea, setIdea] = useState(IDEAS[0].text);
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
 
   const generate = () => {
-    setSuggestion(SUGGESTIONS[idea] ?? null);
+    setSuggestion(IDEAS.find((item) => item.text === idea)?.suggestion ?? null);
   };
 
   return (
@@ -100,16 +106,16 @@ function AiBuildPage() {
           <div className="mt-4 flex flex-wrap gap-2">
             {IDEAS.map((sampleIdea) => (
               <button
-                key={sampleIdea}
+                key={sampleIdea.text}
                 type="button"
-                onClick={() => setIdea(sampleIdea)}
+                onClick={() => setIdea(sampleIdea.text)}
                 className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-all active:scale-95 ${
-                  idea === sampleIdea
+                  idea === sampleIdea.text
                     ? "border-primary bg-secondary text-secondary-foreground"
                     : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
                 }`}
               >
-                {sampleIdea}
+                {sampleIdea.text}
               </button>
             ))}
           </div>
