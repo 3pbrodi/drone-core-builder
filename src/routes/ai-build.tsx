@@ -15,13 +15,13 @@ export const Route = createFileRoute("/ai-build")({
       {
         name: "description",
         content:
-          "Pick a budget and a color, add special wishes, and get a suggested drone parts list.",
+          "Pick a budget and a color, choose how you want to fly, add special wishes, and get a suggested drone parts list.",
       },
       { property: "og:title", content: "AI Build — DroneCores" },
       {
         property: "og:description",
         content:
-          "Pick a budget and a color, add special wishes, and get a suggested drone parts list.",
+          "Pick a budget and a color, choose how you want to fly, add special wishes, and get a suggested drone parts list.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -49,7 +49,14 @@ const COLOR_OPTIONS: { name: string; hex: string }[] = [
   { name: "Forest Green", hex: "#22C55E" },
 ];
 
-const STEP_LABELS = ["Budget", "Preferred color", "Special wishes"];
+const STEP_LABELS = ["Budget", "Preferred color", "Flying style", "Special wishes"];
+
+const STYLE_OPTIONS: { name: string; hint: string }[] = [
+  { name: "FPV", hint: "Fly through goggles — fast and immersive" },
+  { name: "Cinematic", hint: "Smooth, steady video of your trips" },
+  { name: "Racing", hint: "Maximum speed on a race track" },
+  { name: "Long Range", hint: "Fly far and explore wide landscapes" },
+];
 
 function formatBudget(value: number) {
   return `$${value.toLocaleString("en-US")}`;
@@ -58,10 +65,68 @@ function formatBudget(value: number) {
 function buildSuggestion(
   budget: number,
   colorName: string | null,
+  styleName: string | null,
 ): Suggestion {
   const colorPart = colorName
     ? `Custom shell in ${colorName}`
     : "Classic factory shell";
+
+  if (styleName === "FPV") {
+    return {
+      name: "Immersive FPV Build",
+      parts: [
+        "5-inch freestyle frame with soft-mounted motors",
+        "Punchy 2207 motors for quick, snappy moves",
+        "Digital FPV camera — crystal clear through goggles",
+        "6S 1300 mAh battery for nimble, agile flying",
+        colorPart,
+      ],
+      why: `FPV is all about feeling every move, so this build favors quick response over long flight times. Your ${formatBudget(budget)} budget covers it comfortably.`,
+    };
+  }
+
+  if (styleName === "Cinematic") {
+    return {
+      name: "Backpack Cinematic Build",
+      parts: [
+        "220mm folding frame — small enough for a backpack",
+        "Efficient 2306 motors — long flight times, low noise",
+        "4K camera with a 3-axis gimbal for steady footage",
+        "6S 3000 mAh battery — around 25 minutes of flying",
+        colorPart,
+      ],
+      why: `Cinematic flying lives on smooth footage, so the gimbal and big battery do the heavy lifting. Your ${formatBudget(budget)} budget covers everything here with room to spare.`,
+    };
+  }
+
+  if (styleName === "Racing") {
+    return {
+      name: "Track Rocket Build",
+      parts: [
+        "5-inch stiff racing frame — zero flex at speed",
+        "High-KV 2207 motors for explosive acceleration",
+        "Lightweight analog FPV camera — lowest possible lag",
+        "Small 6S 850 mAh battery to keep weight down",
+        colorPart,
+      ],
+      why: `Racing drones shed every gram they can, so this build is deliberately minimal. Your ${formatBudget(budget)} budget leaves room for spare props — you will need them.`,
+    };
+  }
+
+  if (styleName === "Long Range") {
+    return {
+      name: "Long-Range Explorer Build",
+      parts: [
+        "7-inch long frame with large, efficient props",
+        "Low-KV motors tuned for calm, quiet efficiency",
+        "GPS + return-to-home for hands-off safety",
+        "High-capacity 6S 4000 mAh battery — very long flights",
+        colorPart,
+      ],
+      why: `Long range is about efficiency and safety, so big slow propellers and GPS keep you flying far and coming home. Your ${formatBudget(budget)} budget fits this build well.`,
+    };
+  }
+
 
   if (budget < 700) {
     return {
@@ -108,23 +173,25 @@ function AiBuildPage() {
   const [step, setStep] = useState(0);
   const [budget, setBudget] = useState(1000);
   const [color, setColor] = useState<string | null>(null);
+  const [style, setStyle] = useState<string | null>(null);
   const [wishes, setWishes] = useState("");
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
 
   const finish = () => {
-    setSuggestion(buildSuggestion(budget, color));
-    setStep(3);
+    setSuggestion(buildSuggestion(budget, color, style));
+    setStep(4);
   };
 
   const startOver = () => {
     setStep(0);
     setBudget(1000);
     setColor(null);
+    setStyle(null);
     setWishes("");
     setSuggestion(null);
   };
 
-  const nextStep = () => setStep((current) => Math.min(current + 1, 3));
+  const nextStep = () => setStep((current) => Math.min(current + 1, 4));
   const prevStep = () => setStep((current) => Math.max(current - 1, 0));
 
   const buttonBase =
@@ -133,7 +200,7 @@ function AiBuildPage() {
   const questionCard = (children: React.ReactNode) => (
     <section className="rounded-3xl border border-border bg-card p-8 shadow-sm sm:p-10">
       <p className="text-xs font-semibold uppercase tracking-widest text-primary">
-        Step {step + 1} of 3 — {STEP_LABELS[step]}
+        Step {step + 1} of 4 — {STEP_LABELS[step]}
       </p>
       {children}
     </section>
@@ -174,7 +241,7 @@ function AiBuildPage() {
     <PageShell
       eyebrow="Path 3"
       title="AI Build"
-      description="Answer three quick questions — budget, color, and any special wishes — and get a suggested parts list you can open in the custom builder."
+      description="Answer four quick questions — budget, color, flying style, and any special wishes — and get a suggested parts list you can open in the custom builder."
     >
       {/* Progress dots */}
       <div className="mb-6 flex items-center gap-3" aria-hidden>
@@ -182,14 +249,14 @@ function AiBuildPage() {
           <div key={label} className="flex flex-1 items-center gap-3">
             <div
               className={`h-1.5 flex-1 rounded-full transition-colors ${
-                index <= Math.min(step, 2) ? "bg-primary" : "bg-muted"
+                index <= Math.min(step, 3) ? "bg-primary" : "bg-muted"
               }`}
             />
           </div>
         ))}
       </div>
 
-      <div className={step === 3 ? "grid gap-6 lg:grid-cols-2" : "mx-auto w-full max-w-2xl"}>
+      <div className={step === 4 ? "grid gap-6 lg:grid-cols-2" : "mx-auto w-full max-w-2xl"}>
         <div>
           {step === 0 &&
             questionCard(
@@ -269,6 +336,49 @@ function AiBuildPage() {
             questionCard(
               <>
                 <h2 className="mt-3 font-display text-2xl font-semibold text-foreground">
+                  How do you want to fly?
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Pick the flying style that fits you — you can skip this.
+                </p>
+                <div
+                  className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2"
+                  role="radiogroup"
+                  aria-label="Flying style"
+                >
+                  {STYLE_OPTIONS.map((option) => {
+                    const selected = style === option.name;
+                    return (
+                      <button
+                        key={option.name}
+                        type="button"
+                        role="radio"
+                        aria-checked={selected}
+                        onClick={() => setStyle(option.name)}
+                        className={`rounded-2xl border p-4 text-left transition-all active:scale-95 ${
+                          selected
+                            ? "border-primary bg-secondary"
+                            : "border-border hover:border-primary/40"
+                        }`}
+                      >
+                        <span className="block text-sm font-semibold text-foreground">
+                          {option.name}
+                        </span>
+                        <span className="mt-1 block text-xs text-muted-foreground">
+                          {option.hint}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {navigationRow("Continue", nextStep)}
+              </>,
+            )}
+
+          {step === 3 &&
+            questionCard(
+              <>
+                <h2 className="mt-3 font-display text-2xl font-semibold text-foreground">
                   Any special wishes?
                 </h2>
                 <p className="mt-1 text-sm text-muted-foreground">
@@ -290,7 +400,7 @@ function AiBuildPage() {
               </>,
             )}
 
-          {step === 3 && (
+          {step === 4 && (
             <section className="flex h-full flex-col items-start justify-center rounded-3xl border border-border bg-card p-6 shadow-sm sm:p-7">
               <p className="text-xs font-semibold uppercase tracking-widest text-primary">
                 Your answers
@@ -304,6 +414,12 @@ function AiBuildPage() {
                   <dt className="font-semibold text-foreground">Color:</dt>
                   <dd className="text-muted-foreground">
                     {color ?? "Skipped — you pick later"}
+                  </dd>
+                </div>
+                <div className="flex items-center gap-2">
+                  <dt className="font-semibold text-foreground">Style:</dt>
+                  <dd className="text-muted-foreground">
+                    {style ?? "Skipped"}
                   </dd>
                 </div>
                 <div className="flex items-start gap-2">
@@ -325,7 +441,7 @@ function AiBuildPage() {
           )}
         </div>
 
-        {step === 3 && suggestion && (
+        {step === 4 && suggestion && (
           <section aria-live="polite">
             <article className="h-full rounded-3xl border border-primary/30 bg-brand-soft p-6 shadow-sm sm:p-7">
               <p className="text-xs font-semibold uppercase tracking-widest text-primary">
