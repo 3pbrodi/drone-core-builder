@@ -256,7 +256,7 @@ function AiBuildPage() {
         ))}
       </div>
 
-      <div className={step === 3 ? "grid gap-6 lg:grid-cols-2" : "mx-auto w-full max-w-2xl"}>
+      <div className={step === 4 ? "grid gap-6 lg:grid-cols-2" : "mx-auto w-full max-w-2xl"}>
         <div>
           {step === 0 &&
             questionCard(
@@ -336,6 +336,49 @@ function AiBuildPage() {
             questionCard(
               <>
                 <h2 className="mt-3 font-display text-2xl font-semibold text-foreground">
+                  How do you want to fly?
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Pick the flying style that fits you — you can skip this.
+                </p>
+                <div
+                  className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2"
+                  role="radiogroup"
+                  aria-label="Flying style"
+                >
+                  {STYLE_OPTIONS.map((option) => {
+                    const selected = style === option.name;
+                    return (
+                      <button
+                        key={option.name}
+                        type="button"
+                        role="radio"
+                        aria-checked={selected}
+                        onClick={() => setStyle(option.name)}
+                        className={`rounded-2xl border p-4 text-left transition-all active:scale-95 ${
+                          selected
+                            ? "border-primary bg-secondary"
+                            : "border-border hover:border-primary/40"
+                        }`}
+                      >
+                        <span className="block text-sm font-semibold text-foreground">
+                          {option.name}
+                        </span>
+                        <span className="mt-1 block text-xs text-muted-foreground">
+                          {option.hint}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {navigationRow("Continue", nextStep)}
+              </>,
+            )}
+
+          {step === 3 &&
+            questionCard(
+              <>
+                <h2 className="mt-3 font-display text-2xl font-semibold text-foreground">
                   Any special wishes?
                 </h2>
                 <p className="mt-1 text-sm text-muted-foreground">
@@ -357,7 +400,7 @@ function AiBuildPage() {
               </>,
             )}
 
-          {step === 3 && (
+          {step === 4 && (
             <section className="flex h-full flex-col items-start justify-center rounded-3xl border border-border bg-card p-6 shadow-sm sm:p-7">
               <p className="text-xs font-semibold uppercase tracking-widest text-primary">
                 Your answers
@@ -371,6 +414,12 @@ function AiBuildPage() {
                   <dt className="font-semibold text-foreground">Color:</dt>
                   <dd className="text-muted-foreground">
                     {color ?? "Skipped — you pick later"}
+                  </dd>
+                </div>
+                <div className="flex items-center gap-2">
+                  <dt className="font-semibold text-foreground">Style:</dt>
+                  <dd className="text-muted-foreground">
+                    {style ?? "Skipped"}
                   </dd>
                 </div>
                 <div className="flex items-start gap-2">
@@ -392,7 +441,7 @@ function AiBuildPage() {
           )}
         </div>
 
-        {step === 3 && suggestion && (
+        {step === 4 && suggestion && (
           <section aria-live="polite">
             <article className="h-full rounded-3xl border border-primary/30 bg-brand-soft p-6 shadow-sm sm:p-7">
               <p className="text-xs font-semibold uppercase tracking-widest text-primary">
