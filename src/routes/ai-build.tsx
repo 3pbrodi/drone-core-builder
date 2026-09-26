@@ -25,50 +25,47 @@ export const Route = createFileRoute("/ai-build")({
   component: AiBuildPage,
 });
 
-const IDEAS = [
-  "A travel drone that fits in a backpack and films 4K",
-  "My very first FPV racer — I've never flown before",
-  "A quiet photography drone for early mornings",
+const IDEAS: { text: string; suggestion: Suggestion }[] = [
+  {
+    text: "A travel drone that fits in a backpack and films 4K",
+    suggestion: {
+      name: "Backpack Cinematic Build",
+      parts: [
+        "220mm folding frame — small enough for a backpack",
+        "Efficient 2306 motors — long flight times, low noise",
+        "4K camera with a 3-axis gimbal for steady footage",
+        "6S 3000 mAh battery — around 25 minutes of flying",
+      ],
+      why: "Foldable parts keep it portable, while the gimbal and big battery do the heavy lifting for video quality.",
+    },
+  },
+  {
+    text: "My very first FPV racer — I've never flown before",
+    suggestion: {
+      name: "First Racer Build",
+      parts: [
+        "Tiny 95mm whoop frame — survives crashes",
+        "Gentle 1103 motors — smooth and forgiving to fly",
+        "Ducted prop guards — safe around people and furniture",
+        "Basic analog FPV camera — simple and cheap to replace",
+      ],
+      why: "Small, protected props and mild power mean your first crashes cost almost nothing.",
+    },
+  },
+  {
+    text: "A quiet photography drone for early mornings",
+    suggestion: {
+      name: "Silent Shutter Build",
+      parts: [
+        "7-inch long frame with large, slow-spinning props",
+        "Low-KV motors tuned for quiet efficiency",
+        "Micro 4/3 camera with fast low-light lens",
+        "GPS + return-to-home for calm, hands-off hovering",
+      ],
+      why: "Big slow propellers are dramatically quieter than small fast ones — perfect for sunrise shoots.",
+    },
+  },
 ];
-
-type Suggestion = {
-  name: string;
-  parts: string[];
-  why: string;
-};
-
-const SUGGESTIONS: Record<string, Suggestion> = {
-  [IDEAS[0]]: {
-    name: "Backpack Cinematic Build",
-    parts: [
-      "220mm folding frame — small enough for a backpack",
-      "Efficient 2306 motors — long flight times, low noise",
-      "4K camera with a 3-axis gimbal for steady footage",
-      "6S 3000 mAh battery — around 25 minutes of flying",
-    ],
-    why: "Foldable parts keep it portable, while the gimbal and big battery do the heavy lifting for video quality.",
-  },
-  [IDEAS[1]]: {
-    name: "First Racer Build",
-    parts: [
-      "Tiny 95mm whoop frame — survives crashes",
-      "Gentle 1103 motors — smooth and forgiving to fly",
-      "Ducted prop guards — safe around people and furniture",
-      "Basic analog FPV camera — simple and cheap to replace",
-    ],
-    why: "Small, protected props and mild power mean your first crashes cost almost nothing.",
-  },
-  [IDEAS[2]]: {
-    name: "Silent Shutter Build",
-    parts: [
-      "7-inch long frame with large, slow-spinning props",
-      "Low-KV motors tuned for quiet efficiency",
-      "Micro 4/3 camera with fast low-light lens",
-      "GPS + return-to-home for calm, hands-off hovering",
-    ],
-    why: "Big slow propellers are dramatically quieter than small fast ones — perfect for sunrise shoots.",
-  },
-};
 
 function AiBuildPage() {
   const [idea, setIdea] = useState(IDEAS[0]);
