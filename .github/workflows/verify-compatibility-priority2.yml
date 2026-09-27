@@ -1,5 +1,8 @@
 name: Verify Compatibility Priority 2
 
+permissions:
+  contents: write
+
 on:
   push:
     branches:
@@ -15,6 +18,9 @@ jobs:
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
+
+      - name: Format Priority 2 files
+        run: bunx prettier --write src/lib/build-calculations.ts tests/build-calculations.test.ts
 
       - name: Compatibility tests
         run: bun test tests/build-calculations.test.ts
@@ -45,3 +51,13 @@ jobs:
           curl -fsS "http://127.0.0.1:8080/create-custom-build?source=ai&budget=1200&priorities=footage,range" >/dev/null
           curl -fsS http://127.0.0.1:8080/ai-build >/dev/null
           curl -fsS http://127.0.0.1:8080/templates >/dev/null
+
+      - name: Commit targeted formatting
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/lib/build-calculations.ts tests/build-calculations.test.ts
+          if ! git diff --cached --quiet; then
+            git commit -m "Format Priority 2 compatibility files [skip ci]"
+            git push origin HEAD:feature/shared-drone-configurator
+          fi
