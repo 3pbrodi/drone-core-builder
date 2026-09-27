@@ -2,10 +2,7 @@ import { categories, type Category, type Product } from "./build-data";
 
 export type CompatibilityRuleStatus = "pass" | "fail" | "unknown";
 export type CompatibilityEvidenceLevel = "verified" | "unverified" | "heuristic";
-export type CompatibilityState =
-  | "incompatible"
-  | "potentially-compatible"
-  | "verified-compatible";
+export type CompatibilityState = "incompatible" | "potentially-compatible" | "verified-compatible";
 
 export type CompatibilityRuleCode =
   | "FRAME_MOTOR_MOUNT"
@@ -34,9 +31,7 @@ export type CompatibilityRuleResult = {
 
 export type SelectedProducts = Partial<Record<Category, Product>>;
 
-export type CompatibilityVerification = Partial<
-  Record<Category, readonly (keyof Product)[]>
->;
+export type CompatibilityVerification = Partial<Record<Category, readonly (keyof Product)[]>>;
 
 export type CurrentRatingType = "continuous" | "burst" | "peak";
 
@@ -254,8 +249,7 @@ function framePropellerClearanceRule(
     throw new Error("Frame/propeller rule reached comparison without required values.");
   }
 
-  const status: CompatibilityRuleStatus =
-    propInches <= frameInches ? "pass" : "fail";
+  const status: CompatibilityRuleStatus = propInches <= frameInches ? "pass" : "fail";
   const evidenceLevel = deterministicEvidenceLevel(verification, usedFields);
 
   return {
@@ -381,18 +375,9 @@ function motorPropellerGuidanceRule(
     evidence: evidence([
       ["motors.motorSize", motorSize],
       ["propellers.propInches", propInches],
-      [
-        "manufacturerCompatibility",
-        verifiedPair?.manufacturerCompatibility,
-      ],
-      [
-        "manufacturerEvidenceVerified",
-        verifiedPair?.manufacturerEvidenceVerified,
-      ],
-      [
-        "operatingConditionsVerified",
-        verifiedPair?.operatingConditionsVerified,
-      ],
+      ["manufacturerCompatibility", verifiedPair?.manufacturerCompatibility],
+      ["manufacturerEvidenceVerified", verifiedPair?.manufacturerEvidenceVerified],
+      ["operatingConditionsVerified", verifiedPair?.operatingConditionsVerified],
     ]),
     missingFields: [],
     unverifiedFields: [
@@ -466,9 +451,7 @@ function batteryVoltageRule(
   }
 
   const status: CompatibilityRuleStatus =
-    batteryVoltage >= partMinVoltage && batteryVoltage <= partMaxVoltage
-      ? "pass"
-      : "fail";
+    batteryVoltage >= partMinVoltage && batteryVoltage <= partMaxVoltage ? "pass" : "fail";
   const evidenceLevel = deterministicEvidenceLevel(verification, usedFields);
 
   return {
@@ -528,9 +511,7 @@ function fcEscConnectorRule(
 
   if (allDirectConnectionEvidenceVerified) {
     const verifiedStatus: CompatibilityRuleStatus =
-      verifiedConnection.directConnectionCompatibility === "compatible"
-        ? "pass"
-        : "fail";
+      verifiedConnection.directConnectionCompatibility === "compatible" ? "pass" : "fail";
 
     return {
       code: "FC_ESC_CONNECTOR",
@@ -545,10 +526,7 @@ function fcEscConnectorRule(
       evidence: evidence([
         ["flightController.connector", fcConnector],
         ["esc.escInput", escConnector],
-        [
-          "directConnectionCompatibility",
-          verifiedConnection.directConnectionCompatibility,
-        ],
+        ["directConnectionCompatibility", verifiedConnection.directConnectionCompatibility],
         ["connectorFamilyVerified", true],
         ["pinoutVerified", true],
         ["wireOrderVerified", true],
@@ -599,36 +577,20 @@ function fcEscConnectorRule(
     evidence: evidence([
       ["flightController.connector", fcConnector],
       ["esc.escInput", escConnector],
-      [
-        "directConnectionCompatibility",
-        verifiedConnection?.directConnectionCompatibility,
-      ],
-      [
-        "connectorFamilyVerified",
-        verifiedConnection?.connectorFamilyVerified,
-      ],
+      ["directConnectionCompatibility", verifiedConnection?.directConnectionCompatibility],
+      ["connectorFamilyVerified", verifiedConnection?.connectorFamilyVerified],
       ["pinoutVerified", verifiedConnection?.pinoutVerified],
       ["wireOrderVerified", verifiedConnection?.wireOrderVerified],
-      [
-        "signalCompatibilityVerified",
-        verifiedConnection?.signalCompatibilityVerified,
-      ],
-      [
-        "voltageCompatibilityVerified",
-        verifiedConnection?.voltageCompatibilityVerified,
-      ],
+      ["signalCompatibilityVerified", verifiedConnection?.signalCompatibilityVerified],
+      ["voltageCompatibilityVerified", verifiedConnection?.voltageCompatibilityVerified],
     ]),
     missingFields: [],
     unverifiedFields: [
       ...(verifiedConnection?.connectorFamilyVerified === true
         ? []
         : ["fcEscConnector.connectorFamily"]),
-      ...(verifiedConnection?.pinoutVerified === true
-        ? []
-        : ["fcEscConnector.pinout"]),
-      ...(verifiedConnection?.wireOrderVerified === true
-        ? []
-        : ["fcEscConnector.wireOrder"]),
+      ...(verifiedConnection?.pinoutVerified === true ? [] : ["fcEscConnector.pinout"]),
+      ...(verifiedConnection?.wireOrderVerified === true ? [] : ["fcEscConnector.wireOrder"]),
       ...(verifiedConnection?.signalCompatibilityVerified === true
         ? []
         : ["fcEscConnector.signalCompatibility"]),
@@ -663,16 +625,8 @@ function motorEscCurrentRule(
     ...(escAmps === undefined ? ["esc.escAmps"] : []),
   ];
   const ratingEvidence = technicalEvidence.motorEscCurrent;
-  const motorCurrentVerified = isFieldVerified(
-    verification,
-    "motors",
-    "current",
-  );
-  const escCurrentVerified = isFieldVerified(
-    verification,
-    "esc",
-    "escAmps",
-  );
+  const motorCurrentVerified = isFieldVerified(verification, "motors", "current");
+  const escCurrentVerified = isFieldVerified(verification, "esc", "escAmps");
 
   if (missingFields.length > 0) {
     return {
@@ -705,10 +659,8 @@ function motorEscCurrentRule(
   const motorRatingType = ratingEvidence?.motorRatingType;
   const escRatingType = ratingEvidence?.escRatingType;
   const ratingTypesVerified = ratingEvidence?.ratingTypesVerified === true;
-  const operatingConditionsVerified =
-    ratingEvidence?.motorOperatingConditionsVerified === true;
-  const ratingTypesComparable =
-    motorRatingType === "continuous" && escRatingType === "continuous";
+  const operatingConditionsVerified = ratingEvidence?.motorOperatingConditionsVerified === true;
+  const ratingTypesComparable = motorRatingType === "continuous" && escRatingType === "continuous";
   const canCompareAsVerified =
     motorCurrentVerified &&
     escCurrentVerified &&
@@ -717,8 +669,7 @@ function motorEscCurrentRule(
     ratingTypesComparable;
 
   if (canCompareAsVerified) {
-    const verifiedStatus: CompatibilityRuleStatus =
-      motorCurrent <= escAmps ? "pass" : "fail";
+    const verifiedStatus: CompatibilityRuleStatus = motorCurrent <= escAmps ? "pass" : "fail";
 
     return {
       code: "MOTOR_ESC_CURRENT",
@@ -751,18 +702,15 @@ function motorEscCurrentRule(
 
   let explanation: string;
   if (ratingMismatch) {
-    explanation =
-      `The motor current is listed as ${motorCurrent} A (${motorRatingType}) and the ESC as ${escAmps} A (${escRatingType}). Those rating types are not directly comparable, so this check remains unknown.`;
+    explanation = `The motor current is listed as ${motorCurrent} A (${motorRatingType}) and the ESC as ${escAmps} A (${escRatingType}). Those rating types are not directly comparable, so this check remains unknown.`;
   } else if (
     motorRatingType !== undefined &&
     escRatingType !== undefined &&
     !ratingTypesComparable
   ) {
-    explanation =
-      `Both current values have ${motorRatingType} / ${escRatingType} rating labels, but only verified continuous ratings with verified motor operating conditions are treated as directly comparable here.`;
+    explanation = `Both current values have ${motorRatingType} / ${escRatingType} rating labels, but only verified continuous ratings with verified motor operating conditions are treated as directly comparable here.`;
   } else {
-    explanation =
-      `The catalogue lists ${motorCurrent} A for the motor and ${escAmps} A for the ESC, but rating type or motor operating conditions are missing or unverified. The raw numbers alone cannot establish compatibility.`;
+    explanation = `The catalogue lists ${motorCurrent} A for the motor and ${escAmps} A for the ESC, but rating type or motor operating conditions are missing or unverified. The raw numbers alone cannot establish compatibility.`;
   }
 
   return {
@@ -779,10 +727,7 @@ function motorEscCurrentRule(
       ["motorRatingType", motorRatingType],
       ["escRatingType", escRatingType],
       ["ratingTypesVerified", ratingEvidence?.ratingTypesVerified],
-      [
-        "motorOperatingConditionsVerified",
-        ratingEvidence?.motorOperatingConditionsVerified,
-      ],
+      ["motorOperatingConditionsVerified", ratingEvidence?.motorOperatingConditionsVerified],
     ]),
     missingFields: [],
     unverifiedFields: [
@@ -790,13 +735,8 @@ function motorEscCurrentRule(
       ...(escCurrentVerified ? [] : ["esc.escAmps"]),
       ...(ratingTypesVerified
         ? []
-        : [
-            "motorEscCurrent.motorRatingType",
-            "motorEscCurrent.escRatingType",
-          ]),
-      ...(operatingConditionsVerified
-        ? []
-        : ["motorEscCurrent.motorOperatingConditions"]),
+        : ["motorEscCurrent.motorRatingType", "motorEscCurrent.escRatingType"]),
+      ...(operatingConditionsVerified ? [] : ["motorEscCurrent.motorOperatingConditions"]),
       ...(!ratingTypesComparable && !ratingMismatch
         ? ["motorEscCurrent.comparableContinuousRatings"]
         : []),
@@ -813,20 +753,8 @@ export function evaluateCompatibilityRules(
     frameMotorMountRule(selected, verification),
     framePropellerClearanceRule(selected, verification),
     motorPropellerGuidanceRule(selected, technicalEvidence),
-    batteryVoltageRule(
-      selected,
-      verification,
-      "motors",
-      "BATTERY_MOTOR_VOLTAGE",
-      "Motors",
-    ),
-    batteryVoltageRule(
-      selected,
-      verification,
-      "esc",
-      "BATTERY_ESC_VOLTAGE",
-      "ESC",
-    ),
+    batteryVoltageRule(selected, verification, "motors", "BATTERY_MOTOR_VOLTAGE", "Motors"),
+    batteryVoltageRule(selected, verification, "esc", "BATTERY_ESC_VOLTAGE", "ESC"),
     batteryVoltageRule(
       selected,
       verification,
@@ -845,10 +773,7 @@ export function deriveCompatibilityStatus(
 ): CompatibilityState {
   if (
     rules.some(
-      (rule) =>
-        rule.applicable &&
-        rule.status === "fail" &&
-        rule.evidenceLevel === "verified",
+      (rule) => rule.applicable && rule.status === "fail" && rule.evidenceLevel === "verified",
     )
   ) {
     return "incompatible";
@@ -859,12 +784,7 @@ export function deriveCompatibilityStatus(
   const applicableRules = rules.filter((rule) => rule.applicable);
   if (applicableRules.length === 0) return "potentially-compatible";
 
-  if (
-    applicableRules.some(
-      (rule) =>
-        rule.status !== "pass" || rule.evidenceLevel !== "verified",
-    )
-  ) {
+  if (applicableRules.some((rule) => rule.status !== "pass" || rule.evidenceLevel !== "verified")) {
     return "potentially-compatible";
   }
 
@@ -892,62 +812,38 @@ export function evaluate(
   const battery = selected.battery;
   const esc = selected.esc;
 
-  const rules = evaluateCompatibilityRules(
-    selected,
-    verification,
-    technicalEvidence,
-  );
+  const rules = evaluateCompatibilityRules(selected, verification, technicalEvidence);
   const complete = categories.every((category) => !!selected[category]);
   const count = categories.filter((category) => !!selected[category]).length;
-  const price = categories.reduce(
-    (sum, category) => sum + (selected[category]?.price ?? 0),
-    0,
-  );
+  const price = categories.reduce((sum, category) => sum + (selected[category]?.price ?? 0), 0);
 
   const warnings = rules
     .filter(
-      (rule) =>
-        rule.applicable &&
-        (rule.status === "fail" || rule.advisoryOutcome === "fail"),
+      (rule) => rule.applicable && (rule.status === "fail" || rule.advisoryOutcome === "fail"),
     )
     .map((rule) => rule.explanation);
 
   const missing = rules
-    .filter(
-      (rule) =>
-        rule.applicable &&
-        rule.status === "unknown" &&
-        rule.missingFields.length > 0,
-    )
+    .filter((rule) => rule.applicable && rule.status === "unknown" && rule.missingFields.length > 0)
     .map((rule) => rule.explanation);
 
   const enoughPerformance = !!(frame && motors && props && battery && esc);
   const weight = enoughPerformance
     ? Math.round(
-        categories.reduce(
-          (sum, category) => sum + (selected[category]?.weight ?? 0),
-          0,
-        ) + 80,
+        categories.reduce((sum, category) => sum + (selected[category]?.weight ?? 0), 0) + 80,
       )
     : null;
   const speed =
-    enoughPerformance &&
-    weight &&
-    motors?.thrust &&
-    battery?.voltage &&
-    props?.propInches
+    enoughPerformance && weight && motors?.thrust && battery?.voltage && props?.propInches
       ? Math.round(
           Math.min(
             180,
-            ((motors.thrust * 4) / weight) * 12 +
-              battery.voltage * 4 +
-              props.propInches * 3,
+            ((motors.thrust * 4) / weight) * 12 + battery.voltage * 4 + props.propInches * 3,
           ),
         )
       : null;
 
-  const blocksPerformanceScore =
-    warnings.length > 0 || missing.length > 0;
+  const blocksPerformanceScore = warnings.length > 0 || missing.length > 0;
   const score =
     complete && !blocksPerformanceScore
       ? Math.max(
@@ -989,33 +885,18 @@ export function candidateCheck(
   verification: CompatibilityVerification = {},
   technicalEvidence: CompatibilityTechnicalEvidence = {},
 ): CandidateCheck {
-  const result = evaluate(
-    { ...selected, [category]: candidate },
-    verification,
-    technicalEvidence,
-  );
-  const relevantRules = result.rules.filter((rule) =>
-    rule.categories.includes(category),
-  );
+  const result = evaluate({ ...selected, [category]: candidate }, verification, technicalEvidence);
+  const relevantRules = result.rules.filter((rule) => rule.categories.includes(category));
   const applicableRules = relevantRules.filter((rule) => rule.applicable);
 
   let status: CompatibilityState = "potentially-compatible";
 
-  if (
-    applicableRules.some(
-      (rule) =>
-        rule.status === "fail" &&
-        rule.evidenceLevel === "verified",
-    )
-  ) {
+  if (applicableRules.some((rule) => rule.status === "fail" && rule.evidenceLevel === "verified")) {
     status = "incompatible";
   } else if (
     relevantRules.length > 0 &&
     relevantRules.every(
-      (rule) =>
-        rule.applicable &&
-        rule.status === "pass" &&
-        rule.evidenceLevel === "verified",
+      (rule) => rule.applicable && rule.status === "pass" && rule.evidenceLevel === "verified",
     )
   ) {
     status = "verified-compatible";
@@ -1025,19 +906,14 @@ export function candidateCheck(
     new Set(
       relevantRules
         .filter(
-          (rule) =>
-            !rule.applicable ||
-            rule.status !== "pass" ||
-            rule.evidenceLevel !== "verified",
+          (rule) => !rule.applicable || rule.status !== "pass" || rule.evidenceLevel !== "verified",
         )
         .map((rule) => rule.explanation),
     ),
   );
 
   if (relevantRules.length === 0) {
-    messages.push(
-      "No current compatibility rule verifies this component category yet.",
-    );
+    messages.push("No current compatibility rule verifies this component category yet.");
   } else if (messages.length === 0 && status === "verified-compatible") {
     messages.push(
       "This component passes every currently applicable verified compatibility rule. This is not a flight-safety guarantee.",
