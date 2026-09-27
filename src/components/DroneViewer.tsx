@@ -109,7 +109,7 @@ export function DroneViewer({ selection }: { selection: BuildSelection }) {
             key={activeImage}
             src={activeImage}
             alt={`${reference.label} — ${viewLabels[view]} illustrative drone reference`}
-            className="size-full object-contain"
+            className={`max-h-[86%] max-w-[90%] -translate-y-1 object-contain object-center sm:max-h-[84%] sm:max-w-[88%] ${view === "top" ? "mix-blend-multiply" : ""}`}
             loading="eager"
             decoding="async"
             referrerPolicy="no-referrer"
@@ -147,7 +147,7 @@ export function DroneViewer({ selection }: { selection: BuildSelection }) {
                     src={optionImage}
                     alt=""
                     aria-hidden
-                    className="size-full object-contain"
+                    className={`size-full object-contain ${option === "top" ? "mix-blend-multiply" : ""}`}
                     loading="lazy"
                     decoding="async"
                     referrerPolicy="no-referrer"
@@ -161,9 +161,8 @@ export function DroneViewer({ selection }: { selection: BuildSelection }) {
         })}
       </div>
 
-      <p className="mx-auto mt-4 max-w-4xl text-center text-[11px] leading-relaxed text-muted-foreground sm:text-xs">
-        Illustrative reference based on the closest demo build type ({reference.label}), not a photograph
-        of your exact selected components. The exact appearance may vary depending on the final configuration.
+      <p className="mx-auto mt-3 max-w-3xl text-center text-[10px] leading-relaxed text-muted-foreground sm:text-[11px]">
+        Illustrative reference only. Final appearance may vary.
       </p>
     </section>
   );
