@@ -83,6 +83,38 @@ export type ResolvedCompatibilityEvidence = {
   technicalEvidence: CompatibilityTechnicalEvidence;
 };
 
+function sameEvidenceValue(actual: unknown, expected: unknown): boolean {
+  if (Object.is(actual, expected)) return true;
+
+  if (Array.isArray(actual) && Array.isArray(expected)) {
+    return (
+      actual.length === expected.length &&
+      actual.every((value, index) => sameEvidenceValue(value, expected[index]))
+    );
+  }
+
+  if (
+    actual !== null &&
+    expected !== null &&
+    typeof actual === "object" &&
+    typeof expected === "object"
+  ) {
+    const actualRecord = actual as Record<string, unknown>;
+    const expectedRecord = expected as Record<string, unknown>;
+    const actualKeys = Object.keys(actualRecord);
+    const expectedKeys = Object.keys(expectedRecord);
+
+    return (
+      actualKeys.length === expectedKeys.length &&
+      actualKeys.every((key) =>
+        sameEvidenceValue(actualRecord[key], expectedRecord[key]),
+      )
+    );
+  }
+
+  return false;
+}
+
 function isVerifiedFieldEvidence(evidence: CatalogueFieldEvidence, product: Product) {
   return (
     evidence.productId === product.id &&
@@ -90,7 +122,7 @@ function isVerifiedFieldEvidence(evidence: CatalogueFieldEvidence, product: Prod
     evidence.exactModelAssociation &&
     evidence.retrievedAt != null &&
     evidence.verifiedAt != null &&
-    Object.is(product[evidence.field], evidence.value)
+    sameEvidenceValue(product[evidence.field], evidence.value)
   );
 }
 
