@@ -11,6 +11,15 @@ export type Product = {
   frameInches?: number; mount?: string; propInches?: number; motorSize?: number;
   voltage?: number; minVoltage?: number; maxVoltage?: number; connector?: string; escInput?: string;
   thrust?: number; current?: number; escAmps?: number; batteryMah?: number; video?: string;
+  cameraVideoInterface?: string;
+  cameraMinVoltageV?: number; cameraMaxVoltageV?: number;
+  cameraWidthMm?: number; cameraHeightMm?: number; cameraDepthMm?: number;
+  fcCameraVideoInterfaces?: string[]; fcCameraPowerVoltagesV?: number[];
+  receiverProtocol?: string; receiverSignalInterface?: string;
+  receiverFrequencyMinMhz?: number; receiverFrequencyMaxMhz?: number;
+  receiverMinVoltageV?: number; receiverMaxVoltageV?: number;
+  receiverWidthMm?: number; receiverHeightMm?: number; receiverDepthMm?: number;
+  fcReceiverSignalInterfaces?: string[]; fcReceiverPowerVoltagesV?: number[];
 };
 export type BuildSelection = Partial<Record<Category, string>>;
 export const categoryNames: Record<Category, string> = {
@@ -36,9 +45,9 @@ export const products: Product[] = [
   { id:"battery6", category:"battery", name:"CNHL Black Series 1500mAh", spec:"6S 150C", price:49.90, weight:240, voltage:6, batteryMah:1500 },
   { id:"battery6long", category:"battery", name:"Explorer 3000mAh", spec:"6S · 3000 mAh · 60C", price:79.90, weight:390, voltage:6, batteryMah:3000 },
   { id:"battery4", category:"battery", name:"Compact 850mAh", spec:"4S · 850 mAh · 100C", price:29.90, weight:110, voltage:4, batteryMah:850 },
-  { id:"cameraFpv", category:"camera", name:"RunCam Phoenix 2", spec:"FPV Camera · Analog", price:39.90, weight:9, image:{src:"https://cdn11.bigcommerce.com/s-m8o52p/images/stencil/600x600/products/341/2193/006__59698.1715050744.jpg?c=3",alt:"RunCam Phoenix 2 FPV camera",sourceUrl:"https://shop.runcam.com/runcam-phoenix-2/"}, video:"analog" },
+  { id:"cameraFpv", category:"camera", name:"RunCam Phoenix 2", spec:"FPV Camera · Analog", price:39.90, weight:9, image:{src:"https://cdn11.bigcommerce.com/s-m8o52p/images/stencil/600x600/products/341/2193/006__59698.1715050744.jpg?c=3",alt:"RunCam Phoenix 2 FPV camera",sourceUrl:"https://shop.runcam.com/runcam-phoenix-2/"}, video:"analog", cameraVideoInterface:"analog", cameraMinVoltageV:5, cameraMaxVoltageV:36, cameraWidthMm:19, cameraHeightMm:19, cameraDepthMm:19 },
   { id:"camera4k", category:"camera", name:"Demo 4K Action Camera", spec:"4K recording · action camera mount required", price:159.90, weight:75, video:"4k" },
-  { id:"receiver", category:"receiver", name:"TBS Crossfire Nano RX", spec:"Receiver · 2.4 g", price:49.90, weight:3, image:{src:"https://www.simacfpv.com/img/tbs-crossfire-nano-rx.jpg",alt:"TBS Crossfire Nano RX receiver",sourceUrl:"https://www.team-blacksheep.com/products/prod:crossfire_nano_rx"} },
+  { id:"receiver", category:"receiver", name:"TBS Crossfire Nano RX", spec:"Receiver · 2.4 g", price:49.90, weight:3, image:{src:"https://www.simacfpv.com/img/tbs-crossfire-nano-rx.jpg",alt:"TBS Crossfire Nano RX receiver",sourceUrl:"https://www.team-blacksheep.com/products/prod:crossfire_nano_rx"}, receiverProtocol:"TBS Crossfire", receiverSignalInterface:"CRSF", receiverFrequencyMinMhz:868, receiverFrequencyMaxMhz:915, receiverMinVoltageV:3.3, receiverMaxVoltageV:8.4, receiverWidthMm:18, receiverHeightMm:11, receiverDepthMm:11 },
   { id:"receiver2", category:"receiver", name:"Demo ELRS Receiver", spec:"2.4 GHz · radio receiver", price:24.90, weight:2 },
 ];
 export const presets: Record<string, { name: string; selection: BuildSelection }> = {
