@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { Component, lazy, Suspense, useEffect, useRef, useState, type ErrorInfo, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { ArrowLeft, Box, RotateCcw, Expand, Save, Gauge, Weight, BadgeCheck, AlertTriangle, CircleHelp, List, LayoutGrid, ChevronRight, X, Check, Battery, Camera, Cpu, Radio, Fan, Zap, PanelsTopLeft, Settings2 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -7,6 +7,30 @@ import { LogoMark } from "@/components/SiteHeader";
 import { categories, categoryNames, products, byId, money, type BuildSelection, type Category } from "@/lib/build-data";
 import { evaluate, candidateCheck } from "@/lib/build-calculations";
 const DroneViewer = lazy(() => import("./DroneViewer").then(m => ({ default:m.DroneViewer })));
+class ViewerErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error("DroneCores 3D viewer failed", error, info);
+  }
+  render() {
+    if (this.state.failed) {
+      return (
+        <div className="flex h-full flex-col items-center justify-center px-6 text-center">
+          <AlertTriangle className="mb-3 size-8 text-destructive" />
+          <p className="font-display text-base font-bold text-foreground">3D preview unavailable</p>
+          <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+            Your component selections are still safe. You can keep editing the build and try the 3D preview again after reloading.
+          </p>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 const icons: Record<Category,LucideIcon> = {frame:PanelsTopLeft,motors:Settings2,flightController:Cpu,esc:Zap,propellers:Fan,battery:Battery,camera:Camera,receiver:Radio};
 type Props = { source:"Custom"|"AI Build"|"Template"; name:string; initial:BuildSelection };
 export function BuildInterface({source,name,initial}:Props) {
@@ -34,7 +58,7 @@ export function BuildInterface({source,name,initial}:Props) {
     <main className="mx-auto max-w-7xl px-3 pb-14 sm:px-7">
       <div className="flex flex-wrap items-start justify-between gap-2 py-4 sm:py-5"><div><div className="flex items-center gap-3"><h1 className="font-display text-2xl font-bold sm:text-3xl">{name}</h1><span className="rounded-md bg-secondary px-2 py-1 text-xs font-semibold text-primary">{source}</span></div><p className="mt-1 text-sm text-muted-foreground">Build your perfect drone. Choose every component and see your build come to life in 3D.</p></div>{stats.selected.frame && <span className="rounded-md bg-secondary px-3 py-2 text-xs font-semibold text-primary">{stats.selected.frame.frameInches}″ build</span>}</div>
       <div ref={stage} className={`relative overflow-hidden bg-gradient-to-b from-background to-brand-soft ${expanded?"fixed inset-0 z-50 h-dvh rounded-none bg-background":"h-[300px] rounded-2xl border border-border/60 sm:h-[390px] lg:h-[460px]"}`}>
-        {stats.count === 0 ? <div className="flex h-full flex-col items-center justify-center px-4 text-center"><span className="mb-4 grid size-14 place-items-center rounded-2xl bg-secondary text-primary"><Box className="size-7"/></span><h2 className="font-display text-xl font-bold">Your drone will appear here</h2><p className="mt-1 text-sm text-muted-foreground">Select components below to start building your drone.</p></div> : <>{mounted && <Suspense fallback={<div className="grid h-full place-items-center text-sm text-muted-foreground">Loading 3D preview…</div>}><DroneViewer selection={selection} view={view} resetToken={resetToken}/></Suspense>}<span className="pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 rounded bg-card/90 px-2 py-1 text-[11px] text-muted-foreground">Procedural 3D demo · drag to rotate · pinch to zoom</span></>}
+        {stats.count === 0 ? <div className="flex h-full flex-col items-center justify-center px-4 text-center"><span className="mb-4 grid size-14 place-items-center rounded-2xl bg-secondary text-primary"><Box className="size-7"/></span><h2 className="font-display text-xl font-bold">Your drone will appear here</h2><p className="mt-1 text-sm text-muted-foreground">Select components below to start building your drone.</p></div> : <>{mounted && <ViewerErrorBoundary><Suspense fallback={<div className="grid h-full place-items-center text-sm text-muted-foreground">Loading 3D preview…</div>}><DroneViewer selection={selection} view={view} resetToken={resetToken}/></Suspense></ViewerErrorBoundary>}<span className="pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 rounded bg-card/90 px-2 py-1 text-[11px] text-muted-foreground">Procedural 3D demo · drag to rotate · pinch to zoom</span></>}
         <div className="absolute left-2 top-2 flex flex-col gap-2 sm:left-4 sm:top-4"><Button title="3D view" aria-label="3D view" variant="outline" size="icon" className="size-11 text-primary" onClick={() => {setView(0);setResetToken(x=>x+1)}}><Box/></Button><Button title="Reset camera" aria-label="Reset camera" variant="outline" size="icon" className="size-11" onClick={() => {setView(0);setResetToken(x=>x+1)}}><RotateCcw/></Button><Button title={expanded?"Exit fullscreen":"Expand viewer"} aria-label={expanded?"Exit fullscreen":"Expand viewer"} variant="outline" size="icon" className="size-11" onClick={toggleFullscreen}><Expand/></Button></div>
         {stats.count>0 && <div className="absolute right-2 top-2 flex flex-col gap-2 sm:right-4 sm:top-4">{["Isometric","Top","Front","Side"].map((label,i) => <Button key={label} title={`${label} view`} aria-label={`${label} view`} aria-pressed={view===i} variant="outline" size="icon" onClick={() => setView(i)} className={`size-11 text-[10px] ${view===i?"border-primary text-primary":""}`}>{label.slice(0,3)}</Button>)}</div>}
       </div>
