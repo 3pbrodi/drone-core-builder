@@ -34,7 +34,41 @@ const compatibilityFields = [
   "escAmps",
   "batteryMah",
   "video",
+  "cameraVideoInterface",
+  "cameraMinVoltageV",
+  "cameraMaxVoltageV",
+  "cameraWidthMm",
+  "cameraHeightMm",
+  "cameraDepthMm",
+  "fcCameraVideoInterfaces",
+  "fcCameraPowerVoltagesV",
+  "receiverProtocol",
+  "receiverSignalInterface",
+  "receiverFrequencyMinMhz",
+  "receiverFrequencyMaxMhz",
+  "receiverMinVoltageV",
+  "receiverMaxVoltageV",
+  "receiverWidthMm",
+  "receiverHeightMm",
+  "receiverDepthMm",
+  "fcReceiverSignalInterfaces",
+  "fcReceiverPowerVoltagesV",
 ] as const satisfies readonly (keyof Product)[];
+
+function sameCatalogueValue(expected: unknown, actual: unknown): boolean {
+  if (Object.is(expected, actual)) return true;
+
+  if (Array.isArray(expected) && Array.isArray(actual)) {
+    return (
+      expected.length === actual.length &&
+      expected.every((value, index) =>
+        sameCatalogueValue(value, actual[index]),
+      )
+    );
+  }
+
+  return false;
+}
 
 export function compareCatalogueParity(
   referenceProducts: readonly Product[],
@@ -56,7 +90,7 @@ export function compareCatalogueParity(
     if (!candidate) continue;
 
     for (const field of compatibilityFields) {
-      if (!Object.is(reference[field], candidate[field])) {
+      if (!sameCatalogueValue(reference[field], candidate[field])) {
         mismatches.push({
           id: reference.id,
           field,
