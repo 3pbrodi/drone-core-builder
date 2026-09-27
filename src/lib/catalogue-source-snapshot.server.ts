@@ -43,7 +43,7 @@ export async function recordCatalogueSourceSnapshot({
     limit: "1",
   };
 
-  filters.external_product_id =
+  filters["external_product_id"] =
     externalProductId == null
       ? "is.null"
       : `eq.${externalProductId}`;
