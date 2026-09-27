@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Image as ImageIcon, ImageOff } from "lucide-react";
 import type { BuildSelection } from "@/lib/build-data";
 
@@ -54,16 +54,11 @@ function chooseReferenceSet(selection: BuildSelection): ReferenceSet {
 export function DroneViewer({ selection }: { selection: BuildSelection }) {
   const reference = useMemo(() => chooseReferenceSet(selection), [selection]);
   const [view, setView] = useState<PreviewView>("front");
-  const [failedViews, setFailedViews] = useState<Partial<Record<PreviewView, boolean>>>({});
-
-  useEffect(() => {
-    setView("front");
-    setFailedViews({});
-  }, [reference]);
+  const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
 
   const activeImage = reference.images[view];
   const hasAnySelection = Object.keys(selection).length > 0;
-  const activeFailed = failedViews[view] === true;
+  const activeFailed = failedImages[activeImage] === true;
 
   return (
     <section
@@ -118,7 +113,7 @@ export function DroneViewer({ selection }: { selection: BuildSelection }) {
             loading="eager"
             decoding="async"
             referrerPolicy="no-referrer"
-            onError={() => setFailedViews((current) => ({ ...current, [view]: true }))}
+            onError={() => setFailedImages((current) => ({ ...current, [activeImage]: true }))}
           />
         )}
       </div>
@@ -129,7 +124,8 @@ export function DroneViewer({ selection }: { selection: BuildSelection }) {
       >
         {(Object.keys(viewLabels) as PreviewView[]).map((option) => {
           const selected = view === option;
-          const failed = failedViews[option] === true;
+          const optionImage = reference.images[option];
+          const failed = failedImages[optionImage] === true;
 
           return (
             <button
@@ -148,14 +144,14 @@ export function DroneViewer({ selection }: { selection: BuildSelection }) {
                   <ImageOff className="size-4 text-muted-foreground/60" aria-hidden />
                 ) : (
                   <img
-                    src={reference.images[option]}
+                    src={optionImage}
                     alt=""
                     aria-hidden
                     className="size-full object-contain"
                     loading="lazy"
                     decoding="async"
                     referrerPolicy="no-referrer"
-                    onError={() => setFailedViews((current) => ({ ...current, [option]: true }))}
+                    onError={() => setFailedImages((current) => ({ ...current, [optionImage]: true }))}
                   />
                 )}
               </span>
