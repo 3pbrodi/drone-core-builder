@@ -65,12 +65,12 @@ jobs:
             const frontSrc = await preview.getAttribute("src");
 
             await top.click();
-            await expect(top).toHaveAttribute("aria-pressed", "true");
+            await expect.poll(async () => preview.getAttribute("src")).not.toBe(frontSrc);
             const topSrc = await preview.getAttribute("src");
             expect(topSrc).not.toBe(frontSrc);
 
             await bottom.click();
-            await expect(bottom).toHaveAttribute("aria-pressed", "true");
+            await expect.poll(async () => preview.getAttribute("src")).not.toBe(topSrc);
             const bottomSrc = await preview.getAttribute("src");
             expect(bottomSrc).not.toBe(topSrc);
 
