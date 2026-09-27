@@ -536,40 +536,30 @@ describe("candidate-specific compatibility", () => {
     expect(check.rules.find((item) => item.code === "FRAME_MOTOR_MOUNT")?.status).toBe("fail");
   });
 
-
   test("verified pair evidence is not reused for a different candidate product", () => {
     const verification: CompatibilityVerification = {
       motors: ["current"],
       esc: ["escAmps"],
     };
 
-    const check = candidateCheck(
-      { esc: esc55 },
-      "motors",
-      motors3,
-      verification,
-      {
-        motorEscCurrent: {
-          motorId: motors5.id,
-          escId: esc55.id,
-          motorRatingType: "continuous",
-          escRatingType: "continuous",
-          ratingTypesVerified: true,
-          motorOperatingConditionsVerified: true,
-        },
+    const check = candidateCheck({ esc: esc55 }, "motors", motors3, verification, {
+      motorEscCurrent: {
+        motorId: motors5.id,
+        escId: esc55.id,
+        motorRatingType: "continuous",
+        escRatingType: "continuous",
+        ratingTypesVerified: true,
+        motorOperatingConditionsVerified: true,
       },
-    );
+    });
 
-    const currentRule = check.rules.find(
-      (item) => item.code === "MOTOR_ESC_CURRENT",
-    );
+    const currentRule = check.rules.find((item) => item.code === "MOTOR_ESC_CURRENT");
     expect(currentRule?.status).toBe("unknown");
     expect(currentRule?.evidenceLevel).toBe("unverified");
-    expect(currentRule?.unverifiedFields).toContain(
-      "motorEscCurrent.selectionBinding",
-    );
+    expect(currentRule?.unverifiedFields).toContain("motorEscCurrent.selectionBinding");
     expect(check.status).toBe("potentially-compatible");
-  });});
+  });
+});
 
 describe("existing build flows", () => {
   test("all existing templates keep their stable selections and price calculations", () => {

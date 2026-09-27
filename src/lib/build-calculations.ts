@@ -305,8 +305,7 @@ function motorPropellerGuidanceRule(
   ];
   const verifiedPair = technicalEvidence.motorPropeller;
   const evidenceMatchesSelection =
-    verifiedPair?.motorId === motors.id &&
-    verifiedPair.propellerId === propellers.id;
+    verifiedPair?.motorId === motors.id && verifiedPair.propellerId === propellers.id;
   const canUseVerifiedManufacturerEvidence =
     evidenceMatchesSelection &&
     verifiedPair?.manufacturerEvidenceVerified === true &&
@@ -393,9 +392,7 @@ function motorPropellerGuidanceRule(
     ]),
     missingFields: [],
     unverifiedFields: [
-      ...(evidenceMatchesSelection
-        ? []
-        : ["motorPropeller.selectionBinding"]),
+      ...(evidenceMatchesSelection ? [] : ["motorPropeller.selectionBinding"]),
       ...(verifiedPair?.manufacturerEvidenceVerified === true
         ? []
         : ["motorPropeller.manufacturerEvidence"]),
@@ -607,9 +604,7 @@ function fcEscConnectorRule(
     ]),
     missingFields: [],
     unverifiedFields: [
-      ...(evidenceMatchesSelection
-        ? []
-        : ["fcEscConnector.selectionBinding"]),
+      ...(evidenceMatchesSelection ? [] : ["fcEscConnector.selectionBinding"]),
       ...(verifiedConnection?.connectorFamilyVerified === true
         ? []
         : ["fcEscConnector.connectorFamily"]),
@@ -762,9 +757,7 @@ function motorEscCurrentRule(
     ]),
     missingFields: [],
     unverifiedFields: [
-      ...(evidenceMatchesSelection
-        ? []
-        : ["motorEscCurrent.selectionBinding"]),
+      ...(evidenceMatchesSelection ? [] : ["motorEscCurrent.selectionBinding"]),
       ...(motorCurrentVerified ? [] : ["motors.current"]),
       ...(escCurrentVerified ? [] : ["esc.escAmps"]),
       ...(ratingTypesVerified
