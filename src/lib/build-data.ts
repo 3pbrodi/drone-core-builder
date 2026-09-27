@@ -83,4 +83,4 @@ export function aiPreset(
 
   return { name, selection };
 }
-export const money = (amount: number) => new Intl.NumberFormat("de-DE", { style:"currency", currency:"EUR" }).format(amount);
+export const money = (amount: number) => `€ ${new Intl.NumberFormat("de-DE", { minimumFractionDigits:2, maximumFractionDigits:2 }).format(amount)}`;
