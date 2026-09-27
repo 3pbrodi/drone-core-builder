@@ -197,9 +197,11 @@ function framePropellerClearanceRule(
     );
   }
 
+  const frameInches = frame.frameInches;
+  const propInches = propellers.propInches;
   const missingFields = [
-    ...(frame.frameInches === undefined ? ["frame.frameInches"] : []),
-    ...(propellers.propInches === undefined ? ["propellers.propInches"] : []),
+    ...(frameInches === undefined ? ["frame.frameInches"] : []),
+    ...(propInches === undefined ? ["propellers.propInches"] : []),
   ];
   const usedFields: Array<[Category, keyof Product]> = [
     ["frame", "frameInches"],
@@ -224,8 +226,12 @@ function framePropellerClearanceRule(
     };
   }
 
+  if (frameInches === undefined || propInches === undefined) {
+    throw new Error("Frame/propeller rule reached comparison without required values.");
+  }
+
   const status: CompatibilityRuleStatus =
-    propellers.propInches <= frame.frameInches ? "pass" : "fail";
+    propInches <= frameInches ? "pass" : "fail";
   const evidenceLevel = deterministicEvidenceLevel(verification, usedFields);
 
   return {
@@ -237,11 +243,11 @@ function framePropellerClearanceRule(
     explanation:
       status === "pass"
         ? evidenceLevel === "verified"
-          ? `The ${propellers.propInches}″ propellers are within the frame's verified ${frame.frameInches}″ nominal size.`
-          : `The listed ${propellers.propInches}″ propellers are within the frame's ${frame.frameInches}″ nominal size, but the catalogue values are not verified.`
+          ? `The ${propInches}″ propellers are within the frame's verified ${frameInches}″ nominal size.`
+          : `The listed ${propInches}″ propellers are within the frame's ${frameInches}″ nominal size, but the catalogue values are not verified.`
         : evidenceLevel === "verified"
-          ? `The ${propellers.propInches}″ propellers exceed the frame's verified ${frame.frameInches}″ nominal size.`
-          : `The demo values show ${propellers.propInches}″ propellers on a ${frame.frameInches}″ frame. That suggests insufficient clearance, but the source values are not verified.`,
+          ? `The ${propInches}″ propellers exceed the frame's verified ${frameInches}″ nominal size.`
+          : `The demo values show ${propInches}″ propellers on a ${frameInches}″ frame. That suggests insufficient clearance, but the source values are not verified.`,
     evidence: evidence([
       ["frame.frameInches", frame.frameInches],
       ["propellers.propInches", propellers.propInches],
@@ -264,9 +270,11 @@ function motorPropellerGuidanceRule(selected: SelectedProducts): CompatibilityRu
     );
   }
 
+  const motorSize = motors.motorSize;
+  const propInches = propellers.propInches;
   const missingFields = [
-    ...(motors.motorSize === undefined ? ["motors.motorSize"] : []),
-    ...(propellers.propInches === undefined ? ["propellers.propInches"] : []),
+    ...(motorSize === undefined ? ["motors.motorSize"] : []),
+    ...(propInches === undefined ? ["propellers.propInches"] : []),
   ];
 
   if (missingFields.length > 0) {
@@ -287,12 +295,16 @@ function motorPropellerGuidanceRule(selected: SelectedProducts): CompatibilityRu
     };
   }
 
+  if (motorSize === undefined || propInches === undefined) {
+    throw new Error("Motor/propeller guidance reached comparison without required values.");
+  }
+
   const suggestedFit =
-    motors.motorSize >= 2600
-      ? propellers.propInches >= 6 && propellers.propInches <= 7
-      : motors.motorSize >= 2000
-        ? propellers.propInches >= 4 && propellers.propInches <= 5
-        : propellers.propInches <= 3;
+    motorSize >= 2600
+      ? propInches >= 6 && propInches <= 7
+      : motorSize >= 2000
+        ? propInches >= 4 && propInches <= 5
+        : propInches <= 3;
 
   return {
     code: "MOTOR_PROPELLER_SIZE_GUIDANCE",
@@ -302,8 +314,8 @@ function motorPropellerGuidanceRule(selected: SelectedProducts): CompatibilityRu
     evidenceLevel: "heuristic",
     advisoryOutcome: suggestedFit ? "pass" : "fail",
     explanation: suggestedFit
-      ? `The demo size heuristic considers motor size ${motors.motorSize} with ${propellers.propInches}″ propellers plausible, but motor size alone cannot verify compatibility. Manufacturer operating data for the motor, propeller and battery are still needed.`
-      : `The demo size heuristic flags motor size ${motors.motorSize} with ${propellers.propInches}″ propellers as unusual. Motor size alone cannot confirm incompatibility, so verify the manufacturer's motor/propeller/battery operating data.`,
+      ? `The demo size heuristic considers motor size ${motorSize} with ${propInches}″ propellers plausible, but motor size alone cannot verify compatibility. Manufacturer operating data for the motor, propeller and battery are still needed.`
+      : `The demo size heuristic flags motor size ${motorSize} with ${propInches}″ propellers as unusual. Motor size alone cannot confirm incompatibility, so verify the manufacturer's motor/propeller/battery operating data.`,
     evidence: evidence([
       ["motors.motorSize", motors.motorSize],
       ["propellers.propInches", propellers.propInches],
@@ -336,10 +348,13 @@ function batteryVoltageRule(
     );
   }
 
+  const batteryVoltage = battery.voltage;
+  const partMinVoltage = part.minVoltage;
+  const partMaxVoltage = part.maxVoltage;
   const missingFields = [
-    ...(battery.voltage === undefined ? ["battery.voltage"] : []),
-    ...(part.minVoltage === undefined ? [`${partCategory}.minVoltage`] : []),
-    ...(part.maxVoltage === undefined ? [`${partCategory}.maxVoltage`] : []),
+    ...(batteryVoltage === undefined ? ["battery.voltage"] : []),
+    ...(partMinVoltage === undefined ? [`${partCategory}.minVoltage`] : []),
+    ...(partMaxVoltage === undefined ? [`${partCategory}.maxVoltage`] : []),
   ];
   const usedFields: Array<[Category, keyof Product]> = [
     ["battery", "voltage"],
@@ -365,8 +380,16 @@ function batteryVoltageRule(
     };
   }
 
+  if (
+    batteryVoltage === undefined ||
+    partMinVoltage === undefined ||
+    partMaxVoltage === undefined
+  ) {
+    throw new Error("Battery voltage rule reached comparison without required values.");
+  }
+
   const status: CompatibilityRuleStatus =
-    battery.voltage >= part.minVoltage && battery.voltage <= part.maxVoltage
+    batteryVoltage >= partMinVoltage && batteryVoltage <= partMaxVoltage
       ? "pass"
       : "fail";
   const evidenceLevel = deterministicEvidenceLevel(verification, usedFields);
@@ -380,11 +403,11 @@ function batteryVoltageRule(
     explanation:
       status === "pass"
         ? evidenceLevel === "verified"
-          ? `The ${battery.voltage}S battery is within the ${partLabel.toLowerCase()}'s verified ${part.minVoltage}–${part.maxVoltage}S range.`
-          : `The demo values place the ${battery.voltage}S battery within the ${partLabel.toLowerCase()}'s listed ${part.minVoltage}–${part.maxVoltage}S range, but those values are not verified.`
+          ? `The ${batteryVoltage}S battery is within the ${partLabel.toLowerCase()}'s verified ${partMinVoltage}–${partMaxVoltage}S range.`
+          : `The demo values place the ${batteryVoltage}S battery within the ${partLabel.toLowerCase()}'s listed ${partMinVoltage}–${partMaxVoltage}S range, but those values are not verified.`
         : evidenceLevel === "verified"
-          ? `The ${battery.voltage}S battery is outside the ${partLabel.toLowerCase()}'s verified ${part.minVoltage}–${part.maxVoltage}S range.`
-          : `The demo values put the ${battery.voltage}S battery outside the ${partLabel.toLowerCase()}'s listed ${part.minVoltage}–${part.maxVoltage}S range. Treat this as a warning until the source specifications are verified.`,
+          ? `The ${batteryVoltage}S battery is outside the ${partLabel.toLowerCase()}'s verified ${partMinVoltage}–${partMaxVoltage}S range.`
+          : `The demo values put the ${batteryVoltage}S battery outside the ${partLabel.toLowerCase()}'s listed ${partMinVoltage}–${partMaxVoltage}S range. Treat this as a warning until the source specifications are verified.`,
     evidence: evidence([
       ["battery.voltage", battery.voltage],
       [`${partCategory}.minVoltage`, part.minVoltage],
@@ -469,9 +492,11 @@ function motorEscCurrentRule(selected: SelectedProducts): CompatibilityRuleResul
     );
   }
 
+  const motorCurrent = motors.current;
+  const escAmps = esc.escAmps;
   const missingFields = [
-    ...(motors.current === undefined ? ["motors.current"] : []),
-    ...(esc.escAmps === undefined ? ["esc.escAmps"] : []),
+    ...(motorCurrent === undefined ? ["motors.current"] : []),
+    ...(escAmps === undefined ? ["esc.escAmps"] : []),
   ];
 
   if (missingFields.length > 0) {
@@ -495,8 +520,12 @@ function motorEscCurrentRule(selected: SelectedProducts): CompatibilityRuleResul
     };
   }
 
+  if (motorCurrent === undefined || escAmps === undefined) {
+    throw new Error("Motor/ESC current rule reached comparison without required values.");
+  }
+
   const status: CompatibilityRuleStatus =
-    motors.current <= esc.escAmps ? "pass" : "fail";
+    motorCurrent <= escAmps ? "pass" : "fail";
 
   return {
     code: "MOTOR_ESC_CURRENT",
@@ -506,8 +535,8 @@ function motorEscCurrentRule(selected: SelectedProducts): CompatibilityRuleResul
     evidenceLevel: "unverified",
     explanation:
       status === "pass"
-        ? `The listed motor current (${motors.current} A) is below the listed ESC rating (${esc.escAmps} A), but the motor operating conditions and ESC rating type are not verified.`
-        : `The listed motor current (${motors.current} A) exceeds the listed ESC rating (${esc.escAmps} A). Treat this as a warning until the motor operating conditions and ESC rating type are verified.`,
+        ? `The listed motor current (${motorCurrent} A) is below the listed ESC rating (${escAmps} A), but the motor operating conditions and ESC rating type are not verified.`
+        : `The listed motor current (${motorCurrent} A) exceeds the listed ESC rating (${escAmps} A). Treat this as a warning until the motor operating conditions and ESC rating type are verified.`,
     evidence: evidence([
       ["motors.current", motors.current],
       ["esc.escAmps", esc.escAmps],
