@@ -50,8 +50,9 @@ class StaticProductCatalogueService implements ProductCatalogueService {
   }
 }
 
-export const productCatalogue: ProductCatalogueService =
-  new StaticProductCatalogueService(products);
+export const productCatalogue: ProductCatalogueService = new StaticProductCatalogueService(
+  products,
+);
 
 export function resolveBuildSelection(
   selection: BuildSelection,
