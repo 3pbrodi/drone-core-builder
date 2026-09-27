@@ -47,11 +47,21 @@ describe("Phase A catalogue quality registry", () => {
     expect(catalogueQualityById.get("fcF7")?.technicalStatus).toBe("conflicting");
   });
 
-  test("source-backed exact identities remain separate from technical completeness", () => {
-    expect(catalogueQualityById.get("frame5")?.identityStatus).toBe("verified");
-    expect(catalogueQualityById.get("frame5")?.technicalStatus).toBe("partially-verified");
+  test("source-backed identity confidence remains separate from technical completeness", () => {
+    expect(catalogueQualityById.get("frame5")?.identityStatus).toBe("partially-verified");
+    expect(catalogueQualityById.get("frame5")?.technicalStatus).toBe("conflicting");
     expect(catalogueQualityById.get("cameraFpv")?.identityStatus).toBe("verified");
     expect(catalogueQualityById.get("receiver")?.identityStatus).toBe("verified");
+    expect(catalogueQualityById.get("receiver")?.technicalStatus).toBe("conflicting");
+  });
+
+  test("source-free unverified demo records do not invent canonical manufacturer/model identity", () => {
+    for (const review of catalogueQualityReviews) {
+      if (review.identityStatus !== "unverified" || review.sourceIds.length > 0) continue;
+      expect(review.manufacturer).toBeUndefined();
+      expect(review.exactModel).toBeUndefined();
+      expect(review.variant).toBeUndefined();
+    }
   });
 
   test("generic demo products remain available but explicitly unverified", () => {
