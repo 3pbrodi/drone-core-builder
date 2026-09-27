@@ -10,13 +10,13 @@ export const Route = createFileRoute("/templates")({
       {
         name: "description",
         content:
-          "Start from a proven drone build for filming, racing, or freestyle — then tweak it to make it yours.",
+          "Start from an illustrative drone setup for filming, racing, or freestyle — then tweak it to make it yours.",
       },
       { property: "og:title", content: "Choose a Template — DroneCores" },
       {
         property: "og:description",
         content:
-          "Start from a proven drone build for filming, racing, or freestyle — then tweak it to make it yours.",
+          "Start from an illustrative drone setup for filming, racing, or freestyle — then tweak it to make it yours.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
