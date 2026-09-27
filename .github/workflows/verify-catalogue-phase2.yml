@@ -1,5 +1,8 @@
 name: Verify Catalogue Phase 2
 
+permissions:
+  contents: write
+
 on:
   push:
     branches:
@@ -29,6 +32,16 @@ jobs:
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
+
+      - name: Format Phase 2 files
+        run: >-
+          bunx prettier --write
+          src/lib/catalogue-parity.ts
+          src/lib/supabase-rest.server.ts
+          src/lib/catalogue-database.server.ts
+          src/lib/catalogue-import.ts
+          src/lib/catalogue-import.server.ts
+          scripts/export-static-catalogue.ts
 
       - name: Type check
         run: bunx tsc --noEmit
@@ -164,3 +177,20 @@ jobs:
       - name: Full-project lint baseline
         continue-on-error: true
         run: bun run lint
+
+      - name: Commit formatting fixes
+        if: success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            src/lib/catalogue-parity.ts \
+            src/lib/supabase-rest.server.ts \
+            src/lib/catalogue-database.server.ts \
+            src/lib/catalogue-import.ts \
+            src/lib/catalogue-import.server.ts \
+            scripts/export-static-catalogue.ts
+          if ! git diff --cached --quiet; then
+            git commit -m "Format Phase 2 catalogue files [skip ci]"
+            git push origin HEAD:feature/shared-drone-configurator
+          fi
