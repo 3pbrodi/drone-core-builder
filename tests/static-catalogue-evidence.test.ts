@@ -28,7 +28,7 @@ describe("reviewed static compatibility evidence", () => {
     expect(evidence.verification.esc).toContain("maxVoltage");
     expect(evidence.verification.camera).toContain("weight");
     expect(evidence.verification.camera).toContain("video");
-    expect(evidence.verification.receiver).toContain("weight");
+    expect(evidence.verification.receiver).toBeUndefined();
     expect(evidence.verification.motors).toBeUndefined();
     expect(evidence.technicalEvidence).toEqual({});
   });
