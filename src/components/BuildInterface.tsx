@@ -13,20 +13,18 @@ const icons: Record<Category,LucideIcon> = {frame:PanelsTopLeft,motors:Settings2
 function ProductThumbnail({product}:{product:Product}) {
   const [failed,setFailed] = useState(false);
   const image = product.image;
-  return <span className="grid size-14 shrink-0 place-items-center overflow-hidden rounded-xl border border-primary/10 bg-secondary/70 p-1.5">
+  return <span className="flex h-[clamp(56px,8vw,76px)] w-[clamp(68px,10vw,92px)] shrink-0 items-center justify-center">
     {image && !failed
       ? <img
           src={image.src}
           alt={image.alt}
-          className="size-full object-contain"
+          className="max-h-full max-w-full object-contain"
           loading="lazy"
           decoding="async"
           referrerPolicy="no-referrer"
           onError={() => setFailed(true)}
         />
-      : <span className="grid size-full place-items-center rounded-lg bg-background/80" title="Verified product image unavailable">
-          <ImageOff className="size-5 text-muted-foreground/60" aria-hidden />
-        </span>}
+      : <ImageOff className="size-7 text-muted-foreground/60" aria-label="Verified product image unavailable" />}
   </span>;
 }
 type Props = { source:"Custom"|"AI Build"|"Template"; name:string; initial:BuildSelection };
