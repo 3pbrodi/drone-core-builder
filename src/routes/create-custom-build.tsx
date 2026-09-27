@@ -17,22 +17,22 @@ const priorityNames = new Set<Priority>(["footage", "parkour", "range", "beginne
 export const Route = createFileRoute("/create-custom-build")({
   validateSearch: (search: Record<string, unknown>): BuildSearch => {
     const source =
-      search.source === "ai" || search.source === "template" ? search.source : undefined;
+      search["source"] === "ai" || search["source"] === "template" ? search["source"] : undefined;
     const template =
-      typeof search.template === "string" && presetKeys.has(search.template)
-        ? (search.template as keyof typeof presets)
+      typeof search["template"] === "string" && presetKeys.has(search["template"])
+        ? (search["template"] as keyof typeof presets)
         : undefined;
-    const numericBudget = Number(search.budget);
+    const numericBudget = Number(search["budget"]);
     const budget = Number.isFinite(numericBudget)
       ? Math.max(300, Math.min(3000, numericBudget))
       : undefined;
     const style =
-      typeof search.style === "string" && styleNames.has(search.style)
-        ? (search.style as BuildSearch["style"])
+      typeof search["style"] === "string" && styleNames.has(search["style"])
+        ? (search["style"] as BuildSearch["style"])
         : undefined;
     const selectedPriorities =
-      typeof search.priorities === "string"
-        ? search.priorities
+      typeof search["priorities"] === "string"
+        ? search["priorities"]
             .split(",")
             .filter((value): value is Priority => priorityNames.has(value as Priority))
             .slice(0, 2)
@@ -74,19 +74,21 @@ function CreateCustomBuildPage() {
   let name = "Custom Build";
   let initial: BuildSelection = {};
 
-  if (search.source === "template" && search.template) {
-    const preset = presets[search.template];
-    source = "Template";
-    name = preset.name;
-    initial = preset.selection;
-  } else if (search.source === "ai") {
-    const selectedPriorities = (search.priorities ?? "")
+  if (search["source"] === "template" && search["template"]) {
+    const preset = presets[search["template"]];
+    if (preset) {
+      source = "Template";
+      name = preset.name;
+      initial = preset.selection;
+    }
+  } else if (search["source"] === "ai") {
+    const selectedPriorities = (search["priorities"] ?? "")
       .split(",")
       .filter(Boolean) as Priority[];
     const generated = aiPreset(
       selectedPriorities,
-      search.budget ?? 1000,
-      search.style ?? null,
+      search["budget"] ?? 1000,
+      search["style"] ?? null,
     );
     source = "AI Build";
     name = generated.name;
