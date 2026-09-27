@@ -24,7 +24,7 @@ describe("reviewed static compatibility evidence", () => {
 
     expect(evidence.verification.frame).toContain("mount");
     expect(evidence.verification.esc).toContain("escAmps");
-    expect(evidence.verification.esc).toContain("minVoltage");
+    expect(evidence.verification.esc).not.toContain("minVoltage");
     expect(evidence.verification.esc).toContain("maxVoltage");
     expect(evidence.verification.camera).toContain("weight");
     expect(evidence.verification.camera).toContain("video");
