@@ -11,6 +11,16 @@ const optionalNumber = z.preprocess(
   z.coerce.number().finite().nonnegative().optional(),
 );
 
+const optionalPositiveNumber = z.preprocess(
+  (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+  z.coerce.number().finite().positive().optional(),
+);
+
+const optionalUrl = z.preprocess(
+  (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+  z.string().url().optional(),
+);
+
 const optionalPositiveInteger = z.preprocess(
   (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
   z.coerce.number().int().positive().optional(),
@@ -82,12 +92,12 @@ const productImportSchema = z
     manufacturer_sku: optionalText,
     spec_summary: optionalText,
     weight_grams: optionalNumber,
-    frame_size_inches: optionalNumber,
+    frame_size_inches: optionalPositiveNumber,
     motor_mount_pattern: optionalText,
-    propeller_diameter_inches: optionalNumber,
+    propeller_diameter_inches: optionalPositiveNumber,
     motor_size_code: optionalPositiveInteger,
-    motor_stator_width_mm: optionalNumber,
-    motor_stator_height_mm: optionalNumber,
+    motor_stator_width_mm: optionalPositiveNumber,
+    motor_stator_height_mm: optionalPositiveNumber,
     motor_kv: optionalPositiveInteger,
     min_battery_cells: optionalPositiveInteger,
     max_battery_cells: optionalPositiveInteger,
@@ -98,18 +108,18 @@ const productImportSchema = z
     esc_amps: optionalNumber,
     battery_cells: optionalPositiveInteger,
     battery_capacity_mah: optionalPositiveInteger,
-    battery_discharge_c: optionalNumber,
+    battery_discharge_c: optionalPositiveNumber,
     video_system: optionalText,
     receiver_protocol: optionalText,
-    image_url: optionalText,
-    image_source_url: optionalText,
+    image_url: optionalUrl,
+    image_source_url: optionalUrl,
     image_alt: optionalText,
     image_exact_model_verified: optionalBoolean,
     image_provenance: optionalText,
     image_license_name: optionalText,
-    image_license_url: optionalText,
+    image_license_url: optionalUrl,
     source_external_product_id: optionalText,
-    source_url: optionalText,
+    source_url: optionalUrl,
   })
   .superRefine((row, context) => {
     if (
@@ -222,6 +232,12 @@ function reviewIssuesForRow(row: CatalogueProductImportRow): string[] {
   }
   if (row.image_url && !row.image_source_url) {
     issues.push("Image source URL is missing.");
+  }
+  if (row.image_url && !row.image_license_name && !row.image_license_url) {
+    issues.push("Image licensing metadata is missing.");
+  }
+  if (!row.source_url) {
+    issues.push("Product source URL is missing.");
   }
   if (row.image_exact_model_verified !== true && row.image_url) {
     issues.push("Image exact-model identity has not been verified.");
