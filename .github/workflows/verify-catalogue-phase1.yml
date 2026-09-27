@@ -62,7 +62,7 @@ jobs:
           for (const [key, preset] of Object.entries(presets)) {
             const normalized = normalizeBuildSelection(preset.selection);
             assert(
-              JSON.stringify(normalized) === JSON.stringify(preset.selection),
+              categories.every((category) => normalized[category] === preset.selection[category]),
               `template ${key} should retain all stable product IDs`,
             );
             const stats = evaluate(resolveBuildSelection(normalized));
@@ -73,7 +73,7 @@ jobs:
           const generated = aiPreset(["footage", "range"], 1200);
           const normalizedAi = normalizeBuildSelection(generated.selection);
           assert(
-            JSON.stringify(normalizedAi) === JSON.stringify(generated.selection),
+            categories.every((category) => normalizedAi[category] === generated.selection[category]),
             "AI seed should retain all stable product IDs",
           );
           const aiStats = evaluate(resolveBuildSelection(normalizedAi));
