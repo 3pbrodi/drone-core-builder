@@ -1,10 +1,10 @@
 import { Component, lazy, Suspense, useEffect, useRef, useState, type ErrorInfo, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
-import { ArrowLeft, Box, RotateCcw, Expand, Save, Gauge, Weight, BadgeCheck, AlertTriangle, CircleHelp, List, LayoutGrid, ChevronRight, X, Check, Battery, Camera, Cpu, Radio, Fan, Zap, PanelsTopLeft, Settings2 } from "lucide-react";
+import { ArrowLeft, Box, RotateCcw, Expand, Save, Gauge, Weight, BadgeCheck, AlertTriangle, CircleHelp, List, LayoutGrid, ChevronRight, X, Check, Battery, Camera, Cpu, Radio, Fan, Zap, PanelsTopLeft, Settings2, ImageOff } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LogoMark } from "@/components/SiteHeader";
-import { categories, categoryNames, products, byId, money, type BuildSelection, type Category } from "@/lib/build-data";
+import { categories, categoryNames, products, byId, money, type BuildSelection, type Category, type Product } from "@/lib/build-data";
 import { evaluate, candidateCheck } from "@/lib/build-calculations";
 const DroneViewer = lazy(() => import("./DroneViewer").then(m => ({ default:m.DroneViewer })));
 class ViewerErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
@@ -32,6 +32,25 @@ class ViewerErrorBoundary extends Component<{ children: ReactNode }, { failed: b
 }
 
 const icons: Record<Category,LucideIcon> = {frame:PanelsTopLeft,motors:Settings2,flightController:Cpu,esc:Zap,propellers:Fan,battery:Battery,camera:Camera,receiver:Radio};
+function ProductThumbnail({product}:{product:Product}) {
+  const [failed,setFailed] = useState(false);
+  const image = product.image;
+  return <span className="grid size-14 shrink-0 place-items-center overflow-hidden rounded-xl border border-primary/10 bg-secondary/70 p-1.5">
+    {image && !failed
+      ? <img
+          src={image.src}
+          alt={image.alt}
+          className="size-full object-contain"
+          loading="lazy"
+          decoding="async"
+          referrerPolicy="no-referrer"
+          onError={() => setFailed(true)}
+        />
+      : <span className="grid size-full place-items-center rounded-lg bg-background/80" title="Verified product image unavailable">
+          <ImageOff className="size-5 text-muted-foreground/60" aria-hidden />
+        </span>}
+  </span>;
+}
 type Props = { source:"Custom"|"AI Build"|"Template"; name:string; initial:BuildSelection };
 export function BuildInterface({source,name,initial}:Props) {
   const [selection,setSelection] = useState<BuildSelection>(initial);
@@ -73,7 +92,7 @@ export function BuildInterface({source,name,initial}:Props) {
       <section className="mt-4 rounded-lg border border-border bg-card p-3 sm:p-4"><div className="mb-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2"><div className="min-w-0"><h2 className="font-display text-xl font-bold">Components</h2><p className="text-xs text-muted-foreground sm:text-sm">Select your drone components</p></div><div className="flex gap-1"><Button title="List View" aria-label="List View" aria-pressed={!grid} variant={!grid?"default":"outline"} size="icon" className="size-11 sm:w-auto sm:px-3" onClick={()=>setGrid(false)}><List/><span className="hidden sm:inline">List View</span></Button><Button title="Grid View" aria-label="Grid View" aria-pressed={grid} variant={grid?"default":"outline"} size="icon" className="size-11 sm:w-auto sm:px-3" onClick={()=>setGrid(true)}><LayoutGrid/><span className="hidden sm:inline">Grid View</span></Button></div></div>
         <div className={grid?"grid gap-2 sm:grid-cols-2":"space-y-1.5"}>{categories.map(category=>{const item=stats.selected[category]; const Icon=icons[category]; const check=item?candidateCheck(selection,category,item.id):null; return <div key={category} className={`min-w-0 rounded-md border border-border bg-background p-3 ${grid?"flex flex-col gap-2":"grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 sm:grid-cols-[150px_minmax(0,1fr)_120px_90px_132px]"}`}>
           <div className="flex min-w-0 items-center gap-2"><span className="grid size-10 shrink-0 place-items-center rounded-full bg-secondary text-primary"><Icon className="size-5"/></span><h3 className="min-w-0 font-display text-base font-extrabold leading-tight text-foreground sm:text-lg">{categoryNames[category]}</h3></div>
-          <div className={`flex min-w-0 items-center gap-3 ${grid?"":"col-start-1 row-start-2 sm:col-auto sm:row-auto"}`}>{item&&<span className="grid size-12 shrink-0 place-items-center rounded-xl border border-primary/10 bg-secondary text-primary"><Icon className="size-6"/></span>}<div className="min-w-0"><p className="truncate text-sm font-semibold text-foreground">{item?.name??"No component selected"}</p>{item?<p className="truncate text-xs text-muted-foreground">{item.spec}</p>:<p className="text-xs text-muted-foreground">Choose a product to continue your build.</p>}</div></div>
+          <div className={`flex min-w-0 items-center gap-3 ${grid?"":"col-start-1 row-start-2 sm:col-auto sm:row-auto"}`}>{item&&<ProductThumbnail key={item.id} product={item}/>}<div className="min-w-0"><p className="truncate text-sm font-semibold text-foreground">{item?.name??"No component selected"}</p>{item?<p className="truncate text-xs text-muted-foreground">{item.spec}</p>:<p className="text-xs text-muted-foreground">Choose a product to continue your build.</p>}</div></div>
           <div className={`${grid?"":"col-start-1 row-start-3 sm:col-auto sm:row-auto"} text-xs ${check?.status==="compatible"?"text-emerald-600":check?.status==="incompatible"?"text-destructive":"text-muted-foreground"}`}>{check?.status==="compatible"?<><Check className="mr-1 inline size-3"/>Compatible</>:check?.status==="incompatible"?"Check fit":item?"Pending checks":"Not selected"}</div>
           <span className={`text-sm font-bold ${grid?"":"col-start-2 row-start-2 justify-self-end sm:col-auto sm:row-auto sm:justify-self-start"}`}>{item?money(item.price):"—"}</span>
           <Button variant="outline" className={`min-h-11 border-primary/30 text-primary ${grid?"w-full":"col-start-2 row-start-1 w-[132px] max-w-full whitespace-normal px-2 text-center text-[11px] leading-tight sm:col-auto sm:row-auto sm:text-xs"}`} onClick={()=>{setEditing(category);setFilter(false)}}>{item?"Change":"Select Component"}<ChevronRight/></Button>
