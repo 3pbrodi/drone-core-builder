@@ -825,6 +825,10 @@ function cameraFcVideoInterfaceRule(
     };
   }
 
+  if (cameraInterface === undefined || supportedInterfaces === undefined) {
+    throw new Error("Camera/FC video rule reached comparison without required values.");
+  }
+
   const status: CompatibilityRuleStatus = supportedInterfaces.includes(
     cameraInterface,
   )
@@ -912,6 +916,14 @@ function cameraFcPowerRule(
     };
   }
 
+  if (minimum === undefined || maximum === undefined || powerRails === undefined) {
+    throw new Error("Camera/FC power rule reached comparison without required values.");
+  }
+
+  if (minimum === undefined || maximum === undefined || powerRails === undefined) {
+    throw new Error("Receiver/FC power rule reached comparison without required values.");
+  }
+
   const usableRail = powerRails.find(
     (voltage) => voltage >= minimum && voltage <= maximum,
   );
@@ -994,6 +1006,10 @@ function receiverFcSignalRule(
       missingFields,
       unverifiedFields: unverifiedFields(verification, usedFields),
     };
+  }
+
+  if (receiverInterface === undefined || supportedInterfaces === undefined) {
+    throw new Error("Receiver/FC signal rule reached comparison without required values.");
   }
 
   const status: CompatibilityRuleStatus = supportedInterfaces.includes(
