@@ -154,7 +154,7 @@ export type CatalogueCsvValidationResult = {
   invalidRows: InvalidCatalogueImportRow[];
 };
 
-function parseCsvRecords(csvText: string): string[][] {
+export function parseCsvRecords(csvText: string): string[][] {
   const records: string[][] = [];
   let record: string[] = [];
   let field = "";
