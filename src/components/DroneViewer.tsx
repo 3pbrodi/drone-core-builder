@@ -1,4 +1,4 @@
-import { Canvas } from "@react-three/fiber";
+import { Canvas, useThree } from "@react-three/fiber";
 import { Environment, Lightformer, OrbitControls } from "@react-three/drei";
 import { useRef } from "react";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
@@ -6,6 +6,18 @@ import type { BuildSelection } from "@/lib/build-data";
 import { byId } from "@/lib/build-data";
 
 const ink = "#17263c", carbon = "#293745", metal = "#8c9baa", accent = "#2271e6";
+const cameraPositions: [number,number,number][] = [[5,5,6],[0,9,0.01],[0,2,9],[9,2,0]];
+function CameraController({ view, resetToken }: { view:number; resetToken:number }) {
+  const { camera, invalidate } = useThree();
+  useEffect(() => {
+    const position = cameraPositions[view] ?? cameraPositions[0]!;
+    camera.position.set(...position);
+    camera.lookAt(0,0,0);
+    camera.updateProjectionMatrix();
+    invalidate();
+  }, [camera, invalidate, resetToken, view]);
+  return null;
+}
 function DroneShape({ selection }: { selection: BuildSelection }) {
   const frame = byId[selection.frame ?? ""];
   const radius = frame?.frameInches === 7 ? 2.05 : frame?.frameInches === 3 ? 1.15 : 1.6;
@@ -37,10 +49,8 @@ function DroneShape({ selection }: { selection: BuildSelection }) {
   </group>;
 }
 export function DroneViewer({ selection, view, resetToken }: { selection: BuildSelection; view: number; resetToken: number }) {
-  const controls = useRef<OrbitControlsImpl>(null);
-  const cameraPositions: [number,number,number][] = [[5,5,6],[0,9,0.01],[0,2,9],[9,2,0]];
-  const position = cameraPositions[view] ?? [5,5,6];
-  return <Canvas frameloop="demand" dpr={[1,1.5]} camera={{ position, fov: 40, near: 0.1, far: 100 }} shadows onCreated={({ camera }) => camera.lookAt(0,0,0)}>
+  const position = cameraPositions[view] ?? cameraPositions[0]!;
+  return <Canvas frameloop="demand" dpr={[1,1.5]} camera={{ position, fov: 40, near: 0.1, far: 100 }} shadows>
     <ambientLight intensity={1.5}/><directionalLight position={[4,9,5]} intensity={2.5} castShadow shadow-mapSize={[1024,1024]}/>
     <Environment><Lightformer intensity={2} position={[0,5,0]} scale={[10,10,1]}/><Lightformer intensity={1} color="#a8cdeb" position={[-5,1,-1]} rotation-y={Math.PI/2} scale={[20,1,1]}/></Environment>
     <DroneShape selection={selection}/>
