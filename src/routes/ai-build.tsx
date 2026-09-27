@@ -328,7 +328,7 @@ function AiBuildPage() {
                   {formatBudget(budget)}
                 </p>
                 <label htmlFor="budget-slider" className="sr-only">
-                  Budget in dollars
+                  Budget in euros
                 </label>
                 <input
                   id="budget-slider"
@@ -349,47 +349,6 @@ function AiBuildPage() {
             )}
 
           {step === 1 &&
-            questionCard(
-              <>
-                <h2 className="mt-3 font-display text-2xl font-semibold text-foreground">
-                  What color should your drone be?
-                </h2>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Pick a shell color — you can skip this and decide later.
-                </p>
-                <div className="mt-5 grid grid-cols-3 gap-3" role="radiogroup" aria-label="Preferred color">
-                  {COLOR_OPTIONS.map((option) => {
-                    const selected = color === option.name;
-                    return (
-                      <button
-                        key={option.name}
-                        type="button"
-                        role="radio"
-                        aria-checked={selected}
-                        onClick={() => setColor(option.name)}
-                        className={`flex flex-col items-center gap-2 rounded-2xl border p-3 transition-all active:scale-95 ${
-                          selected
-                            ? "border-primary bg-secondary"
-                            : "border-border hover:border-primary/40"
-                        }`}
-                      >
-                        <span
-                          className="h-9 w-9 rounded-full border border-border shadow-sm"
-                          style={{ backgroundColor: option.hex }}
-                          aria-hidden
-                        />
-                        <span className="text-xs font-medium text-foreground">
-                          {option.name}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-                {navigationRow("Continue", nextStep)}
-              </>,
-            )}
-
-          {step === 2 &&
             questionCard(
               <>
                 <h2 className="mt-3 font-display text-2xl font-semibold text-foreground">
@@ -432,28 +391,148 @@ function AiBuildPage() {
               </>,
             )}
 
+          {step === 2 &&
+            questionCard(
+              <>
+                <h2 className="mt-3 font-display text-2xl font-semibold text-foreground">
+                  What matters most to you?
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Pick what you want your drone to specialize in
+                </p>
+                <p className="mt-2 text-xs font-medium text-muted-foreground">
+                  Choose one or two options. Once two are selected, deselect one to choose another.
+                </p>
+                <div
+                  className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2"
+                  aria-label="Build priorities"
+                >
+                  {PRIORITY_OPTIONS.map((option) => {
+                    const selected = selectedPriorities.includes(option.id);
+                    const disabled = !selected && selectedPriorities.length >= 2;
+                    return (
+                      <button
+                        key={option.id}
+                        type="button"
+                        aria-pressed={selected}
+                        disabled={disabled}
+                        onClick={() => togglePriority(option.id)}
+                        className={`relative rounded-2xl border p-4 text-left transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-45 ${
+                          selected
+                            ? "border-primary bg-secondary"
+                            : "border-border hover:border-primary/40"
+                        }`}
+                      >
+                        {selected && (
+                          <span className="absolute right-3 top-3 grid size-6 place-items-center rounded-full bg-primary text-primary-foreground">
+                            <Check className="size-4" aria-hidden />
+                          </span>
+                        )}
+                        <span className="block pr-7 text-sm font-semibold text-foreground">
+                          {option.title}
+                        </span>
+                        <span className="mt-1.5 block text-xs leading-relaxed text-muted-foreground">
+                          {option.description}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="mt-6 flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={prevStep}
+                    className={`${buttonBase} border border-border text-muted-foreground hover:border-primary/40 hover:text-primary`}
+                  >
+                    <ArrowLeft className="h-4 w-4" aria-hidden />
+                    Back
+                  </button>
+                  <button
+                    type="button"
+                    onClick={nextStep}
+                    disabled={selectedPriorities.length === 0}
+                    className={`${buttonBase} ml-auto bg-primary text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-45`}
+                  >
+                    Continue
+                    <ArrowRight className="h-4 w-4" aria-hidden />
+                  </button>
+                </div>
+              </>,
+            )}
+
           {step === 3 &&
             questionCard(
               <>
                 <h2 className="mt-3 font-display text-2xl font-semibold text-foreground">
-                  Any special wishes?
+                  Personalize your build
                 </h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Personalizations, things the drone must do — anything at all.
-                  This one is optional.
+                  Choose an optional color and add any special wishes before opening your build.
                 </p>
-                <label htmlFor="special-wishes" className="sr-only">
-                  Special wishes or personalizations
+
+                <p className="mt-5 text-sm font-semibold text-foreground">Preferred color</p>
+                <div
+                  className="mt-2 grid grid-cols-3 gap-3"
+                  role="radiogroup"
+                  aria-label="Preferred color"
+                >
+                  {COLOR_OPTIONS.map((option) => {
+                    const selected = color === option.name;
+                    return (
+                      <button
+                        key={option.name}
+                        type="button"
+                        role="radio"
+                        aria-checked={selected}
+                        onClick={() => setColor(option.name)}
+                        className={`flex flex-col items-center gap-2 rounded-2xl border p-3 transition-all active:scale-95 ${
+                          selected
+                            ? "border-primary bg-secondary"
+                            : "border-border hover:border-primary/40"
+                        }`}
+                      >
+                        <span
+                          className="h-9 w-9 rounded-full border border-border shadow-sm"
+                          style={{ backgroundColor: option.hex }}
+                          aria-hidden
+                        />
+                        <span className="text-xs font-medium text-foreground">
+                          {option.name}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <label htmlFor="special-wishes" className="mt-5 block text-sm font-semibold text-foreground">
+                  Special wishes <span className="font-normal text-muted-foreground">(optional)</span>
                 </label>
                 <textarea
                   id="special-wishes"
                   value={wishes}
                   onChange={(event) => setWishes(event.target.value)}
-                  rows={6}
-                  className="mt-4 w-full resize-none rounded-2xl border border-input bg-background p-4 text-sm text-foreground outline-none transition-colors focus:border-primary/50 focus:ring-2 focus:ring-ring"
+                  rows={5}
+                  className="mt-2 w-full resize-none rounded-2xl border border-input bg-background p-4 text-sm text-foreground outline-none transition-colors focus:border-primary/50 focus:ring-2 focus:ring-ring"
                   placeholder="For example: it must fit in my school bag, and I want it as quiet as possible"
                 />
-                {navigationRow("See my build", finish)}
+                <div className="mt-6 flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={prevStep}
+                    className={`${buttonBase} border border-border text-muted-foreground hover:border-primary/40 hover:text-primary`}
+                  >
+                    <ArrowLeft className="h-4 w-4" aria-hidden />
+                    Back
+                  </button>
+                  <button
+                    type="button"
+                    onClick={finish}
+                    className={`${buttonBase} ml-auto bg-primary text-primary-foreground hover:bg-primary/90`}
+                  >
+                    Open my build
+                    <ArrowRight className="h-4 w-4" aria-hidden />
+                  </button>
+                </div>
               </>,
             )}
 
