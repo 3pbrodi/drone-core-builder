@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useState } from "react";
 import { ArrowRight, Gauge, Battery, Video } from "lucide-react";
 import { PageShell } from "@/components/PageShell";
 
@@ -28,6 +29,7 @@ type Template = {
   id: string;
   name: string;
   level: string;
+  style: "Cinematic" | "Racing" | "Freestyle" | "Long Range";
   blurb: string;
   flightTime: string;
   topSpeed: string;
@@ -40,6 +42,7 @@ const TEMPLATES: Template[] = [
     id: "cinematic",
     name: "Cinematic 4K Cruiser",
     level: "Beginner",
+    style: "Cinematic",
     blurb: "Smooth, stable and quiet — the easy way to get beautiful travel and landscape footage.",
     flightTime: "22 min",
     topSpeed: "54 km/h",
@@ -50,6 +53,7 @@ const TEMPLATES: Template[] = [
     id: "racer",
     name: "Backyard Racer",
     level: "Intermediate",
+    style: "Racing",
     blurb: "Small, light and seriously quick. Built for tight turns and friendly competition.",
     flightTime: "6 min",
     topSpeed: "160 km/h",
@@ -60,6 +64,7 @@ const TEMPLATES: Template[] = [
     id: "freestyle",
     name: "FPV Freestyle Rig",
     level: "Intermediate",
+    style: "Freestyle",
     blurb: "Balanced power for flips, dives and gap shots. The classic freestyle setup.",
     flightTime: "8 min",
     topSpeed: "130 km/h",
@@ -70,6 +75,7 @@ const TEMPLATES: Template[] = [
     id: "longrange",
     name: "Long-Range Explorer",
     level: "Advanced",
+    style: "Long Range",
     blurb: "Big battery, efficient motors and GPS — built for flying far and mapping wide areas.",
     flightTime: "35 min",
     topSpeed: "90 km/h",
@@ -79,14 +85,55 @@ const TEMPLATES: Template[] = [
 ];
 
 function TemplatesPage() {
+  const [budgetFilter, setBudgetFilter] = useState<"all" | "under500" | "500to700" | "700plus">("all");
+  const [styleFilter, setStyleFilter] = useState<"all" | Template["style"]>("all");
+  const filteredTemplates = TEMPLATES.filter((template) => {
+    const budgetMatches =
+      budgetFilter === "all" ||
+      (budgetFilter === "under500" && template.price < 500) ||
+      (budgetFilter === "500to700" && template.price >= 500 && template.price <= 700) ||
+      (budgetFilter === "700plus" && template.price > 700);
+    const styleMatches = styleFilter === "all" || template.style === styleFilter;
+    return budgetMatches && styleMatches;
+  });
+
   return (
     <PageShell
       eyebrow="Path 2"
       title="Choose Template"
       description="Each template is a complete, proven parts list. Open one and you can adjust any part before you build."
     >
+      <section className="mb-5 grid gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm sm:grid-cols-2">
+        <label className="text-sm font-semibold text-foreground">
+          Budget
+          <select
+            value={budgetFilter}
+            onChange={(event) => setBudgetFilter(event.target.value as typeof budgetFilter)}
+            className="mt-1.5 min-h-11 w-full rounded-xl border border-input bg-background px-3 text-sm"
+          >
+            <option value="all">All budgets</option>
+            <option value="under500">Under €500</option>
+            <option value="500to700">€500–€700</option>
+            <option value="700plus">Over €700</option>
+          </select>
+        </label>
+        <label className="text-sm font-semibold text-foreground">
+          Flight Style
+          <select
+            value={styleFilter}
+            onChange={(event) => setStyleFilter(event.target.value as typeof styleFilter)}
+            className="mt-1.5 min-h-11 w-full rounded-xl border border-input bg-background px-3 text-sm"
+          >
+            <option value="all">All styles</option>
+            <option value="Cinematic">Cinematic</option>
+            <option value="Racing">Racing</option>
+            <option value="Freestyle">Freestyle</option>
+            <option value="Long Range">Long Range</option>
+          </select>
+        </label>
+      </section>
       <div className="grid gap-5 sm:grid-cols-2">
-        {TEMPLATES.map((template) => (
+        {filteredTemplates.map((template) => (
           <article
             key={template.id}
             className="flex flex-col rounded-3xl border border-border bg-card p-6 shadow-sm transition-all hover:border-primary/40 hover:shadow-lg hover:shadow-primary/10 sm:p-7"
@@ -96,7 +143,7 @@ function TemplatesPage() {
                 {template.level}
               </span>
               <span className="font-display text-lg font-bold text-foreground">
-                ${template.price}
+                €{template.price.toFixed(2).replace(".", ",")}
               </span>
             </div>
             <h2 className="mt-4 font-display text-xl font-semibold tracking-tight text-foreground">
@@ -133,6 +180,7 @@ function TemplatesPage() {
             </dl>
             <Link
               to="/create-custom-build"
+              search={{ source: "template", template: template.id as "cinematic" | "racer" | "freestyle" | "longrange" }}
               className="mt-5 inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-all hover:bg-primary/90 active:scale-[0.98]"
             >
               Use this template
@@ -141,6 +189,7 @@ function TemplatesPage() {
           </article>
         ))}
       </div>
+      {filteredTemplates.length === 0 && <p className="rounded-2xl border border-dashed border-border bg-card p-6 text-center text-sm text-muted-foreground">No template matches those filters. Try another budget or flight style.</p>}
     </PageShell>
   );
 }
