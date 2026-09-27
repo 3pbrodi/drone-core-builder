@@ -227,14 +227,15 @@ function reviewIssuesForRow(row: CatalogueProductImportRow): string[] {
     issues.push("Image exact-model identity has not been verified.");
   }
 
-  const compatibilityRequirements: Partial<Record<Category, (keyof CatalogueProductImportRow)[]>> = {
-    frame: ["frame_size_inches", "motor_mount_pattern"],
-    motors: ["motor_mount_pattern", "motor_size_code", "min_battery_cells", "max_battery_cells"],
-    flightController: ["min_battery_cells", "max_battery_cells", "connector"],
-    esc: ["min_battery_cells", "max_battery_cells", "esc_input", "esc_amps"],
-    propellers: ["propeller_diameter_inches"],
-    battery: ["battery_cells", "battery_capacity_mah"],
-  };
+  const compatibilityRequirements: Partial<Record<Category, (keyof CatalogueProductImportRow)[]>> =
+    {
+      frame: ["frame_size_inches", "motor_mount_pattern"],
+      motors: ["motor_mount_pattern", "motor_size_code", "min_battery_cells", "max_battery_cells"],
+      flightController: ["min_battery_cells", "max_battery_cells", "connector"],
+      esc: ["min_battery_cells", "max_battery_cells", "esc_input", "esc_amps"],
+      propellers: ["propeller_diameter_inches"],
+      battery: ["battery_cells", "battery_capacity_mah"],
+    };
 
   for (const field of compatibilityRequirements[row.category] ?? []) {
     if (row[field] === undefined) {
@@ -260,9 +261,7 @@ export function validateCatalogueProductCsv(csvText: string): CatalogueCsvValida
     index === 0 ? header.replace(/^\uFEFF/, "").trim() : header.trim(),
   );
 
-  const duplicateHeaders = headers.filter(
-    (header, index) => headers.indexOf(header) !== index,
-  );
+  const duplicateHeaders = headers.filter((header, index) => headers.indexOf(header) !== index);
   if (duplicateHeaders.length > 0) {
     throw new Error(`CSV contains duplicate headers: ${[...new Set(duplicateHeaders)].join(", ")}`);
   }
@@ -285,17 +284,13 @@ export function validateCatalogueProductCsv(csvText: string): CatalogueCsvValida
 
   records.slice(1).forEach((cells, recordIndex) => {
     const rowNumber = recordIndex + 2;
-    const raw = Object.fromEntries(
-      headers.map((header, index) => [header, cells[index] ?? ""]),
-    );
+    const raw = Object.fromEntries(headers.map((header, index) => [header, cells[index] ?? ""]));
 
     if (cells.length !== headers.length) {
       invalidRows.push({
         rowNumber,
         raw,
-        errors: [
-          `Expected ${headers.length} columns but found ${cells.length}.`,
-        ],
+        errors: [`Expected ${headers.length} columns but found ${cells.length}.`],
       });
       return;
     }

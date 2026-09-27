@@ -52,6 +52,4 @@ const rows = products.map((product) => {
   return catalogueProductCsvColumns.map((column) => csvCell(row[column])).join(",");
 });
 
-process.stdout.write(
-  [catalogueProductCsvColumns.join(","), ...rows].join("\n") + "\n",
-);
+process.stdout.write([catalogueProductCsvColumns.join(","), ...rows].join("\n") + "\n");

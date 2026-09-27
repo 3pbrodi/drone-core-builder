@@ -1,15 +1,8 @@
 import "@tanstack/react-start/server-only";
 
-import {
-  products as staticProducts,
-  type Category,
-  type Product,
-} from "./build-data";
+import { products as staticProducts, type Category, type Product } from "./build-data";
 import { compareCatalogueParity, type CatalogueParityResult } from "./catalogue-parity";
-import {
-  isDatabaseCatalogueEnabled,
-  supabaseRestRequest,
-} from "./supabase-rest.server";
+import { isDatabaseCatalogueEnabled, supabaseRestRequest } from "./supabase-rest.server";
 
 type RuntimeProductRow = {
   id: string;

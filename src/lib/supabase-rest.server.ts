@@ -28,15 +28,10 @@ export function isDatabaseCatalogueEnabled() {
   return process.env["CATALOGUE_DATABASE_ENABLED"] === "true";
 }
 
-export async function supabaseRestRequest<T>(
-  path: string,
-  init: RequestInit = {},
-): Promise<T> {
+export async function supabaseRestRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   const config = getSupabaseRestConfig();
   if (!config) {
-    throw new SupabaseCatalogueConfigurationError(
-      "Supabase catalogue is not configured.",
-    );
+    throw new SupabaseCatalogueConfigurationError("Supabase catalogue is not configured.");
   }
 
   const headers = new Headers(init.headers);
@@ -46,13 +41,10 @@ export async function supabaseRestRequest<T>(
     headers.set("content-type", "application/json");
   }
 
-  const response = await fetch(
-    `${config.url}/rest/v1/${path.replace(/^\//, "")}`,
-    {
-      ...init,
-      headers,
-    },
-  );
+  const response = await fetch(`${config.url}/rest/v1/${path.replace(/^\//, "")}`, {
+    ...init,
+    headers,
+  });
 
   if (!response.ok) {
     const body = await response.text();

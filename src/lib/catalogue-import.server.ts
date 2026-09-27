@@ -1,19 +1,9 @@
 import "@tanstack/react-start/server-only";
 
-import {
-  validateCatalogueProductCsv,
-  type ValidatedCatalogueImportRow,
-} from "./catalogue-import";
+import { validateCatalogueProductCsv, type ValidatedCatalogueImportRow } from "./catalogue-import";
 import { supabaseRestRequest } from "./supabase-rest.server";
 
-type SourceKind =
-  | "manual"
-  | "csv"
-  | "xml"
-  | "api"
-  | "shopify"
-  | "manufacturer"
-  | "retailer";
+type SourceKind = "manual" | "csv" | "xml" | "api" | "shopify" | "manufacturer" | "retailer";
 
 type StageCatalogueCsvInput = {
   csvText: string;
@@ -73,10 +63,7 @@ async function findExistingProductIds(ids: string[]) {
   return new Set(rows.map((row) => row.id));
 }
 
-function importRowStatus(
-  row: ValidatedCatalogueImportRow,
-  duplicateProductIds: Set<string>,
-) {
+function importRowStatus(row: ValidatedCatalogueImportRow, duplicateProductIds: Set<string>) {
   if (duplicateProductIds.has(row.data.id)) return "needs_review";
   if (row.reviewIssues.length > 0) return "needs_review";
   return "validated";
@@ -95,30 +82,25 @@ export async function stageCatalogueProductCsv({
   );
 
   const validRowsNeedingReview = validation.validRows.filter(
-    (row) =>
-      row.reviewIssues.length > 0 || duplicateProductIds.has(row.data.id),
+    (row) => row.reviewIssues.length > 0 || duplicateProductIds.has(row.data.id),
   ).length;
   const invalidRows = validation.invalidRows.length;
-  const batchStatus =
-    validRowsNeedingReview > 0 || invalidRows > 0 ? "needs_review" : "validated";
+  const batchStatus = validRowsNeedingReview > 0 || invalidRows > 0 ? "needs_review" : "validated";
 
-  const batches = await supabaseRestRequest<ImportBatchRow[]>(
-    "catalogue_import_batches",
-    {
-      method: "POST",
-      headers: { Prefer: "return=representation" },
-      body: JSON.stringify([
-        {
-          source_id: sourceId,
-          file_name: fileName,
-          status: batchStatus,
-          total_rows: validation.validRows.length + validation.invalidRows.length,
-          valid_rows: validation.validRows.length,
-          invalid_rows: validation.invalidRows.length,
-        },
-      ]),
-    },
-  );
+  const batches = await supabaseRestRequest<ImportBatchRow[]>("catalogue_import_batches", {
+    method: "POST",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify([
+      {
+        source_id: sourceId,
+        file_name: fileName,
+        status: batchStatus,
+        total_rows: validation.validRows.length + validation.invalidRows.length,
+        valid_rows: validation.validRows.length,
+        invalid_rows: validation.invalidRows.length,
+      },
+    ]),
+  });
 
   const batch = batches[0];
   if (!batch) {
@@ -139,9 +121,7 @@ export async function stageCatalogueProductCsv({
           ? ["Product ID already exists in the canonical catalogue."]
           : []),
       ],
-      duplicate_product_id: duplicateProductIds.has(row.data.id)
-        ? row.data.id
-        : null,
+      duplicate_product_id: duplicateProductIds.has(row.data.id) ? row.data.id : null,
     })),
     ...validation.invalidRows.map((row) => ({
       batch_id: batch.id,
