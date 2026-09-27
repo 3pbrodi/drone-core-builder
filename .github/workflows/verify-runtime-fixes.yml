@@ -60,9 +60,13 @@ jobs:
             await page.goto("http://127.0.0.1:8080/create-custom-build");
             await expect(page.getByRole("heading", { name: "Custom Build" })).toBeVisible();
             await page.waitForTimeout(1000);
-            const selectButtons = page.locator("button").filter({ hasText: "Select Component" });
-            await expect(selectButtons.first()).toBeVisible();
-            await selectButtons.first().click();
+            const frameHeading = page.getByRole("heading", { name: "Frame", exact: true });
+            await expect(frameHeading).toBeVisible();
+            const frameRow = frameHeading.locator("..").locator("..");
+            const selectButton = frameRow.getByRole("button", { name: /Select Component/ });
+            await expect(selectButton).toBeVisible();
+            console.log("FRAME BUTTON disabled:", await selectButton.isDisabled());
+            await selectButton.evaluate((element) => (element as HTMLButtonElement).click());
             await expect(page.locator('[role="dialog"]')).toBeVisible();
             await page.locator('[role="dialog"] button').filter({ hasText: "Select component" }).first().click();
             await page.waitForTimeout(1500);
