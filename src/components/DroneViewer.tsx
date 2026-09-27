@@ -65,21 +65,23 @@ export function DroneViewer({ selection }: { selection: BuildSelection }) {
       aria-label="Drone preview"
       className="rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-6"
     >
-      <div className="inline-flex items-center gap-2 rounded-full bg-secondary px-3 py-2 text-sm font-medium text-primary">
-        <ImageIcon className="size-4" aria-hidden />
-        Drone Preview
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+        <div className="inline-flex w-fit shrink-0 items-center gap-2 rounded-full bg-secondary px-3 py-2 text-sm font-medium text-primary">
+          <ImageIcon className="size-4" aria-hidden />
+          Drone Preview
+        </div>
+
+        <div className="min-w-0 sm:max-w-[62%] sm:text-right">
+          <h2 className="font-display text-xl font-extrabold tracking-tight text-foreground sm:text-2xl lg:text-3xl">
+            Your Drone
+          </h2>
+          <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground sm:text-sm lg:text-base">
+            Realistic preview based on your selected components
+          </p>
+        </div>
       </div>
 
-      <div className="mt-4">
-        <h2 className="font-display text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl">
-          Your Drone
-        </h2>
-        <p className="mt-1 text-sm text-muted-foreground sm:text-base">
-          Realistic preview based on your selected components
-        </p>
-      </div>
-
-      <div className="mt-5 grid h-[260px] place-items-center overflow-hidden rounded-2xl border border-primary/10 bg-gradient-to-b from-background to-brand-soft p-4 sm:h-[330px] lg:h-[390px]">
+      <div className="mt-4 flex h-[clamp(250px,46vw,480px)] w-full items-center justify-center overflow-hidden rounded-2xl border border-primary/10 bg-gradient-to-b from-background to-brand-soft p-[clamp(14px,3vw,32px)]">
         {!hasAnySelection ? (
           <div className="text-center">
             <span className="mx-auto grid size-14 place-items-center rounded-2xl bg-secondary text-primary">
@@ -109,7 +111,7 @@ export function DroneViewer({ selection }: { selection: BuildSelection }) {
             key={activeImage}
             src={activeImage}
             alt={`${reference.label} — ${viewLabels[view]} illustrative drone reference`}
-            className={`max-h-[86%] max-w-[90%] -translate-y-1 object-contain object-center sm:max-h-[84%] sm:max-w-[88%] ${view === "top" ? "mix-blend-multiply" : ""}`}
+            className={`block h-auto max-h-full w-auto max-w-full object-contain object-center ${view === "top" ? "mix-blend-multiply" : ""}`}
             loading="eager"
             decoding="async"
             referrerPolicy="no-referrer"
@@ -119,7 +121,7 @@ export function DroneViewer({ selection }: { selection: BuildSelection }) {
       </div>
 
       <div
-        className="mx-auto mt-5 grid max-w-3xl grid-cols-3 gap-2 sm:gap-3"
+        className="mx-auto mt-4 grid max-w-3xl grid-cols-1 gap-2 sm:grid-cols-3 sm:gap-3"
         aria-label="Drone preview views"
       >
         {(Object.keys(viewLabels) as PreviewView[]).map((option) => {
@@ -133,7 +135,7 @@ export function DroneViewer({ selection }: { selection: BuildSelection }) {
               type="button"
               aria-pressed={selected}
               onClick={() => setView(option)}
-              className={`flex min-h-14 min-w-0 items-center justify-center gap-2 rounded-2xl border px-2 py-2 text-xs font-medium transition-colors sm:min-h-16 sm:gap-3 sm:px-3 sm:text-sm ${
+              className={`flex min-h-12 min-w-0 items-center justify-center gap-2 rounded-2xl border px-3 py-2 text-xs font-medium transition-colors sm:min-h-16 sm:gap-3 sm:text-sm ${
                 selected
                   ? "border-primary bg-secondary text-primary"
                   : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
