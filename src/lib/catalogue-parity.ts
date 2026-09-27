@@ -61,9 +61,7 @@ function sameCatalogueValue(expected: unknown, actual: unknown): boolean {
   if (Array.isArray(expected) && Array.isArray(actual)) {
     return (
       expected.length === actual.length &&
-      expected.every((value, index) =>
-        sameCatalogueValue(value, actual[index]),
-      )
+      expected.every((value, index) => sameCatalogueValue(value, actual[index]))
     );
   }
 

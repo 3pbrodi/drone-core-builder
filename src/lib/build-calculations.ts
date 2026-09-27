@@ -795,9 +795,7 @@ function cameraFcVideoInterfaceRule(
   const supportedInterfaces = flightController.fcCameraVideoInterfaces;
   const missingFields = [
     ...(cameraInterface === undefined ? ["camera.cameraVideoInterface"] : []),
-    ...(supportedInterfaces === undefined
-      ? ["flightController.fcCameraVideoInterfaces"]
-      : []),
+    ...(supportedInterfaces === undefined ? ["flightController.fcCameraVideoInterfaces"] : []),
   ];
   const usedFields: Array<[Category, keyof Product]> = [
     ["camera", "cameraVideoInterface"],
@@ -815,10 +813,7 @@ function cameraFcVideoInterfaceRule(
         "The camera video interface or the flight controller's supported camera interfaces are not documented well enough to confirm this connection.",
       evidence: evidence([
         ["camera.cameraVideoInterface", cameraInterface],
-        [
-          "flightController.fcCameraVideoInterfaces",
-          supportedInterfaces?.join(", ") ?? undefined,
-        ],
+        ["flightController.fcCameraVideoInterfaces", supportedInterfaces?.join(", ") ?? undefined],
       ]),
       missingFields,
       unverifiedFields: unverifiedFields(verification, usedFields),
@@ -829,9 +824,7 @@ function cameraFcVideoInterfaceRule(
     throw new Error("Camera/FC video rule reached comparison without required values.");
   }
 
-  const status: CompatibilityRuleStatus = supportedInterfaces.includes(
-    cameraInterface,
-  )
+  const status: CompatibilityRuleStatus = supportedInterfaces.includes(cameraInterface)
     ? "pass"
     : "fail";
   const evidenceLevel = deterministicEvidenceLevel(verification, usedFields);
@@ -852,10 +845,7 @@ function cameraFcVideoInterfaceRule(
           : `The listed camera interface (${cameraInterface}) does not appear in the flight controller's listed interfaces, but the available data are not verified enough to confirm an incompatibility.`,
     evidence: evidence([
       ["camera.cameraVideoInterface", cameraInterface],
-      [
-        "flightController.fcCameraVideoInterfaces",
-        supportedInterfaces.join(", "),
-      ],
+      ["flightController.fcCameraVideoInterfaces", supportedInterfaces.join(", ")],
     ]),
     missingFields: [],
     unverifiedFields: unverifiedFields(verification, usedFields),
@@ -884,9 +874,7 @@ function cameraFcPowerRule(
   const missingFields = [
     ...(minimum === undefined ? ["camera.cameraMinVoltageV"] : []),
     ...(maximum === undefined ? ["camera.cameraMaxVoltageV"] : []),
-    ...(powerRails === undefined
-      ? ["flightController.fcCameraPowerVoltagesV"]
-      : []),
+    ...(powerRails === undefined ? ["flightController.fcCameraPowerVoltagesV"] : []),
   ];
   const usedFields: Array<[Category, keyof Product]> = [
     ["camera", "cameraMinVoltageV"],
@@ -906,10 +894,7 @@ function cameraFcPowerRule(
       evidence: evidence([
         ["camera.cameraMinVoltageV", minimum],
         ["camera.cameraMaxVoltageV", maximum],
-        [
-          "flightController.fcCameraPowerVoltagesV",
-          powerRails?.join(", ") ?? undefined,
-        ],
+        ["flightController.fcCameraPowerVoltagesV", powerRails?.join(", ") ?? undefined],
       ]),
       missingFields,
       unverifiedFields: unverifiedFields(verification, usedFields),
@@ -920,11 +905,8 @@ function cameraFcPowerRule(
     throw new Error("Camera/FC power rule reached comparison without required values.");
   }
 
-  const usableRail = powerRails.find(
-    (voltage) => voltage >= minimum && voltage <= maximum,
-  );
-  const status: CompatibilityRuleStatus =
-    usableRail === undefined ? "fail" : "pass";
+  const usableRail = powerRails.find((voltage) => voltage >= minimum && voltage <= maximum);
+  const status: CompatibilityRuleStatus = usableRail === undefined ? "fail" : "pass";
   const evidenceLevel = deterministicEvidenceLevel(verification, usedFields);
 
   return {
@@ -971,12 +953,8 @@ function receiverFcSignalRule(
   const receiverInterface = receiver.receiverSignalInterface;
   const supportedInterfaces = flightController.fcReceiverSignalInterfaces;
   const missingFields = [
-    ...(receiverInterface === undefined
-      ? ["receiver.receiverSignalInterface"]
-      : []),
-    ...(supportedInterfaces === undefined
-      ? ["flightController.fcReceiverSignalInterfaces"]
-      : []),
+    ...(receiverInterface === undefined ? ["receiver.receiverSignalInterface"] : []),
+    ...(supportedInterfaces === undefined ? ["flightController.fcReceiverSignalInterfaces"] : []),
   ];
   const usedFields: Array<[Category, keyof Product]> = [
     ["receiver", "receiverSignalInterface"],
@@ -1008,9 +986,7 @@ function receiverFcSignalRule(
     throw new Error("Receiver/FC signal rule reached comparison without required values.");
   }
 
-  const status: CompatibilityRuleStatus = supportedInterfaces.includes(
-    receiverInterface,
-  )
+  const status: CompatibilityRuleStatus = supportedInterfaces.includes(receiverInterface)
     ? "pass"
     : "fail";
   const evidenceLevel = deterministicEvidenceLevel(verification, usedFields);
@@ -1031,10 +1007,7 @@ function receiverFcSignalRule(
           : `The listed receiver interface (${receiverInterface}) is not in the flight controller's listed receiver interfaces, but the available data are not verified enough to confirm an incompatibility.`,
     evidence: evidence([
       ["receiver.receiverSignalInterface", receiverInterface],
-      [
-        "flightController.fcReceiverSignalInterfaces",
-        supportedInterfaces.join(", "),
-      ],
+      ["flightController.fcReceiverSignalInterfaces", supportedInterfaces.join(", ")],
     ]),
     missingFields: [],
     unverifiedFields: unverifiedFields(verification, usedFields),
@@ -1063,9 +1036,7 @@ function receiverFcPowerRule(
   const missingFields = [
     ...(minimum === undefined ? ["receiver.receiverMinVoltageV"] : []),
     ...(maximum === undefined ? ["receiver.receiverMaxVoltageV"] : []),
-    ...(powerRails === undefined
-      ? ["flightController.fcReceiverPowerVoltagesV"]
-      : []),
+    ...(powerRails === undefined ? ["flightController.fcReceiverPowerVoltagesV"] : []),
   ];
   const usedFields: Array<[Category, keyof Product]> = [
     ["receiver", "receiverMinVoltageV"],
@@ -1085,10 +1056,7 @@ function receiverFcPowerRule(
       evidence: evidence([
         ["receiver.receiverMinVoltageV", minimum],
         ["receiver.receiverMaxVoltageV", maximum],
-        [
-          "flightController.fcReceiverPowerVoltagesV",
-          powerRails?.join(", ") ?? undefined,
-        ],
+        ["flightController.fcReceiverPowerVoltagesV", powerRails?.join(", ") ?? undefined],
       ]),
       missingFields,
       unverifiedFields: unverifiedFields(verification, usedFields),
@@ -1099,11 +1067,8 @@ function receiverFcPowerRule(
     throw new Error("Receiver/FC power rule reached comparison without required values.");
   }
 
-  const usableRail = powerRails.find(
-    (voltage) => voltage >= minimum && voltage <= maximum,
-  );
-  const status: CompatibilityRuleStatus =
-    usableRail === undefined ? "fail" : "pass";
+  const usableRail = powerRails.find((voltage) => voltage >= minimum && voltage <= maximum);
+  const status: CompatibilityRuleStatus = usableRail === undefined ? "fail" : "pass";
   const evidenceLevel = deterministicEvidenceLevel(verification, usedFields);
 
   return {

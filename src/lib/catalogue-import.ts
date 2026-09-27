@@ -34,13 +34,16 @@ const optionalBoolean = z.preprocess((value) => {
   return value;
 }, z.boolean().optional());
 
-const optionalTextList = z.preprocess((value) => {
-  if (typeof value !== "string" || value.trim() === "") return undefined;
-  return value
-    .split("|")
-    .map((item) => item.trim())
-    .filter(Boolean);
-}, z.array(z.string().min(1)).min(1).optional());
+const optionalTextList = z.preprocess(
+  (value) => {
+    if (typeof value !== "string" || value.trim() === "") return undefined;
+    return value
+      .split("|")
+      .map((item) => item.trim())
+      .filter(Boolean);
+  },
+  z.array(z.string().min(1)).min(1).optional(),
+);
 
 const optionalPositiveNumberList = z.preprocess((value) => {
   if (typeof value !== "string" || value.trim() === "") return undefined;

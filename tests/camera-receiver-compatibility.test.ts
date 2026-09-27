@@ -65,19 +65,13 @@ describe("camera compatibility data", () => {
       evidence.technicalEvidence,
     );
 
-    const interfaceRule = rules.find(
-      (item) => item.code === "CAMERA_FC_VIDEO_INTERFACE",
-    );
+    const interfaceRule = rules.find((item) => item.code === "CAMERA_FC_VIDEO_INTERFACE");
     const powerRule = rules.find((item) => item.code === "CAMERA_FC_POWER");
 
     expect(interfaceRule?.status).toBe("unknown");
-    expect(interfaceRule?.missingFields).toContain(
-      "flightController.fcCameraVideoInterfaces",
-    );
+    expect(interfaceRule?.missingFields).toContain("flightController.fcCameraVideoInterfaces");
     expect(powerRule?.status).toBe("unknown");
-    expect(powerRule?.missingFields).toContain(
-      "flightController.fcCameraPowerVoltagesV",
-    );
+    expect(powerRule?.missingFields).toContain("flightController.fcCameraPowerVoltagesV");
   });
 
   test("camera interface and power can produce verified passes with complete verified fixture data", () => {
@@ -86,37 +80,18 @@ describe("camera compatibility data", () => {
       fcCameraPowerVoltagesV: [5, 10],
     });
     const verification: CompatibilityVerification = {
-      camera: [
-        "cameraVideoInterface",
-        "cameraMinVoltageV",
-        "cameraMaxVoltageV",
-      ],
-      flightController: [
-        "fcCameraVideoInterfaces",
-        "fcCameraPowerVoltagesV",
-      ],
+      camera: ["cameraVideoInterface", "cameraMinVoltageV", "cameraMaxVoltageV"],
+      flightController: ["fcCameraVideoInterfaces", "fcCameraPowerVoltagesV"],
     };
 
     expect(
-      rule(
-        { camera, flightController: fc },
-        "CAMERA_FC_VIDEO_INTERFACE",
-        verification,
-      ).status,
+      rule({ camera, flightController: fc }, "CAMERA_FC_VIDEO_INTERFACE", verification).status,
     ).toBe("pass");
+    expect(rule({ camera, flightController: fc }, "CAMERA_FC_POWER", verification).status).toBe(
+      "pass",
+    );
     expect(
-      rule(
-        { camera, flightController: fc },
-        "CAMERA_FC_POWER",
-        verification,
-      ).status,
-    ).toBe("pass");
-    expect(
-      rule(
-        { camera, flightController: fc },
-        "CAMERA_FC_POWER",
-        verification,
-      ).evidenceLevel,
+      rule({ camera, flightController: fc }, "CAMERA_FC_POWER", verification).evidenceLevel,
     ).toBe("verified");
   });
 
@@ -126,15 +101,8 @@ describe("camera compatibility data", () => {
       fcCameraPowerVoltagesV: [3.3],
     });
     const verification: CompatibilityVerification = {
-      camera: [
-        "cameraVideoInterface",
-        "cameraMinVoltageV",
-        "cameraMaxVoltageV",
-      ],
-      flightController: [
-        "fcCameraVideoInterfaces",
-        "fcCameraPowerVoltagesV",
-      ],
+      camera: ["cameraVideoInterface", "cameraMinVoltageV", "cameraMaxVoltageV"],
+      flightController: ["fcCameraVideoInterfaces", "fcCameraPowerVoltagesV"],
     };
 
     const interfaceRule = rule(
@@ -142,11 +110,7 @@ describe("camera compatibility data", () => {
       "CAMERA_FC_VIDEO_INTERFACE",
       verification,
     );
-    const powerRule = rule(
-      { camera, flightController: fc },
-      "CAMERA_FC_POWER",
-      verification,
-    );
+    const powerRule = rule({ camera, flightController: fc }, "CAMERA_FC_POWER", verification);
 
     expect(interfaceRule.status).toBe("fail");
     expect(interfaceRule.evidenceLevel).toBe("verified");
@@ -161,11 +125,9 @@ describe("camera compatibility data", () => {
     });
     const result = evaluate({ camera, flightController: fc });
 
-    expect(
-      result.rules.find(
-        (item) => item.code === "CAMERA_FC_VIDEO_INTERFACE",
-      )?.status,
-    ).toBe("fail");
+    expect(result.rules.find((item) => item.code === "CAMERA_FC_VIDEO_INTERFACE")?.status).toBe(
+      "fail",
+    );
     expect(result.status).toBe("potentially-compatible");
   });
 });
@@ -192,19 +154,13 @@ describe("receiver compatibility data", () => {
       evidence.technicalEvidence,
     );
 
-    const interfaceRule = rules.find(
-      (item) => item.code === "RECEIVER_FC_SIGNAL_INTERFACE",
-    );
+    const interfaceRule = rules.find((item) => item.code === "RECEIVER_FC_SIGNAL_INTERFACE");
     const powerRule = rules.find((item) => item.code === "RECEIVER_FC_POWER");
 
     expect(interfaceRule?.status).toBe("unknown");
-    expect(interfaceRule?.missingFields).toContain(
-      "flightController.fcReceiverSignalInterfaces",
-    );
+    expect(interfaceRule?.missingFields).toContain("flightController.fcReceiverSignalInterfaces");
     expect(powerRule?.status).toBe("unknown");
-    expect(powerRule?.missingFields).toContain(
-      "flightController.fcReceiverPowerVoltagesV",
-    );
+    expect(powerRule?.missingFields).toContain("flightController.fcReceiverPowerVoltagesV");
   });
 
   test("receiver signal and power can produce verified passes with complete verified fixture data", () => {
@@ -213,31 +169,16 @@ describe("receiver compatibility data", () => {
       fcReceiverPowerVoltagesV: [5],
     });
     const verification: CompatibilityVerification = {
-      receiver: [
-        "receiverSignalInterface",
-        "receiverMinVoltageV",
-        "receiverMaxVoltageV",
-      ],
-      flightController: [
-        "fcReceiverSignalInterfaces",
-        "fcReceiverPowerVoltagesV",
-      ],
+      receiver: ["receiverSignalInterface", "receiverMinVoltageV", "receiverMaxVoltageV"],
+      flightController: ["fcReceiverSignalInterfaces", "fcReceiverPowerVoltagesV"],
     };
 
     expect(
-      rule(
-        { receiver, flightController: fc },
-        "RECEIVER_FC_SIGNAL_INTERFACE",
-        verification,
-      ).status,
+      rule({ receiver, flightController: fc }, "RECEIVER_FC_SIGNAL_INTERFACE", verification).status,
     ).toBe("pass");
-    expect(
-      rule(
-        { receiver, flightController: fc },
-        "RECEIVER_FC_POWER",
-        verification,
-      ).status,
-    ).toBe("pass");
+    expect(rule({ receiver, flightController: fc }, "RECEIVER_FC_POWER", verification).status).toBe(
+      "pass",
+    );
   });
 
   test("receiver verified failures require verified interface and voltage evidence", () => {
@@ -246,15 +187,8 @@ describe("receiver compatibility data", () => {
       fcReceiverPowerVoltagesV: [12],
     });
     const verification: CompatibilityVerification = {
-      receiver: [
-        "receiverSignalInterface",
-        "receiverMinVoltageV",
-        "receiverMaxVoltageV",
-      ],
-      flightController: [
-        "fcReceiverSignalInterfaces",
-        "fcReceiverPowerVoltagesV",
-      ],
+      receiver: ["receiverSignalInterface", "receiverMinVoltageV", "receiverMaxVoltageV"],
+      flightController: ["fcReceiverSignalInterfaces", "fcReceiverPowerVoltagesV"],
     };
 
     const interfaceRule = rule(
@@ -262,11 +196,7 @@ describe("receiver compatibility data", () => {
       "RECEIVER_FC_SIGNAL_INTERFACE",
       verification,
     );
-    const powerRule = rule(
-      { receiver, flightController: fc },
-      "RECEIVER_FC_POWER",
-      verification,
-    );
+    const powerRule = rule({ receiver, flightController: fc }, "RECEIVER_FC_POWER", verification);
 
     expect(interfaceRule.status).toBe("fail");
     expect(interfaceRule.evidenceLevel).toBe("verified");

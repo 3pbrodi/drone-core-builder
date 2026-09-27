@@ -96,9 +96,7 @@ function withOptionalArray<K extends keyof Product>(
   key: K,
   value: string[] | number[] | null,
 ): Partial<Product> {
-  return value === null || value.length === 0
-    ? {}
-    : ({ [key]: value } as Partial<Product>);
+  return value === null || value.length === 0 ? {} : ({ [key]: value } as Partial<Product>);
 }
 
 function runtimeRowToProduct(row: RuntimeProductRow): Product | null {
@@ -153,14 +151,8 @@ function runtimeRowToProduct(row: RuntimeProductRow): Product | null {
     ...withOptionalNumber("receiverWidthMm", row.receiver_width_mm),
     ...withOptionalNumber("receiverHeightMm", row.receiver_height_mm),
     ...withOptionalNumber("receiverDepthMm", row.receiver_depth_mm),
-    ...withOptionalArray(
-      "fcReceiverSignalInterfaces",
-      row.fc_receiver_signal_interfaces,
-    ),
-    ...withOptionalArray(
-      "fcReceiverPowerVoltagesV",
-      row.fc_receiver_power_voltages_v,
-    ),
+    ...withOptionalArray("fcReceiverSignalInterfaces", row.fc_receiver_signal_interfaces),
+    ...withOptionalArray("fcReceiverPowerVoltagesV", row.fc_receiver_power_voltages_v),
   };
 }
 

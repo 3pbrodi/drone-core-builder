@@ -106,9 +106,7 @@ function sameEvidenceValue(actual: unknown, expected: unknown): boolean {
 
     return (
       actualKeys.length === expectedKeys.length &&
-      actualKeys.every((key) =>
-        sameEvidenceValue(actualRecord[key], expectedRecord[key]),
-      )
+      actualKeys.every((key) => sameEvidenceValue(actualRecord[key], expectedRecord[key]))
     );
   }
 
