@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 
-function LogoMark() {
+export function LogoMark() {
   return (
     <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary text-primary-foreground">
       <svg
