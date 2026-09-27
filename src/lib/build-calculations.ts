@@ -771,7 +771,7 @@ function motorEscCurrentRule(
     applicable: true,
     status: "unknown",
     evidenceLevel: "unverified",
-    advisoryOutcome: ratingMismatch ? undefined : rawComparison,
+    ...(ratingMismatch ? {} : { advisoryOutcome: rawComparison }),
     explanation,
     evidence: evidence([
       ["motors.current", motorCurrent],
