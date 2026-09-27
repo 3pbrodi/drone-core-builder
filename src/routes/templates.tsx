@@ -101,7 +101,7 @@ function TemplatesPage() {
     <PageShell
       eyebrow="Path 2"
       title="Choose Template"
-      description="Each template is a complete, proven parts list. Open one and you can adjust any part before you build."
+      description="Each template is an illustrative starting point. Open one and you can adjust any part before you build."
     >
       <section className="mb-5 grid gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm sm:grid-cols-2">
         <div>
@@ -147,7 +147,7 @@ function TemplatesPage() {
                 {template.level}
               </span>
               <span className="font-display text-lg font-bold text-foreground">
-                €{template.price.toFixed(2).replace(".", ",")}
+                Est. €{template.price.toFixed(2).replace(".", ",")}
               </span>
             </div>
             <h2 className="mt-4 font-display text-xl font-semibold tracking-tight text-foreground">
@@ -159,7 +159,7 @@ function TemplatesPage() {
             <dl className="mt-5 grid grid-cols-3 gap-2 rounded-2xl bg-muted p-3 text-center">
               <div>
                 <dt className="flex items-center justify-center gap-1 text-xs text-muted-foreground">
-                  <Battery className="h-3.5 w-3.5" aria-hidden /> Flight
+                  <Battery className="h-3.5 w-3.5" aria-hidden /> Est. flight
                 </dt>
                 <dd className="mt-0.5 text-sm font-semibold text-foreground">
                   {template.flightTime}
@@ -167,7 +167,7 @@ function TemplatesPage() {
               </div>
               <div>
                 <dt className="flex items-center justify-center gap-1 text-xs text-muted-foreground">
-                  <Gauge className="h-3.5 w-3.5" aria-hidden /> Speed
+                  <Gauge className="h-3.5 w-3.5" aria-hidden /> Est. speed
                 </dt>
                 <dd className="mt-0.5 text-sm font-semibold text-foreground">
                   {template.topSpeed}
