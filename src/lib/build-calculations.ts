@@ -12,7 +12,11 @@ export type CompatibilityRuleCode =
   | "BATTERY_ESC_VOLTAGE"
   | "BATTERY_FC_VOLTAGE"
   | "FC_ESC_CONNECTOR"
-  | "MOTOR_ESC_CURRENT";
+  | "MOTOR_ESC_CURRENT"
+  | "CAMERA_FC_VIDEO_INTERFACE"
+  | "CAMERA_FC_POWER"
+  | "RECEIVER_FC_SIGNAL_INTERFACE"
+  | "RECEIVER_FC_POWER";
 
 export type CompatibilityEvidenceValue = string | number | boolean | null;
 
@@ -771,6 +775,346 @@ function motorEscCurrentRule(
   };
 }
 
+function cameraFcVideoInterfaceRule(
+  selected: SelectedProducts,
+  verification: CompatibilityVerification,
+): CompatibilityRuleResult {
+  const camera = selected.camera;
+  const flightController = selected.flightController;
+  const categories: Category[] = ["camera", "flightController"];
+
+  if (!camera || !flightController) {
+    return nonApplicableRule(
+      "CAMERA_FC_VIDEO_INTERFACE",
+      categories,
+      "Select both a camera and flight controller to check the camera video interface.",
+    );
+  }
+
+  const cameraInterface = camera.cameraVideoInterface;
+  const supportedInterfaces = flightController.fcCameraVideoInterfaces;
+  const missingFields = [
+    ...(cameraInterface === undefined ? ["camera.cameraVideoInterface"] : []),
+    ...(supportedInterfaces === undefined
+      ? ["flightController.fcCameraVideoInterfaces"]
+      : []),
+  ];
+  const usedFields: Array<[Category, keyof Product]> = [
+    ["camera", "cameraVideoInterface"],
+    ["flightController", "fcCameraVideoInterfaces"],
+  ];
+
+  if (missingFields.length > 0) {
+    return {
+      code: "CAMERA_FC_VIDEO_INTERFACE",
+      categories,
+      applicable: true,
+      status: "unknown",
+      evidenceLevel: "unverified",
+      explanation:
+        "The camera video interface or the flight controller's supported camera interfaces are not documented well enough to confirm this connection.",
+      evidence: evidence([
+        ["camera.cameraVideoInterface", cameraInterface],
+        [
+          "flightController.fcCameraVideoInterfaces",
+          supportedInterfaces?.join(", ") ?? undefined,
+        ],
+      ]),
+      missingFields,
+      unverifiedFields: unverifiedFields(verification, usedFields),
+    };
+  }
+
+  const status: CompatibilityRuleStatus = supportedInterfaces.includes(
+    cameraInterface,
+  )
+    ? "pass"
+    : "fail";
+  const evidenceLevel = deterministicEvidenceLevel(verification, usedFields);
+
+  return {
+    code: "CAMERA_FC_VIDEO_INTERFACE",
+    categories,
+    applicable: true,
+    status,
+    evidenceLevel,
+    explanation:
+      status === "pass"
+        ? evidenceLevel === "verified"
+          ? `The verified camera interface (${cameraInterface}) is supported by the selected flight controller.`
+          : `The listed camera interface (${cameraInterface}) appears in the flight controller's supported interfaces, but one or both values are not verified.`
+        : evidenceLevel === "verified"
+          ? `The verified camera interface (${cameraInterface}) is not supported by the selected flight controller.`
+          : `The listed camera interface (${cameraInterface}) does not appear in the flight controller's listed interfaces, but the available data are not verified enough to confirm an incompatibility.`,
+    evidence: evidence([
+      ["camera.cameraVideoInterface", cameraInterface],
+      [
+        "flightController.fcCameraVideoInterfaces",
+        supportedInterfaces.join(", "),
+      ],
+    ]),
+    missingFields: [],
+    unverifiedFields: unverifiedFields(verification, usedFields),
+  };
+}
+
+function cameraFcPowerRule(
+  selected: SelectedProducts,
+  verification: CompatibilityVerification,
+): CompatibilityRuleResult {
+  const camera = selected.camera;
+  const flightController = selected.flightController;
+  const categories: Category[] = ["camera", "flightController"];
+
+  if (!camera || !flightController) {
+    return nonApplicableRule(
+      "CAMERA_FC_POWER",
+      categories,
+      "Select both a camera and flight controller to check camera power compatibility.",
+    );
+  }
+
+  const minimum = camera.cameraMinVoltageV;
+  const maximum = camera.cameraMaxVoltageV;
+  const powerRails = flightController.fcCameraPowerVoltagesV;
+  const missingFields = [
+    ...(minimum === undefined ? ["camera.cameraMinVoltageV"] : []),
+    ...(maximum === undefined ? ["camera.cameraMaxVoltageV"] : []),
+    ...(powerRails === undefined
+      ? ["flightController.fcCameraPowerVoltagesV"]
+      : []),
+  ];
+  const usedFields: Array<[Category, keyof Product]> = [
+    ["camera", "cameraMinVoltageV"],
+    ["camera", "cameraMaxVoltageV"],
+    ["flightController", "fcCameraPowerVoltagesV"],
+  ];
+
+  if (missingFields.length > 0) {
+    return {
+      code: "CAMERA_FC_POWER",
+      categories,
+      applicable: true,
+      status: "unknown",
+      evidenceLevel: "unverified",
+      explanation:
+        "The camera input-voltage range or the flight controller's available camera power rails are missing, so camera power compatibility cannot be confirmed.",
+      evidence: evidence([
+        ["camera.cameraMinVoltageV", minimum],
+        ["camera.cameraMaxVoltageV", maximum],
+        [
+          "flightController.fcCameraPowerVoltagesV",
+          powerRails?.join(", ") ?? undefined,
+        ],
+      ]),
+      missingFields,
+      unverifiedFields: unverifiedFields(verification, usedFields),
+    };
+  }
+
+  const usableRail = powerRails.find(
+    (voltage) => voltage >= minimum && voltage <= maximum,
+  );
+  const status: CompatibilityRuleStatus =
+    usableRail === undefined ? "fail" : "pass";
+  const evidenceLevel = deterministicEvidenceLevel(verification, usedFields);
+
+  return {
+    code: "CAMERA_FC_POWER",
+    categories,
+    applicable: true,
+    status,
+    evidenceLevel,
+    explanation:
+      status === "pass"
+        ? evidenceLevel === "verified"
+          ? `A verified ${usableRail}V flight-controller power rail is within the camera's verified ${minimum}–${maximum}V input range.`
+          : `A listed ${usableRail}V power rail is within the camera's listed ${minimum}–${maximum}V range, but the available data are not fully verified.`
+        : evidenceLevel === "verified"
+          ? `None of the flight controller's verified camera power rails are within the camera's verified ${minimum}–${maximum}V input range.`
+          : `None of the listed camera power rails fall within the camera's listed ${minimum}–${maximum}V range, but the available data are not verified enough to confirm an incompatibility.`,
+    evidence: evidence([
+      ["camera.cameraMinVoltageV", minimum],
+      ["camera.cameraMaxVoltageV", maximum],
+      ["flightController.fcCameraPowerVoltagesV", powerRails.join(", ")],
+      ["matchingPowerRailV", usableRail],
+    ]),
+    missingFields: [],
+    unverifiedFields: unverifiedFields(verification, usedFields),
+  };
+}
+
+function receiverFcSignalRule(
+  selected: SelectedProducts,
+  verification: CompatibilityVerification,
+): CompatibilityRuleResult {
+  const receiver = selected.receiver;
+  const flightController = selected.flightController;
+  const categories: Category[] = ["receiver", "flightController"];
+
+  if (!receiver || !flightController) {
+    return nonApplicableRule(
+      "RECEIVER_FC_SIGNAL_INTERFACE",
+      categories,
+      "Select both a receiver and flight controller to check their signal interface.",
+    );
+  }
+
+  const receiverInterface = receiver.receiverSignalInterface;
+  const supportedInterfaces = flightController.fcReceiverSignalInterfaces;
+  const missingFields = [
+    ...(receiverInterface === undefined
+      ? ["receiver.receiverSignalInterface"]
+      : []),
+    ...(supportedInterfaces === undefined
+      ? ["flightController.fcReceiverSignalInterfaces"]
+      : []),
+  ];
+  const usedFields: Array<[Category, keyof Product]> = [
+    ["receiver", "receiverSignalInterface"],
+    ["flightController", "fcReceiverSignalInterfaces"],
+  ];
+
+  if (missingFields.length > 0) {
+    return {
+      code: "RECEIVER_FC_SIGNAL_INTERFACE",
+      categories,
+      applicable: true,
+      status: "unknown",
+      evidenceLevel: "unverified",
+      explanation:
+        "The receiver signal interface or the flight controller's supported receiver interfaces are missing, so receiver integration cannot be confirmed.",
+      evidence: evidence([
+        ["receiver.receiverSignalInterface", receiverInterface],
+        [
+          "flightController.fcReceiverSignalInterfaces",
+          supportedInterfaces?.join(", ") ?? undefined,
+        ],
+      ]),
+      missingFields,
+      unverifiedFields: unverifiedFields(verification, usedFields),
+    };
+  }
+
+  const status: CompatibilityRuleStatus = supportedInterfaces.includes(
+    receiverInterface,
+  )
+    ? "pass"
+    : "fail";
+  const evidenceLevel = deterministicEvidenceLevel(verification, usedFields);
+
+  return {
+    code: "RECEIVER_FC_SIGNAL_INTERFACE",
+    categories,
+    applicable: true,
+    status,
+    evidenceLevel,
+    explanation:
+      status === "pass"
+        ? evidenceLevel === "verified"
+          ? `The verified receiver interface (${receiverInterface}) is supported by the selected flight controller.`
+          : `The listed receiver interface (${receiverInterface}) appears to be supported by the flight controller, but one or both values are not verified.`
+        : evidenceLevel === "verified"
+          ? `The verified receiver interface (${receiverInterface}) is not supported by the selected flight controller.`
+          : `The listed receiver interface (${receiverInterface}) is not in the flight controller's listed receiver interfaces, but the available data are not verified enough to confirm an incompatibility.`,
+    evidence: evidence([
+      ["receiver.receiverSignalInterface", receiverInterface],
+      [
+        "flightController.fcReceiverSignalInterfaces",
+        supportedInterfaces.join(", "),
+      ],
+    ]),
+    missingFields: [],
+    unverifiedFields: unverifiedFields(verification, usedFields),
+  };
+}
+
+function receiverFcPowerRule(
+  selected: SelectedProducts,
+  verification: CompatibilityVerification,
+): CompatibilityRuleResult {
+  const receiver = selected.receiver;
+  const flightController = selected.flightController;
+  const categories: Category[] = ["receiver", "flightController"];
+
+  if (!receiver || !flightController) {
+    return nonApplicableRule(
+      "RECEIVER_FC_POWER",
+      categories,
+      "Select both a receiver and flight controller to check receiver power compatibility.",
+    );
+  }
+
+  const minimum = receiver.receiverMinVoltageV;
+  const maximum = receiver.receiverMaxVoltageV;
+  const powerRails = flightController.fcReceiverPowerVoltagesV;
+  const missingFields = [
+    ...(minimum === undefined ? ["receiver.receiverMinVoltageV"] : []),
+    ...(maximum === undefined ? ["receiver.receiverMaxVoltageV"] : []),
+    ...(powerRails === undefined
+      ? ["flightController.fcReceiverPowerVoltagesV"]
+      : []),
+  ];
+  const usedFields: Array<[Category, keyof Product]> = [
+    ["receiver", "receiverMinVoltageV"],
+    ["receiver", "receiverMaxVoltageV"],
+    ["flightController", "fcReceiverPowerVoltagesV"],
+  ];
+
+  if (missingFields.length > 0) {
+    return {
+      code: "RECEIVER_FC_POWER",
+      categories,
+      applicable: true,
+      status: "unknown",
+      evidenceLevel: "unverified",
+      explanation:
+        "The receiver input-voltage range or the flight controller's receiver power rails are missing, so receiver power compatibility cannot be confirmed.",
+      evidence: evidence([
+        ["receiver.receiverMinVoltageV", minimum],
+        ["receiver.receiverMaxVoltageV", maximum],
+        [
+          "flightController.fcReceiverPowerVoltagesV",
+          powerRails?.join(", ") ?? undefined,
+        ],
+      ]),
+      missingFields,
+      unverifiedFields: unverifiedFields(verification, usedFields),
+    };
+  }
+
+  const usableRail = powerRails.find(
+    (voltage) => voltage >= minimum && voltage <= maximum,
+  );
+  const status: CompatibilityRuleStatus =
+    usableRail === undefined ? "fail" : "pass";
+  const evidenceLevel = deterministicEvidenceLevel(verification, usedFields);
+
+  return {
+    code: "RECEIVER_FC_POWER",
+    categories,
+    applicable: true,
+    status,
+    evidenceLevel,
+    explanation:
+      status === "pass"
+        ? evidenceLevel === "verified"
+          ? `A verified ${usableRail}V flight-controller rail is within the receiver's verified ${minimum}–${maximum}V input range.`
+          : `A listed ${usableRail}V flight-controller rail is within the receiver's listed ${minimum}–${maximum}V range, but the available data are not fully verified.`
+        : evidenceLevel === "verified"
+          ? `None of the flight controller's verified receiver power rails are within the receiver's verified ${minimum}–${maximum}V input range.`
+          : `None of the listed receiver power rails fall within the receiver's listed ${minimum}–${maximum}V range, but the available data are not verified enough to confirm an incompatibility.`,
+    evidence: evidence([
+      ["receiver.receiverMinVoltageV", minimum],
+      ["receiver.receiverMaxVoltageV", maximum],
+      ["flightController.fcReceiverPowerVoltagesV", powerRails.join(", ")],
+      ["matchingPowerRailV", usableRail],
+    ]),
+    missingFields: [],
+    unverifiedFields: unverifiedFields(verification, usedFields),
+  };
+}
+
 export function evaluateCompatibilityRules(
   selected: SelectedProducts,
   verification: CompatibilityVerification = {},
@@ -791,6 +1135,10 @@ export function evaluateCompatibilityRules(
     ),
     fcEscConnectorRule(selected, technicalEvidence),
     motorEscCurrentRule(selected, verification, technicalEvidence),
+    cameraFcVideoInterfaceRule(selected, verification),
+    cameraFcPowerRule(selected, verification),
+    receiverFcSignalRule(selected, verification),
+    receiverFcPowerRule(selected, verification),
   ];
 }
 
@@ -870,7 +1218,24 @@ export function evaluate(
         )
       : null;
 
-  const blocksPerformanceScore = warnings.length > 0 || missing.length > 0;
+  const legacyScoreRuleCodes = new Set<CompatibilityRuleCode>([
+    "FRAME_MOTOR_MOUNT",
+    "FRAME_PROPELLER_CLEARANCE",
+    "MOTOR_PROPELLER_SIZE_GUIDANCE",
+    "BATTERY_MOTOR_VOLTAGE",
+    "BATTERY_ESC_VOLTAGE",
+    "BATTERY_FC_VOLTAGE",
+    "FC_ESC_CONNECTOR",
+    "MOTOR_ESC_CURRENT",
+  ]);
+  const blocksPerformanceScore = rules.some(
+    (rule) =>
+      legacyScoreRuleCodes.has(rule.code) &&
+      rule.applicable &&
+      (rule.status === "fail" ||
+        rule.advisoryOutcome === "fail" ||
+        (rule.status === "unknown" && rule.missingFields.length > 0)),
+  );
   const score =
     complete && !blocksPerformanceScore
       ? Math.max(
