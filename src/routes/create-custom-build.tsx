@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { BuildInterface } from "@/components/BuildInterface";
 import { aiPreset, presets, type BuildSelection, type Priority } from "@/lib/build-data";
+import { normalizeBuildSelection } from "@/lib/catalogue-service";
 
 type BuildSearch = {
   source?: "ai" | "template";
@@ -79,7 +80,7 @@ function CreateCustomBuildPage() {
     if (preset) {
       source = "Template";
       name = preset.name;
-      initial = preset.selection;
+      initial = normalizeBuildSelection(preset.selection);
     }
   } else if (search["source"] === "ai") {
     const selectedPriorities = (search["priorities"] ?? "")
@@ -92,7 +93,7 @@ function CreateCustomBuildPage() {
     );
     source = "AI Build";
     name = generated.name;
-    initial = generated.selection;
+    initial = normalizeBuildSelection(generated.selection);
   }
 
   const identity = source + ":" + name + ":" + Object.values(initial).join("|");
