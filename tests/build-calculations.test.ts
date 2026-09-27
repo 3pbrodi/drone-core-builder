@@ -13,6 +13,7 @@ import {
   evaluateCompatibilityRules,
   type CompatibilityRuleCode,
   type CompatibilityRuleResult,
+  type CompatibilityTechnicalEvidence,
   type CompatibilityVerification,
 } from "../src/lib/build-calculations";
 import {
@@ -31,8 +32,13 @@ function rule(
   selected: Parameters<typeof evaluateCompatibilityRules>[0],
   code: CompatibilityRuleCode,
   verification: CompatibilityVerification = {},
+  technicalEvidence: CompatibilityTechnicalEvidence = {},
 ) {
-  const found = evaluateCompatibilityRules(selected, verification).find(
+  const found = evaluateCompatibilityRules(
+    selected,
+    verification,
+    technicalEvidence,
+  ).find(
     (result) => result.code === code,
   );
   if (!found) throw new Error(`Missing rule result: ${code}`);
@@ -118,22 +124,24 @@ describe("structured compatibility rules", () => {
     expect(missing.missingFields).toContain("propellers.propInches");
   });
 
-  test("motor / propeller size remains heuristic instead of becoming a verified pass", () => {
-    const suggestedPass = rule(
+  test("motor / propeller size stays advisory without verified manufacturer operating data", () => {
+    const plausible = rule(
       { motors: motors5, propellers: props5 },
       "MOTOR_PROPELLER_SIZE_GUIDANCE",
     );
-    expect(suggestedPass.status).toBe("unknown");
-    expect(suggestedPass.evidenceLevel).toBe("heuristic");
-    expect(suggestedPass.advisoryOutcome).toBe("pass");
+    expect(plausible.status).toBe("unknown");
+    expect(plausible.evidenceLevel).toBe("heuristic");
+    expect(plausible.advisoryOutcome).toBe("pass");
+    expect(plausible.explanation).toContain("cannot verify compatibility");
 
-    const suggestedFail = rule(
+    const questionable = rule(
       { motors: motors3, propellers: props5 },
       "MOTOR_PROPELLER_SIZE_GUIDANCE",
     );
-    expect(suggestedFail.status).toBe("unknown");
-    expect(suggestedFail.evidenceLevel).toBe("heuristic");
-    expect(suggestedFail.advisoryOutcome).toBe("fail");
+    expect(questionable.status).toBe("unknown");
+    expect(questionable.evidenceLevel).toBe("heuristic");
+    expect(questionable.advisoryOutcome).toBe("fail");
+    expect(questionable.explanation).toContain("advisory only");
 
     const { motorSize: _motorSize, ...motorsWithoutSize } = motors5;
     const missing = rule(
@@ -144,7 +152,54 @@ describe("structured compatibility rules", () => {
     expect(missing.missingFields).toContain("motors.motorSize");
   });
 
-  test("battery / motor voltage reports pass, fail, and missing data", () => {
+  test("motor / propeller can only become verified with explicit verified manufacturer evidence", () => {
+    const verifiedPass = rule(
+      { motors: motors5, propellers: props5 },
+      "MOTOR_PROPELLER_SIZE_GUIDANCE",
+      {},
+      {
+        motorPropeller: {
+          manufacturerCompatibility: "compatible",
+          manufacturerEvidenceVerified: true,
+          operatingConditionsVerified: true,
+        },
+      },
+    );
+    expect(verifiedPass.status).toBe("pass");
+    expect(verifiedPass.evidenceLevel).toBe("verified");
+
+    const verifiedFail = rule(
+      { motors: motors5, propellers: props5 },
+      "MOTOR_PROPELLER_SIZE_GUIDANCE",
+      {},
+      {
+        motorPropeller: {
+          manufacturerCompatibility: "incompatible",
+          manufacturerEvidenceVerified: true,
+          operatingConditionsVerified: true,
+        },
+      },
+    );
+    expect(verifiedFail.status).toBe("fail");
+    expect(verifiedFail.evidenceLevel).toBe("verified");
+
+    const incompleteEvidence = rule(
+      { motors: motors5, propellers: props5 },
+      "MOTOR_PROPELLER_SIZE_GUIDANCE",
+      {},
+      {
+        motorPropeller: {
+          manufacturerCompatibility: "compatible",
+          manufacturerEvidenceVerified: true,
+          operatingConditionsVerified: false,
+        },
+      },
+    );
+    expect(incompleteEvidence.status).toBe("unknown");
+    expect(incompleteEvidence.evidenceLevel).toBe("heuristic");
+  });
+
+  test("battery / motor voltage reports pass, fail, and missing data", () => {  test("battery / motor voltage reports pass, fail, and missing data", () => {
     const verification: CompatibilityVerification = {
       battery: ["voltage"],
       motors: ["minVoltage", "maxVoltage"],
@@ -240,21 +295,25 @@ describe("structured compatibility rules", () => {
     expect(missing.missingFields).toContain("battery.voltage");
   });
 
-  test("FC / ESC connector comparison preserves pass/fail guidance but never claims verified evidence", () => {
-    const passing = rule(
+  test("FC / ESC matching names remain unknown until pinout and electrical evidence are verified", () => {
+    const matching = rule(
       { flightController: fcF7, esc: esc55 },
       "FC_ESC_CONNECTOR",
     );
-    expect(passing.status).toBe("pass");
-    expect(passing.evidenceLevel).toBe("unverified");
-    expect(passing.unverifiedFields).toContain("flightController.connectorPinout");
+    expect(matching.status).toBe("unknown");
+    expect(matching.evidenceLevel).toBe("unverified");
+    expect(matching.advisoryOutcome).toBe("pass");
+    expect(matching.unverifiedFields).toContain("fcEscConnector.pinout");
+    expect(matching.explanation).toContain("does not verify pinout");
 
-    const failing = rule(
+    const different = rule(
       { flightController: fcF7, esc: esc20 },
       "FC_ESC_CONNECTOR",
     );
-    expect(failing.status).toBe("fail");
-    expect(failing.evidenceLevel).toBe("unverified");
+    expect(different.status).toBe("unknown");
+    expect(different.evidenceLevel).toBe("unverified");
+    expect(different.advisoryOutcome).toBe("fail");
+    expect(different.explanation).toContain("do not prove an electrical incompatibility");
 
     const { escInput: _escInput, ...escWithoutInput } = esc55;
     const missing = rule(
@@ -265,21 +324,79 @@ describe("structured compatibility rules", () => {
     expect(missing.missingFields).toContain("esc.escInput");
   });
 
-  test("motor / ESC current comparison preserves warnings but cannot produce verified evidence", () => {
-    const passing = rule(
+  test("FC / ESC direct connection only becomes verified with complete technical evidence", () => {
+    const verifiedPass = rule(
+      { flightController: fcF7, esc: esc55 },
+      "FC_ESC_CONNECTOR",
+      {},
+      {
+        fcEscConnector: {
+          directConnectionCompatibility: "compatible",
+          connectorFamilyVerified: true,
+          pinoutVerified: true,
+          wireOrderVerified: true,
+          signalCompatibilityVerified: true,
+          voltageCompatibilityVerified: true,
+        },
+      },
+    );
+    expect(verifiedPass.status).toBe("pass");
+    expect(verifiedPass.evidenceLevel).toBe("verified");
+
+    const verifiedConflict = rule(
+      { flightController: fcF7, esc: esc55 },
+      "FC_ESC_CONNECTOR",
+      {},
+      {
+        fcEscConnector: {
+          directConnectionCompatibility: "incompatible",
+          connectorFamilyVerified: true,
+          pinoutVerified: true,
+          wireOrderVerified: true,
+          signalCompatibilityVerified: true,
+          voltageCompatibilityVerified: true,
+        },
+      },
+    );
+    expect(verifiedConflict.status).toBe("fail");
+    expect(verifiedConflict.evidenceLevel).toBe("verified");
+
+    const missingPinoutVerification = rule(
+      { flightController: fcF7, esc: esc55 },
+      "FC_ESC_CONNECTOR",
+      {},
+      {
+        fcEscConnector: {
+          directConnectionCompatibility: "compatible",
+          connectorFamilyVerified: true,
+          pinoutVerified: false,
+          wireOrderVerified: true,
+          signalCompatibilityVerified: true,
+          voltageCompatibilityVerified: true,
+        },
+      },
+    );
+    expect(missingPinoutVerification.status).toBe("unknown");
+    expect(missingPinoutVerification.evidenceLevel).toBe("unverified");
+  });
+
+  test("motor / ESC raw numbers remain unknown when rating semantics or operating conditions are missing", () => {
+    const passingNumbers = rule(
       { motors: motors5, esc: esc55 },
       "MOTOR_ESC_CURRENT",
     );
-    expect(passing.status).toBe("pass");
-    expect(passing.evidenceLevel).toBe("unverified");
-    expect(passing.unverifiedFields).toContain("motors.currentOperatingConditions");
+    expect(passingNumbers.status).toBe("unknown");
+    expect(passingNumbers.evidenceLevel).toBe("unverified");
+    expect(passingNumbers.advisoryOutcome).toBe("pass");
+    expect(passingNumbers.explanation).toContain("raw numbers alone cannot establish compatibility");
 
-    const failing = rule(
+    const failingNumbers = rule(
       { motors: motors5, esc: esc20 },
       "MOTOR_ESC_CURRENT",
     );
-    expect(failing.status).toBe("fail");
-    expect(failing.evidenceLevel).toBe("unverified");
+    expect(failingNumbers.status).toBe("unknown");
+    expect(failingNumbers.evidenceLevel).toBe("unverified");
+    expect(failingNumbers.advisoryOutcome).toBe("fail");
 
     const { current: _current, ...motorsWithoutCurrent } = motors5;
     const missing = rule(
@@ -289,7 +406,113 @@ describe("structured compatibility rules", () => {
     expect(missing.status).toBe("unknown");
     expect(missing.missingFields).toContain("motors.current");
   });
+
+  test("motor / ESC continuous ratings can be verified only when values, rating types, and operating conditions are verified", () => {
+    const verification: CompatibilityVerification = {
+      motors: ["current"],
+      esc: ["escAmps"],
+    };
+
+    const verifiedPass = rule(
+      { motors: motors5, esc: esc55 },
+      "MOTOR_ESC_CURRENT",
+      verification,
+      {
+        motorEscCurrent: {
+          motorRatingType: "continuous",
+          escRatingType: "continuous",
+          ratingTypesVerified: true,
+          motorOperatingConditionsVerified: true,
+        },
+      },
+    );
+    expect(verifiedPass.status).toBe("pass");
+    expect(verifiedPass.evidenceLevel).toBe("verified");
+
+    const verifiedFail = rule(
+      { motors: motors5, esc: esc20 },
+      "MOTOR_ESC_CURRENT",
+      verification,
+      {
+        motorEscCurrent: {
+          motorRatingType: "continuous",
+          escRatingType: "continuous",
+          ratingTypesVerified: true,
+          motorOperatingConditionsVerified: true,
+        },
+      },
+    );
+    expect(verifiedFail.status).toBe("fail");
+    expect(verifiedFail.evidenceLevel).toBe("verified");
+
+    const unverifiedValues = rule(
+      { motors: motors5, esc: esc55 },
+      "MOTOR_ESC_CURRENT",
+      {},
+      {
+        motorEscCurrent: {
+          motorRatingType: "continuous",
+          escRatingType: "continuous",
+          ratingTypesVerified: true,
+          motorOperatingConditionsVerified: true,
+        },
+      },
+    );
+    expect(unverifiedValues.status).toBe("unknown");
+    expect(unverifiedValues.evidenceLevel).toBe("unverified");
+  });
+
+  test("motor / ESC continuous versus burst ratings are not treated as directly comparable", () => {
+    const verification: CompatibilityVerification = {
+      motors: ["current"],
+      esc: ["escAmps"],
+    };
+
+    const mismatch = rule(
+      { motors: motors5, esc: esc55 },
+      "MOTOR_ESC_CURRENT",
+      verification,
+      {
+        motorEscCurrent: {
+          motorRatingType: "continuous",
+          escRatingType: "burst",
+          ratingTypesVerified: true,
+          motorOperatingConditionsVerified: true,
+        },
+      },
+    );
+    expect(mismatch.status).toBe("unknown");
+    expect(mismatch.evidenceLevel).toBe("unverified");
+    expect(mismatch.advisoryOutcome).toBeUndefined();
+    expect(mismatch.explanation).toContain("not directly comparable");
+  });
+
+  test("motor / ESC verified failure is impossible without verified operating conditions", () => {
+    const verification: CompatibilityVerification = {
+      motors: ["current"],
+      esc: ["escAmps"],
+    };
+
+    const incomplete = rule(
+      { motors: motors5, esc: esc20 },
+      "MOTOR_ESC_CURRENT",
+      verification,
+      {
+        motorEscCurrent: {
+          motorRatingType: "continuous",
+          escRatingType: "continuous",
+          ratingTypesVerified: true,
+          motorOperatingConditionsVerified: false,
+        },
+      },
+    );
+    expect(incomplete.status).toBe("unknown");
+    expect(incomplete.evidenceLevel).toBe("unverified");
+    expect(incomplete.advisoryOutcome).toBe("fail");
+  });
 });
+
+describe("build-level compatibility certainty", () => {});
 
 describe("build-level compatibility certainty", () => {
   test("empty and incomplete builds remain potentially compatible", () => {
