@@ -1,0 +1,81 @@
+name: Verify Image Preview
+
+on:
+  push:
+    branches:
+      - feature/shared-drone-configurator
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Type check
+        run: bunx tsc --noEmit
+
+      - name: Production build
+        run: bun run build
+
+      - name: Install Playwright
+        run: |
+          npm install --no-save @playwright/test@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Start development server
+        run: |
+          bun run dev --host 0.0.0.0 > /tmp/dronecores-vite.log 2>&1 &
+          for i in {1..40}; do
+            if curl -fsS http://127.0.0.1:8080/ >/dev/null; then exit 0; fi
+            sleep 2
+          done
+          cat /tmp/dronecores-vite.log
+          exit 1
+
+      - name: Preview interaction smoke test
+        run: |
+          mkdir -p tests
+          cat > tests/image-preview.spec.ts <<'EOF'
+          import { test, expect } from "@playwright/test";
+
+          test("image preview switches between exactly three views", async ({ page }) => {
+            const errors: string[] = [];
+            page.on("pageerror", error => errors.push(error.message));
+
+            await page.goto("http://127.0.0.1:8080/create-custom-build?source=template&template=racer");
+            await expect(page.getByRole("heading", { name: "Your Drone" })).toBeVisible();
+
+            const front = page.getByRole("button", { name: "Front view" });
+            const top = page.getByRole("button", { name: "Top view" });
+            const bottom = page.getByRole("button", { name: "Bottom view" });
+
+            await expect(front).toBeVisible();
+            await expect(top).toBeVisible();
+            await expect(bottom).toBeVisible();
+            await expect(page.locator('[aria-label="Drone preview views"] button')).toHaveCount(3);
+
+            const preview = page.locator('section[aria-label="Drone preview"] img').first();
+            await expect(preview).toBeVisible();
+            const frontSrc = await preview.getAttribute("src");
+
+            await top.click();
+            await expect(top).toHaveAttribute("aria-pressed", "true");
+            const topSrc = await preview.getAttribute("src");
+            expect(topSrc).not.toBe(frontSrc);
+
+            await bottom.click();
+            await expect(bottom).toHaveAttribute("aria-pressed", "true");
+            const bottomSrc = await preview.getAttribute("src");
+            expect(bottomSrc).not.toBe(topSrc);
+
+            await expect(page.getByLabel("Build statistics")).toBeVisible();
+            await expect(page.getByRole("heading", { name: "Components" })).toBeVisible();
+            expect(errors).toEqual([]);
+          });
+          EOF
+          npx playwright test tests/image-preview.spec.ts --reporter=line --workers=1
