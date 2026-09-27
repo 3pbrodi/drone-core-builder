@@ -27,7 +27,7 @@ The machine-readable companion is `src/lib/catalogue-quality.ts`.
 | `motors3` | Motors | 1404 Cine Motor | Unverified demo | Unverified | Unknown | Missing | Illustrative | Yes |
 | `fcF7` | Flight Controller | iFlight BLITZ F7 family | Partially verified | **Conflicting description** | Standalone FC in build model | Missing | Illustrative | Yes |
 | `fcF4` | Flight Controller | Compact F4 Controller | Unverified demo | Unverified | Unknown | Missing | Illustrative | Yes |
-| `esc55` | ESC | T-Motor F55A Pro II | Verified | Partially verified | Standalone | Verified exact-model image | Illustrative | Yes |
+| `esc55` | ESC | T-Motor F55A Pro II | Verified | **Conflicting minimum voltage** | Standalone | Verified exact-model image | Illustrative | Yes |
 | `esc20` | ESC | BLHeli_S 20A ESC | Unverified demo | Unverified | Unknown | Missing | Illustrative | Yes |
 | `props5` | Propellers | HQProp T3.5x3.0x3 | **Conflicting** | **Conflicting** | Standalone | Missing | Illustrative | Yes |
 | `props7` | Propellers | 7x3.5 Tri-Blade | Unverified demo | Unverified | Unknown | Missing | Illustrative | Yes |
@@ -89,7 +89,7 @@ The manufacturer source confirms:
 - 55 A rating;
 - 3-6S support.
 
-The current `escAmps: 55`, `minVoltage: 3`, and `maxVoltage: 6` are therefore source-backed at product level. The static `escInput: "8pin"` and weight used by the demo record were not established from the accessible source text in this review and remain unverified.
+The current `escAmps: 55` and `maxVoltage: 6` agree with the manufacturer source. The static record stores `minVoltage: 4`, while the manufacturer source supports 3S, so the minimum-voltage field remains conflicting and is not treated as verified. The static `escInput: "8pin"` and weight used by the demo record were not established from the accessible source text in this review and remain unverified.
 
 ### `props5` — HQProp identity conflict
 
