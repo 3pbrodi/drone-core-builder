@@ -1,10 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import { presets } from "../src/lib/build-data";
-import {
-  candidateCheck,
-  evaluate,
-} from "../src/lib/build-calculations";
+import { candidateCheck, evaluate } from "../src/lib/build-calculations";
 import { resolveBuildSelection } from "../src/lib/catalogue-service";
 import {
   resolveStaticCompatibilityEvidence,
@@ -43,11 +40,7 @@ describe("reviewed static compatibility evidence", () => {
   test("existing template remains potentially compatible rather than becoming falsely verified", () => {
     const selected = resolveBuildSelection(presets.racer.selection);
     const evidence = resolveStaticCompatibilityEvidence(selected);
-    const result = evaluate(
-      selected,
-      evidence.verification,
-      evidence.technicalEvidence,
-    );
+    const result = evaluate(selected, evidence.verification, evidence.technicalEvidence);
 
     expect(result.complete).toBe(true);
     expect(result.status).toBe("potentially-compatible");
@@ -75,9 +68,7 @@ describe("reviewed static compatibility evidence", () => {
     expect(result.status).toBe("potentially-compatible");
     expect(
       result.rules.some(
-        (rule) =>
-          rule.evidenceLevel === "heuristic" ||
-          rule.evidenceLevel === "unverified",
+        (rule) => rule.evidenceLevel === "heuristic" || rule.evidenceLevel === "unverified",
       ),
     ).toBe(true);
   });

@@ -1,18 +1,13 @@
 import type { Product } from "./build-data";
 import type { SelectedProducts } from "./build-calculations";
-import {
-  catalogueEvidenceSources,
-  catalogueQualityById,
-} from "./catalogue-quality";
+import { catalogueEvidenceSources, catalogueQualityById } from "./catalogue-quality";
 import {
   emptyCatalogueEvidenceSnapshot,
   resolveCompatibilityEvidence,
   type CatalogueFieldEvidence,
 } from "./catalogue-evidence";
 
-const sourceById = new Map(
-  catalogueEvidenceSources.map((source) => [source.id, source]),
-);
+const sourceById = new Map(catalogueEvidenceSources.map((source) => [source.id, source]));
 
 function verifiedField(
   productId: string,
@@ -40,8 +35,7 @@ function verifiedField(
     ...(unit ? { unit } : {}),
     sourceId,
     sourceUrl: source.url ?? null,
-    authority:
-      source.sourceType === "manufacturer" ? "manufacturer" : "internal_demo",
+    authority: source.sourceType === "manufacturer" ? "manufacturer" : "internal_demo",
     exactModelAssociation: source.exactModelAssociation,
     verificationStatus: "verified",
     retrievedAt: timestamp,
@@ -65,8 +59,6 @@ snapshot.fields.push(
 
 export const staticCatalogueEvidenceSnapshot = snapshot;
 
-export function resolveStaticCompatibilityEvidence(
-  selected: SelectedProducts,
-) {
+export function resolveStaticCompatibilityEvidence(selected: SelectedProducts) {
   return resolveCompatibilityEvidence(selected, staticCatalogueEvidenceSnapshot);
 }
