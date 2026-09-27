@@ -19,26 +19,26 @@ The machine-readable companion is `src/lib/catalogue-quality.ts`.
 
 | ID | Category | Current identity | Identity status | Technical status | Product kind | Image | Price | Human review |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `frame5` | Frame | iFlight Nazgul Evoque F5 V2 | Verified | Partially verified | Standalone | Missing | Illustrative | Yes |
+| `frame5` | Frame | iFlight Nazgul Evoque F5 (V2 candidate; geometry unresolved) | Partially verified | **Conflicting weight** | Standalone | Missing | Illustrative | Yes |
 | `frame7` | Frame | Explorer 7 | Unverified demo | Unverified | Unknown | Missing | Illustrative | Yes |
-| `frame3` | Frame | Cinewhoop 3-inch Frame | Unverified demo | Unverified | Unknown | Missing | Illustrative | Yes |
+| `frame3` | Frame | Guarded Cine 3 | Unverified demo | Unverified | Unknown | Missing | Illustrative | Yes |
 | `motors5` | Motors | T-Motor F60 PRO V family | **Conflicting variant** | **Conflicting** | Standalone | Partially verified | Illustrative | Yes |
-| `motors7` | Motors | Long-Range 2806.5 1300KV Motor | Unverified demo | Unverified | Unknown | Missing | Illustrative | Yes |
-| `motors3` | Motors | 1404 Cine Motor | Unverified demo | Unverified | Unknown | Missing | Illustrative | Yes |
+| `motors7` | Motors | Eco Cruiser 2806.5 | Unverified demo | Unverified | Unknown | Missing | Illustrative | Yes |
+| `motors3` | Motors | Cine Compact 1404 | Unverified demo | Unverified | Unknown | Missing | Illustrative | Yes |
 | `fcF7` | Flight Controller | iFlight BLITZ F7 family | Partially verified | **Conflicting description** | Standalone FC in build model | Missing | Illustrative | Yes |
 | `fcF4` | Flight Controller | Compact F4 Controller | Unverified demo | Unverified | Unknown | Missing | Illustrative | Yes |
-| `esc55` | ESC | T-Motor F55A Pro II | Verified | **Conflicting minimum voltage** | Standalone | Verified exact-model image | Illustrative | Yes |
-| `esc20` | ESC | BLHeli_S 20A ESC | Unverified demo | Unverified | Unknown | Missing | Illustrative | Yes |
+| `esc55` | ESC | T-Motor F55A Pro II | Verified | **Conflicting minimum voltage** | Standalone | Partially verified image | Illustrative | Yes |
+| `esc20` | ESC | Compact 20A ESC | Unverified demo | Unverified | Unknown | Missing | Illustrative | Yes |
 | `props5` | Propellers | HQProp T3.5x3.0x3 | **Conflicting** | **Conflicting** | Standalone | Missing | Illustrative | Yes |
-| `props7` | Propellers | 7x3.5 Tri-Blade | Unverified demo | Unverified | Unknown | Missing | Illustrative | Yes |
-| `props3` | Propellers | Gemfan D76 5-Blade | Unverified exact match | Unverified | Standalone | Missing | Illustrative | Yes |
+| `props7` | Propellers | Explorer 7x3.5 (7-inch bi-blade demo) | Unverified demo | Unverified | Unknown | Missing | Illustrative | Yes |
+| `props3` | Propellers | Guarded 3x3x3 | Unverified demo | Unverified | Unknown | Missing | Illustrative | Yes |
 | `battery6` | Battery | CNHL Black Series 1500mAh 6S | **Conflicting rating** | **Conflicting** | Standalone | Missing | Illustrative | Yes |
-| `battery6long` | Battery | Li-ion 6S 4000mAh Pack | Unverified demo | Unverified | Unknown | Missing | Illustrative | Yes |
-| `battery4` | Battery | 4S 850mAh 100C LiPo | Unverified demo | Unverified | Unknown | Missing | Illustrative | Yes |
+| `battery6long` | Battery | Explorer 3000mAh | Unverified demo | Unverified | Unknown | Missing | Illustrative | Yes |
+| `battery4` | Battery | Compact 850mAh | Unverified demo | Unverified | Unknown | Missing | Illustrative | Yes |
 | `cameraFpv` | Camera | RunCam Phoenix 2 | Verified | Partially verified | Standalone | Verified exact-model image | Illustrative | No |
-| `camera4k` | Camera | Action Camera 4K Module | Unverified demo | Unverified | Unknown | Missing | Illustrative | Yes |
-| `receiver` | Receiver | TBS Crossfire Nano RX | Verified | **Conflicting weight** | Standalone | Verified exact-model image | Illustrative | Yes |
-| `receiver2` | Receiver | Demo ELRS Receiver 2.4GHz | Unverified demo | Unverified | Unknown | Missing | Illustrative | Yes |
+| `camera4k` | Camera | Demo 4K Action Camera | Unverified demo | Unverified | Unknown | Missing | Illustrative | Yes |
+| `receiver` | Receiver | TBS Crossfire Nano RX | Verified | **Conflicting weight** | Standalone | Partially verified image | Illustrative | Yes |
+| `receiver2` | Receiver | Demo ELRS Receiver | Unverified demo | Unverified | Unknown | Missing | Illustrative | Yes |
 
 ## Source-backed findings
 
@@ -47,13 +47,13 @@ The machine-readable companion is `src/lib/catalogue-quality.ts`.
 Manufacturer source:
 - https://shop.iflight.com/Evoque-F5-V2-Frame-Kit-Pro1887
 
-The manufacturer page confirms the Evoque F5 V2 Frame Kit and lists:
+The manufacturer page confirms an Evoque F5 V2 Frame Kit and lists:
 - 16x16 mm motor mounting;
 - 20x20 mm flight-stack mounting;
 - separate F5X and F5D geometry;
-- published geometry-dependent weight ranges.
+- 240±5 g (Squashed X) / 242±5 g (DeadCat) frame-kit weights.
 
-The static `mount: "16x16"` is source-backed. The record does not identify F5X versus F5D, so physical dimensions and an exact weight should remain only partially verified.
+The static product name is only `iFlight Nazgul Evoque F5`; it does not establish the V2 revision or F5X/F5D geometry. Its current static weight is 180 g, which conflicts with the accessible V2 manufacturer weights. Therefore the V2 source is useful candidate evidence, but it must not verify the stable `frame5` technical fields until the exact revision/geometry association is confirmed.
 
 ### `motors5` — T-Motor F60 PRO V
 
@@ -132,9 +132,10 @@ The source confirms:
 - CRSF signal format;
 - 868-915 MHz range;
 - 3.3-8.4V input;
-- 0.5 g receiver weight.
+- 0.5 g receiver weight;
+- 18×11×11 mm dimensions.
 
-The static record stores `weight: 3` and its spec text says 2.4 g, so the runtime weight is conflicting and is not treated as verified. The static text also mentions only 915 MHz, which is incomplete for the manufacturer-documented range. The current live product type has no typed receiver protocol/frequency/voltage fields, so those source-backed values remain review data rather than compatibility inputs.
+The static record stores `weight: 3` and its spec text says 2.4 g, so the weight remains conflicting and is not treated as verified. The static text mentions only 915 MHz, but the Phase E typed receiver fields now preserve the full source-backed frequency, voltage, interface, and dimension values. FC-side receiver integration evidence is still missing, so compatibility remains evidence-limited.
 
 ## Products remaining intentionally unverified
 
@@ -172,13 +173,13 @@ No exchange rate, tax, shipping cost, or stock status should be invented.
 
 ## Image status
 
-Exact-model manufacturer-backed images already present in the live catalogue:
-- `cameraFpv` — RunCam Phoenix 2
-- `receiver` — TBS Crossfire Nano RX
+Image identity and image licensing are tracked separately:
+- `cameraFpv` — RunCam Phoenix 2 identity is source-backed; the current image is retained.
+- `receiver` — TBS Crossfire Nano RX identity is source-backed, but the current image is retailer-hosted and remains only partially verified for provenance/licensing.
+- `esc55` — exact product identity is manufacturer-backed, while the current image is retailer-hosted and remains partially verified for provenance/licensing.
+- `motors5` — the image belongs to the F60 PRO V family, but the exact KV variant is unresolved.
 
-The `esc55` source points to the exact manufacturer product; its current image URL is a retailer-hosted photo, so the identity can be verified while image licensing/rehosting rights still remain separate.
-
-The `motors5` image belongs to the F60 PRO V family, but the exact KV variant is unresolved, so it is not treated as exact-variant verification.
+No missing image has been replaced or generated.
 
 No missing image has been replaced or generated.
 
