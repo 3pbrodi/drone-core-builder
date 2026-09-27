@@ -1,27 +1,15 @@
 import type { Category } from "./build-data";
 
 export type CatalogueIdentityStatus =
-  | "verified"
-  | "partially-verified"
-  | "unverified"
-  | "conflicting";
+  "verified" | "partially-verified" | "unverified" | "conflicting";
 
 export type CatalogueTechnicalStatus =
-  | "verified"
-  | "partially-verified"
-  | "unverified"
-  | "conflicting";
+  "verified" | "partially-verified" | "unverified" | "conflicting";
 
 export type CatalogueImageStatus =
-  | "verified-exact-model"
-  | "partially-verified"
-  | "unverified"
-  | "missing";
+  "verified-exact-model" | "partially-verified" | "unverified" | "missing";
 
-export type CatalogueProductKind =
-  | "standalone"
-  | "bundle"
-  | "unknown";
+export type CatalogueProductKind = "standalone" | "bundle" | "unknown";
 
 export type CatalogueEvidenceSource = {
   id: string;
@@ -120,12 +108,7 @@ export const catalogueEvidenceSources: readonly CatalogueEvidenceSource[] = [
     url: "https://store.tmotor.com/product/f55a-pro-v2-4in1-fpv-esc.html",
     checkedAt,
     exactModelAssociation: true,
-    supports: [
-      "F55A Pro II identity",
-      "55 A rating",
-      "3-6S support",
-      "4-in-1 ESC identity",
-    ],
+    supports: ["F55A Pro II identity", "55 A rating", "3-6S support", "4-in-1 ESC identity"],
   },
   {
     id: "hqprop-35-catalogue",
@@ -219,7 +202,9 @@ export const catalogueQualityReviews: readonly CatalogueQualityReview[] = [
     productKind: "unknown",
     priceStatus: "illustrative",
     issues: ["Explorer 7 is a generic demo identity with no manufacturer/model source."],
-    remediation: ["Retain as an explicitly unverified demo record until a real product identity is selected."],
+    remediation: [
+      "Retain as an explicitly unverified demo record until a real product identity is selected.",
+    ],
     humanReviewRequired: true,
     sourceIds: [],
   },
@@ -231,7 +216,9 @@ export const catalogueQualityReviews: readonly CatalogueQualityReview[] = [
     imageStatus: "missing",
     productKind: "unknown",
     priceStatus: "illustrative",
-    issues: ["Cinewhoop 3-inch Frame is a generic demo identity with no exact source-backed model."],
+    issues: [
+      "Cinewhoop 3-inch Frame is a generic demo identity with no exact source-backed model.",
+    ],
     remediation: ["Retain as an explicitly unverified demo record."],
     humanReviewRequired: true,
     sourceIds: [],
@@ -401,7 +388,9 @@ export const catalogueQualityReviews: readonly CatalogueQualityReview[] = [
     manufacturer: "Gemfan",
     exactModel: "D76 5-Blade",
     priceStatus: "illustrative",
-    issues: ["An exact accessible manufacturer listing matching D76 5-Blade was not established during this review."],
+    issues: [
+      "An exact accessible manufacturer listing matching D76 5-Blade was not established during this review.",
+    ],
     remediation: ["Keep the record unverified until exact manufacturer documentation is captured."],
     humanReviewRequired: true,
     sourceIds: [],
@@ -437,7 +426,9 @@ export const catalogueQualityReviews: readonly CatalogueQualityReview[] = [
     productKind: "unknown",
     priceStatus: "illustrative",
     issues: ["Li-ion 6S 4000mAh Pack is a generic demo identity."],
-    remediation: ["Retain as unverified until chemistry, cell construction, connector, dimensions, and manufacturer/model are sourced."],
+    remediation: [
+      "Retain as unverified until chemistry, cell construction, connector, dimensions, and manufacturer/model are sourced.",
+    ],
     humanReviewRequired: true,
     sourceIds: [],
   },
@@ -468,7 +459,9 @@ export const catalogueQualityReviews: readonly CatalogueQualityReview[] = [
       "Manufacturer evidence supports PAL/NTSC analog video, 5-36V power, 9 g weight, and 19 mm-class dimensions.",
       "The live Product type cannot yet represent camera voltage range, dimensions, or interface details.",
     ],
-    remediation: ["Preserve identity and image provenance; normalize camera-specific fields in a later evidence-aware schema phase."],
+    remediation: [
+      "Preserve identity and image provenance; normalize camera-specific fields in a later evidence-aware schema phase.",
+    ],
     humanReviewRequired: false,
     sourceIds: ["runcam-phoenix-2"],
   },
@@ -481,7 +474,9 @@ export const catalogueQualityReviews: readonly CatalogueQualityReview[] = [
     productKind: "unknown",
     priceStatus: "illustrative",
     issues: ["Action Camera 4K Module is a generic demo identity."],
-    remediation: ["Retain as unverified; do not equate 4K recording capability with an FPV video interface."],
+    remediation: [
+      "Retain as unverified; do not equate 4K recording capability with an FPV video interface.",
+    ],
     humanReviewRequired: true,
     sourceIds: [],
   },
@@ -500,7 +495,9 @@ export const catalogueQualityReviews: readonly CatalogueQualityReview[] = [
       "The static spec text mentions only 915 MHz and therefore does not represent the full documented frequency range.",
       "The live Product type has no typed receiver protocol, frequency, voltage, or interface fields.",
     ],
-    remediation: ["Normalize receiver-specific fields in the later camera/receiver data phase; retain exact identity and source-backed image."],
+    remediation: [
+      "Normalize receiver-specific fields in the later camera/receiver data phase; retain exact identity and source-backed image.",
+    ],
     humanReviewRequired: false,
     sourceIds: ["tbs-crossfire-nano-rx"],
   },

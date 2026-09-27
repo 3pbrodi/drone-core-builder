@@ -27,9 +27,7 @@ describe("Phase A catalogue quality registry", () => {
   });
 
   test("every referenced source exists and external evidence uses HTTPS", () => {
-    const sourcesById = new Map(
-      catalogueEvidenceSources.map((source) => [source.id, source]),
-    );
+    const sourcesById = new Map(catalogueEvidenceSources.map((source) => [source.id, source]));
 
     for (const review of catalogueQualityReviews) {
       for (const sourceId of review.sourceIds) {
@@ -43,31 +41,17 @@ describe("Phase A catalogue quality registry", () => {
   });
 
   test("known ambiguous demo records stay conflicting instead of being silently corrected", () => {
-    expect(catalogueQualityById.get("props5")?.identityStatus).toBe(
-      "conflicting",
-    );
-    expect(catalogueQualityById.get("motors5")?.identityStatus).toBe(
-      "conflicting",
-    );
-    expect(catalogueQualityById.get("battery6")?.identityStatus).toBe(
-      "conflicting",
-    );
-    expect(catalogueQualityById.get("fcF7")?.technicalStatus).toBe(
-      "conflicting",
-    );
+    expect(catalogueQualityById.get("props5")?.identityStatus).toBe("conflicting");
+    expect(catalogueQualityById.get("motors5")?.identityStatus).toBe("conflicting");
+    expect(catalogueQualityById.get("battery6")?.identityStatus).toBe("conflicting");
+    expect(catalogueQualityById.get("fcF7")?.technicalStatus).toBe("conflicting");
   });
 
   test("source-backed exact identities remain separate from technical completeness", () => {
     expect(catalogueQualityById.get("frame5")?.identityStatus).toBe("verified");
-    expect(catalogueQualityById.get("frame5")?.technicalStatus).toBe(
-      "partially-verified",
-    );
-    expect(catalogueQualityById.get("cameraFpv")?.identityStatus).toBe(
-      "verified",
-    );
-    expect(catalogueQualityById.get("receiver")?.identityStatus).toBe(
-      "verified",
-    );
+    expect(catalogueQualityById.get("frame5")?.technicalStatus).toBe("partially-verified");
+    expect(catalogueQualityById.get("cameraFpv")?.identityStatus).toBe("verified");
+    expect(catalogueQualityById.get("receiver")?.identityStatus).toBe("verified");
   });
 
   test("generic demo products remain available but explicitly unverified", () => {
