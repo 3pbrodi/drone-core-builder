@@ -8,14 +8,14 @@ import { categories, categoryNames, products, byId, money, type BuildSelection, 
 import { evaluate, candidateCheck } from "@/lib/build-calculations";
 const DroneViewer = lazy(() => import("./DroneViewer").then(m => ({ default:m.DroneViewer })));
 class ViewerErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
-  state = { failed: false };
+  override state = { failed: false };
   static getDerivedStateFromError() {
     return { failed: true };
   }
-  componentDidCatch(error: Error, info: ErrorInfo) {
+  override componentDidCatch(error: Error, info: ErrorInfo) {
     console.error("DroneCores 3D viewer failed", error, info);
   }
-  render() {
+  override render() {
     if (this.state.failed) {
       return (
         <div className="flex h-full flex-col items-center justify-center px-6 text-center">
