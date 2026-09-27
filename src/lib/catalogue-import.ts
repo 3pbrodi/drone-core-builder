@@ -34,6 +34,22 @@ const optionalBoolean = z.preprocess((value) => {
   return value;
 }, z.boolean().optional());
 
+const optionalTextList = z.preprocess((value) => {
+  if (typeof value !== "string" || value.trim() === "") return undefined;
+  return value
+    .split("|")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}, z.array(z.string().min(1)).min(1).optional());
+
+const optionalPositiveNumberList = z.preprocess((value) => {
+  if (typeof value !== "string" || value.trim() === "") return undefined;
+  return value
+    .split("|")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}, z.array(z.coerce.number().finite().positive()).min(1).optional());
+
 export const catalogueProductCsvColumns = [
   "id",
   "category",
@@ -63,7 +79,25 @@ export const catalogueProductCsvColumns = [
   "battery_capacity_mah",
   "battery_discharge_c",
   "video_system",
+  "camera_video_interface",
+  "camera_min_voltage_v",
+  "camera_max_voltage_v",
+  "camera_width_mm",
+  "camera_height_mm",
+  "camera_depth_mm",
+  "fc_camera_video_interfaces",
+  "fc_camera_power_voltages_v",
   "receiver_protocol",
+  "receiver_frequency_min_mhz",
+  "receiver_frequency_max_mhz",
+  "receiver_min_voltage_v",
+  "receiver_max_voltage_v",
+  "receiver_signal_interface",
+  "receiver_width_mm",
+  "receiver_height_mm",
+  "receiver_depth_mm",
+  "fc_receiver_signal_interfaces",
+  "fc_receiver_power_voltages_v",
   "image_url",
   "image_source_url",
   "image_alt",
@@ -110,7 +144,25 @@ const productImportSchema = z
     battery_capacity_mah: optionalPositiveInteger,
     battery_discharge_c: optionalPositiveNumber,
     video_system: optionalText,
+    camera_video_interface: optionalText,
+    camera_min_voltage_v: optionalPositiveNumber,
+    camera_max_voltage_v: optionalPositiveNumber,
+    camera_width_mm: optionalPositiveNumber,
+    camera_height_mm: optionalPositiveNumber,
+    camera_depth_mm: optionalPositiveNumber,
+    fc_camera_video_interfaces: optionalTextList,
+    fc_camera_power_voltages_v: optionalPositiveNumberList,
     receiver_protocol: optionalText,
+    receiver_frequency_min_mhz: optionalPositiveNumber,
+    receiver_frequency_max_mhz: optionalPositiveNumber,
+    receiver_min_voltage_v: optionalPositiveNumber,
+    receiver_max_voltage_v: optionalPositiveNumber,
+    receiver_signal_interface: optionalText,
+    receiver_width_mm: optionalPositiveNumber,
+    receiver_height_mm: optionalPositiveNumber,
+    receiver_depth_mm: optionalPositiveNumber,
+    fc_receiver_signal_interfaces: optionalTextList,
+    fc_receiver_power_voltages_v: optionalPositiveNumberList,
     image_url: optionalUrl,
     image_source_url: optionalUrl,
     image_alt: optionalText,
@@ -140,6 +192,22 @@ const productImportSchema = z
         path: ["image_exact_model_verified"],
         message: "An image cannot be marked exact-model verified without image_url.",
       });
+    }
+
+    for (const [minField, maxField] of [
+      ["camera_min_voltage_v", "camera_max_voltage_v"],
+      ["receiver_frequency_min_mhz", "receiver_frequency_max_mhz"],
+      ["receiver_min_voltage_v", "receiver_max_voltage_v"],
+    ] as const) {
+      const minimum = row[minField];
+      const maximum = row[maxField];
+      if (minimum !== undefined && maximum !== undefined && minimum > maximum) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [maxField],
+          message: `${maxField} must be greater than or equal to ${minField}.`,
+        });
+      }
     }
   });
 
@@ -247,10 +315,34 @@ function reviewIssuesForRow(row: CatalogueProductImportRow): string[] {
     {
       frame: ["frame_size_inches", "motor_mount_pattern"],
       motors: ["motor_mount_pattern", "motor_size_code", "min_battery_cells", "max_battery_cells"],
-      flightController: ["min_battery_cells", "max_battery_cells", "connector"],
+      flightController: [
+        "min_battery_cells",
+        "max_battery_cells",
+        "connector",
+        "fc_camera_video_interfaces",
+        "fc_camera_power_voltages_v",
+        "fc_receiver_signal_interfaces",
+        "fc_receiver_power_voltages_v",
+      ],
       esc: ["min_battery_cells", "max_battery_cells", "esc_input", "esc_amps"],
       propellers: ["propeller_diameter_inches"],
       battery: ["battery_cells", "battery_capacity_mah"],
+      camera: [
+        "camera_video_interface",
+        "camera_min_voltage_v",
+        "camera_max_voltage_v",
+        "camera_width_mm",
+        "camera_height_mm",
+        "camera_depth_mm",
+      ],
+      receiver: [
+        "receiver_protocol",
+        "receiver_signal_interface",
+        "receiver_frequency_min_mhz",
+        "receiver_frequency_max_mhz",
+        "receiver_min_voltage_v",
+        "receiver_max_voltage_v",
+      ],
     };
 
   for (const field of compatibilityRequirements[row.category] ?? []) {
