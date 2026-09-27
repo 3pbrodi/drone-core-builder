@@ -29,6 +29,25 @@ type RuntimeProductRow = {
   battery_cells: number | null;
   battery_capacity_mah: number | null;
   video_system: string | null;
+  camera_video_interface: string | null;
+  camera_min_voltage_v: number | null;
+  camera_max_voltage_v: number | null;
+  camera_width_mm: number | null;
+  camera_height_mm: number | null;
+  camera_depth_mm: number | null;
+  fc_camera_video_interfaces: string[] | null;
+  fc_camera_power_voltages_v: number[] | null;
+  receiver_protocol: string | null;
+  receiver_frequency_min_mhz: number | null;
+  receiver_frequency_max_mhz: number | null;
+  receiver_min_voltage_v: number | null;
+  receiver_max_voltage_v: number | null;
+  receiver_signal_interface: string | null;
+  receiver_width_mm: number | null;
+  receiver_height_mm: number | null;
+  receiver_depth_mm: number | null;
+  fc_receiver_signal_interfaces: string[] | null;
+  fc_receiver_power_voltages_v: number[] | null;
   image_url: string | null;
   image_alt: string | null;
   image_source_url: string | null;
@@ -73,6 +92,15 @@ function withOptionalString<K extends keyof Product>(
   return value === null || value === "" ? {} : ({ [key]: value } as Partial<Product>);
 }
 
+function withOptionalArray<K extends keyof Product>(
+  key: K,
+  value: string[] | number[] | null,
+): Partial<Product> {
+  return value === null || value.length === 0
+    ? {}
+    : ({ [key]: value } as Partial<Product>);
+}
+
 function runtimeRowToProduct(row: RuntimeProductRow): Product | null {
   if (row.price_amount === null || row.weight_grams === null) {
     return null;
@@ -108,6 +136,31 @@ function runtimeRowToProduct(row: RuntimeProductRow): Product | null {
     ...withOptionalNumber("escAmps", row.esc_amps),
     ...withOptionalNumber("batteryMah", row.battery_capacity_mah),
     ...withOptionalString("video", row.video_system),
+    ...withOptionalString("cameraVideoInterface", row.camera_video_interface),
+    ...withOptionalNumber("cameraMinVoltageV", row.camera_min_voltage_v),
+    ...withOptionalNumber("cameraMaxVoltageV", row.camera_max_voltage_v),
+    ...withOptionalNumber("cameraWidthMm", row.camera_width_mm),
+    ...withOptionalNumber("cameraHeightMm", row.camera_height_mm),
+    ...withOptionalNumber("cameraDepthMm", row.camera_depth_mm),
+    ...withOptionalArray("fcCameraVideoInterfaces", row.fc_camera_video_interfaces),
+    ...withOptionalArray("fcCameraPowerVoltagesV", row.fc_camera_power_voltages_v),
+    ...withOptionalString("receiverProtocol", row.receiver_protocol),
+    ...withOptionalNumber("receiverFrequencyMinMhz", row.receiver_frequency_min_mhz),
+    ...withOptionalNumber("receiverFrequencyMaxMhz", row.receiver_frequency_max_mhz),
+    ...withOptionalNumber("receiverMinVoltageV", row.receiver_min_voltage_v),
+    ...withOptionalNumber("receiverMaxVoltageV", row.receiver_max_voltage_v),
+    ...withOptionalString("receiverSignalInterface", row.receiver_signal_interface),
+    ...withOptionalNumber("receiverWidthMm", row.receiver_width_mm),
+    ...withOptionalNumber("receiverHeightMm", row.receiver_height_mm),
+    ...withOptionalNumber("receiverDepthMm", row.receiver_depth_mm),
+    ...withOptionalArray(
+      "fcReceiverSignalInterfaces",
+      row.fc_receiver_signal_interfaces,
+    ),
+    ...withOptionalArray(
+      "fcReceiverPowerVoltagesV",
+      row.fc_receiver_power_voltages_v,
+    ),
   };
 }
 
