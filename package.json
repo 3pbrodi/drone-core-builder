@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "catalogue:export-static": "bun scripts/export-static-catalogue.ts"
+    "catalogue:export-static": "bun scripts/export-static-catalogue.ts",
+    "test": "bun test"
   },
   "overrides": {
     "rolldown": "1.2.1"
