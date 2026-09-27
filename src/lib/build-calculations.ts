@@ -920,10 +920,6 @@ function cameraFcPowerRule(
     throw new Error("Camera/FC power rule reached comparison without required values.");
   }
 
-  if (minimum === undefined || maximum === undefined || powerRails === undefined) {
-    throw new Error("Receiver/FC power rule reached comparison without required values.");
-  }
-
   const usableRail = powerRails.find(
     (voltage) => voltage >= minimum && voltage <= maximum,
   );
@@ -1097,6 +1093,10 @@ function receiverFcPowerRule(
       missingFields,
       unverifiedFields: unverifiedFields(verification, usedFields),
     };
+  }
+
+  if (minimum === undefined || maximum === undefined || powerRails === undefined) {
+    throw new Error("Receiver/FC power rule reached comparison without required values.");
   }
 
   const usableRail = powerRails.find(
