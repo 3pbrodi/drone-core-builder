@@ -1,7 +1,6 @@
 import { Canvas, useThree } from "@react-three/fiber";
 import { Environment, Lightformer, OrbitControls } from "@react-three/drei";
-import { useRef } from "react";
-import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
+import { useEffect } from "react";
 import type { BuildSelection } from "@/lib/build-data";
 import { byId } from "@/lib/build-data";
 
