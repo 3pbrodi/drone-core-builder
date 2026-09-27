@@ -23,12 +23,11 @@ describe("reviewed static compatibility evidence", () => {
     const evidence = resolveStaticCompatibilityEvidence(selected);
 
     expect(evidence.verification.frame).toContain("mount");
-    expect(evidence.verification.esc).toEqual(
-      expect.arrayContaining(["escAmps", "minVoltage", "maxVoltage"]),
-    );
-    expect(evidence.verification.camera).toEqual(
-      expect.arrayContaining(["weight", "video"]),
-    );
+    expect(evidence.verification.esc).toContain("escAmps");
+    expect(evidence.verification.esc).toContain("minVoltage");
+    expect(evidence.verification.esc).toContain("maxVoltage");
+    expect(evidence.verification.camera).toContain("weight");
+    expect(evidence.verification.camera).toContain("video");
     expect(evidence.verification.receiver).toContain("weight");
     expect(evidence.verification.motors).toBeUndefined();
     expect(evidence.technicalEvidence).toEqual({});
