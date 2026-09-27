@@ -39,7 +39,7 @@ function DroneShape({ selection }: { selection: BuildSelection }) {
 export function DroneViewer({ selection, view, resetToken }: { selection: BuildSelection; view: number; resetToken: number }) {
   const controls = useRef<OrbitControlsImpl>(null);
   const cameraPositions: [number,number,number][] = [[5,5,6],[0,9,0.01],[0,2,9],[9,2,0]];
-  const position = cameraPositions[view] ?? cameraPositions[0];
+  const position = cameraPositions[view] ?? [5,5,6];
   return <Canvas frameloop="demand" dpr={[1,1.5]} camera={{ position, fov: 40, near: 0.1, far: 100 }} shadows onCreated={({ camera }) => camera.lookAt(0,0,0)}>
     <ambientLight intensity={1.5}/><directionalLight position={[4,9,5]} intensity={2.5} castShadow shadow-mapSize={[1024,1024]}/>
     <Environment><Lightformer intensity={2} position={[0,5,0]} scale={[10,10,1]}/><Lightformer intensity={1} color="#a8cdeb" position={[-5,1,-1]} rotation-y={Math.PI/2} scale={[20,1,1]}/></Environment>
