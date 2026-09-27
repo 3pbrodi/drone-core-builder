@@ -104,9 +104,11 @@ function TemplatesPage() {
       description="Each template is a complete, proven parts list. Open one and you can adjust any part before you build."
     >
       <section className="mb-5 grid gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm sm:grid-cols-2">
-        <label className="text-sm font-semibold text-foreground">
-          Budget
+        <div>
+          <div className="flex items-center justify-between gap-3"><span className="text-sm font-semibold text-foreground">Budget</span><button type="button" onClick={() => setBudgetFilter("all")} className="min-h-9 rounded-lg px-2 text-xs font-semibold text-primary hover:bg-secondary">Skip</button></div>
+          <label className="sr-only" htmlFor="template-budget-filter">Budget</label>
           <select
+            id="template-budget-filter"
             value={budgetFilter}
             onChange={(event) => setBudgetFilter(event.target.value as typeof budgetFilter)}
             className="mt-1.5 min-h-11 w-full rounded-xl border border-input bg-background px-3 text-sm"
@@ -116,10 +118,12 @@ function TemplatesPage() {
             <option value="500to700">€500–€700</option>
             <option value="700plus">Over €700</option>
           </select>
-        </label>
-        <label className="text-sm font-semibold text-foreground">
-          Flight Style
+        </div>
+        <div>
+          <div className="flex items-center justify-between gap-3"><span className="text-sm font-semibold text-foreground">Flight Style</span><button type="button" onClick={() => setStyleFilter("all")} className="min-h-9 rounded-lg px-2 text-xs font-semibold text-primary hover:bg-secondary">Skip</button></div>
+          <label className="sr-only" htmlFor="template-style-filter">Flight Style</label>
           <select
+            id="template-style-filter"
             value={styleFilter}
             onChange={(event) => setStyleFilter(event.target.value as typeof styleFilter)}
             className="mt-1.5 min-h-11 w-full rounded-xl border border-input bg-background px-3 text-sm"
@@ -130,7 +134,7 @@ function TemplatesPage() {
             <option value="Freestyle">Freestyle</option>
             <option value="Long Range">Long Range</option>
           </select>
-        </label>
+        </div>
       </section>
       <div className="grid gap-5 sm:grid-cols-2">
         {filteredTemplates.map((template) => (
