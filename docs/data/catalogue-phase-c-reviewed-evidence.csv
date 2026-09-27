@@ -1,0 +1,8 @@
+product_id,field_key,value_type,value,unit,value_semantics,source_name,source_kind,source_url,authority,exact_model_association,retrieved_at,conditions_json,caveats
+frame5,mount,string,16x16,mm,motor mounting pattern,iFlight,manufacturer,https://shop.iflight.com/Evoque-F5-V2-Frame-Kit-Pro1887,manufacturer,true,2026-09-28T00:00:00Z,{},Static ID does not distinguish F5X from F5D geometry
+esc55,escAmps,number,55,A,manufacturer ESC current rating,T-Motor,manufacturer,https://store.tmotor.com/product/f55a-pro-v2-4in1-fpv-esc.html,manufacturer,true,2026-09-28T00:00:00Z,{},Rating semantics still require continuous/burst evidence before motor-current compatibility can be verified
+esc55,minVoltage,number,3,cells,minimum supported LiPo cell count,T-Motor,manufacturer,https://store.tmotor.com/product/f55a-pro-v2-4in1-fpv-esc.html,manufacturer,true,2026-09-28T00:00:00Z,{},Manufacturer page states 3-6S
+esc55,maxVoltage,number,6,cells,maximum supported LiPo cell count,T-Motor,manufacturer,https://store.tmotor.com/product/f55a-pro-v2-4in1-fpv-esc.html,manufacturer,true,2026-09-28T00:00:00Z,{},Manufacturer page states 3-6S
+cameraFpv,weight,number,9,g,net camera weight,RunCam,manufacturer,https://shop.runcam.com/runcam-phoenix-2/,manufacturer,true,2026-09-28T00:00:00Z,{},Exact Phoenix 2 product page
+cameraFpv,video,string,analog,,normalized video transport class,RunCam,manufacturer,https://shop.runcam.com/runcam-phoenix-2/,manufacturer,true,2026-09-28T00:00:00Z,{},Normalized from manufacturer PAL/NTSC analog signal specification
+receiver,weight,number,0.5,g,receiver-only weight,Team BlackSheep,manufacturer,https://www.team-blacksheep.com/products/prod:crossfire_nano_rx,manufacturer,true,2026-09-28T00:00:00Z,{},Exact Crossfire Nano RX product page
