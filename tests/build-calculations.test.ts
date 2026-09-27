@@ -199,7 +199,7 @@ describe("structured compatibility rules", () => {
     expect(incompleteEvidence.evidenceLevel).toBe("heuristic");
   });
 
-  test("battery / motor voltage reports pass, fail, and missing data", () => {  test("battery / motor voltage reports pass, fail, and missing data", () => {
+  test("battery / motor voltage reports pass, fail, and missing data", () => {
     const verification: CompatibilityVerification = {
       battery: ["voltage"],
       motors: ["minVoltage", "maxVoltage"],
@@ -511,8 +511,6 @@ describe("structured compatibility rules", () => {
     expect(incomplete.advisoryOutcome).toBe("fail");
   });
 });
-
-describe("build-level compatibility certainty", () => {});
 
 describe("build-level compatibility certainty", () => {
   test("empty and incomplete builds remain potentially compatible", () => {
