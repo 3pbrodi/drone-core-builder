@@ -37,17 +37,23 @@ export type CurrentRatingType = "continuous" | "burst" | "peak";
 
 export type CompatibilityTechnicalEvidence = {
   motorPropeller?: {
+    motorId: string;
+    propellerId: string;
     manufacturerCompatibility?: "compatible" | "incompatible";
     manufacturerEvidenceVerified?: boolean;
     operatingConditionsVerified?: boolean;
   };
   motorEscCurrent?: {
+    motorId: string;
+    escId: string;
     motorRatingType?: CurrentRatingType;
     escRatingType?: CurrentRatingType;
     ratingTypesVerified?: boolean;
     motorOperatingConditionsVerified?: boolean;
   };
   fcEscConnector?: {
+    flightControllerId: string;
+    escId: string;
     directConnectionCompatibility?: "compatible" | "incompatible";
     connectorFamilyVerified?: boolean;
     pinoutVerified?: boolean;
@@ -298,7 +304,11 @@ function motorPropellerGuidanceRule(
     ...(propInches === undefined ? ["propellers.propInches"] : []),
   ];
   const verifiedPair = technicalEvidence.motorPropeller;
+  const evidenceMatchesSelection =
+    verifiedPair?.motorId === motors.id &&
+    verifiedPair.propellerId === propellers.id;
   const canUseVerifiedManufacturerEvidence =
+    evidenceMatchesSelection &&
     verifiedPair?.manufacturerEvidenceVerified === true &&
     verifiedPair.operatingConditionsVerified === true &&
     verifiedPair.manufacturerCompatibility !== undefined;
@@ -320,6 +330,8 @@ function motorPropellerGuidanceRule(
       evidence: evidence([
         ["motors.motorSize", motorSize],
         ["propellers.propInches", propInches],
+        ["evidence.motorId", verifiedPair.motorId],
+        ["evidence.propellerId", verifiedPair.propellerId],
         ["manufacturerCompatibility", verifiedPair.manufacturerCompatibility],
         ["manufacturerEvidenceVerified", true],
         ["operatingConditionsVerified", true],
@@ -381,6 +393,9 @@ function motorPropellerGuidanceRule(
     ]),
     missingFields: [],
     unverifiedFields: [
+      ...(evidenceMatchesSelection
+        ? []
+        : ["motorPropeller.selectionBinding"]),
       ...(verifiedPair?.manufacturerEvidenceVerified === true
         ? []
         : ["motorPropeller.manufacturerEvidence"]),
@@ -501,7 +516,11 @@ function fcEscConnectorRule(
     ...(escConnector === undefined ? ["esc.escInput"] : []),
   ];
   const verifiedConnection = technicalEvidence.fcEscConnector;
+  const evidenceMatchesSelection =
+    verifiedConnection?.flightControllerId === flightController.id &&
+    verifiedConnection.escId === esc.id;
   const allDirectConnectionEvidenceVerified =
+    evidenceMatchesSelection &&
     verifiedConnection?.connectorFamilyVerified === true &&
     verifiedConnection.pinoutVerified === true &&
     verifiedConnection.wireOrderVerified === true &&
@@ -526,6 +545,8 @@ function fcEscConnectorRule(
       evidence: evidence([
         ["flightController.connector", fcConnector],
         ["esc.escInput", escConnector],
+        ["evidence.flightControllerId", verifiedConnection.flightControllerId],
+        ["evidence.escId", verifiedConnection.escId],
         ["directConnectionCompatibility", verifiedConnection.directConnectionCompatibility],
         ["connectorFamilyVerified", true],
         ["pinoutVerified", true],
@@ -586,6 +607,9 @@ function fcEscConnectorRule(
     ]),
     missingFields: [],
     unverifiedFields: [
+      ...(evidenceMatchesSelection
+        ? []
+        : ["fcEscConnector.selectionBinding"]),
       ...(verifiedConnection?.connectorFamilyVerified === true
         ? []
         : ["fcEscConnector.connectorFamily"]),
@@ -656,12 +680,15 @@ function motorEscCurrentRule(
     throw new Error("Motor/ESC current rule reached comparison without required values.");
   }
 
+  const evidenceMatchesSelection =
+    ratingEvidence?.motorId === motors.id && ratingEvidence.escId === esc.id;
   const motorRatingType = ratingEvidence?.motorRatingType;
   const escRatingType = ratingEvidence?.escRatingType;
   const ratingTypesVerified = ratingEvidence?.ratingTypesVerified === true;
   const operatingConditionsVerified = ratingEvidence?.motorOperatingConditionsVerified === true;
   const ratingTypesComparable = motorRatingType === "continuous" && escRatingType === "continuous";
   const canCompareAsVerified =
+    evidenceMatchesSelection &&
     motorCurrentVerified &&
     escCurrentVerified &&
     ratingTypesVerified &&
@@ -684,6 +711,8 @@ function motorEscCurrentRule(
       evidence: evidence([
         ["motors.current", motorCurrent],
         ["esc.escAmps", escAmps],
+        ["evidence.motorId", ratingEvidence?.motorId],
+        ["evidence.escId", ratingEvidence?.escId],
         ["motorRatingType", motorRatingType],
         ["escRatingType", escRatingType],
         ["ratingTypesVerified", true],
@@ -724,6 +753,8 @@ function motorEscCurrentRule(
     evidence: evidence([
       ["motors.current", motorCurrent],
       ["esc.escAmps", escAmps],
+      ["evidence.motorId", ratingEvidence?.motorId],
+      ["evidence.escId", ratingEvidence?.escId],
       ["motorRatingType", motorRatingType],
       ["escRatingType", escRatingType],
       ["ratingTypesVerified", ratingEvidence?.ratingTypesVerified],
@@ -731,6 +762,9 @@ function motorEscCurrentRule(
     ]),
     missingFields: [],
     unverifiedFields: [
+      ...(evidenceMatchesSelection
+        ? []
+        : ["motorEscCurrent.selectionBinding"]),
       ...(motorCurrentVerified ? [] : ["motors.current"]),
       ...(escCurrentVerified ? [] : ["esc.escAmps"]),
       ...(ratingTypesVerified
