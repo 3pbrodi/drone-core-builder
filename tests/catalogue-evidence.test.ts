@@ -96,9 +96,7 @@ describe("catalogue evidence resolver", () => {
       { motors: motors5, propellers: props5 },
       snapshot,
     );
-    expect(
-      resolved.technicalEvidence.motorPropeller?.manufacturerCompatibility,
-    ).toBe("compatible");
+    expect(resolved.technicalEvidence.motorPropeller?.manufacturerCompatibility).toBe("compatible");
 
     const wrongMotor = resolveCompatibilityEvidence(
       { motors: motors3, propellers: props5 },
@@ -125,10 +123,7 @@ describe("catalogue evidence resolver", () => {
       operatingConditions: { batteryCells: 6, propeller: props5.id },
     });
 
-    const resolved = resolveCompatibilityEvidence(
-      { motors: motors5, esc: esc55 },
-      snapshot,
-    );
+    const resolved = resolveCompatibilityEvidence({ motors: motors5, esc: esc55 }, snapshot);
     expect(resolved.verification.motors).toContain("current");
     expect(resolved.verification.esc).toContain("escAmps");
     expect(resolved.technicalEvidence.motorEscCurrent).toBeDefined();
@@ -137,10 +132,7 @@ describe("catalogue evidence resolver", () => {
       ...snapshot.motorEscCurrent[0]!,
       escCurrentAmps: esc55.escAmps! + 1,
     };
-    const mismatched = resolveCompatibilityEvidence(
-      { motors: motors5, esc: esc55 },
-      snapshot,
-    );
+    const mismatched = resolveCompatibilityEvidence({ motors: motors5, esc: esc55 }, snapshot);
     expect(mismatched.technicalEvidence.motorEscCurrent).toBeUndefined();
   });
 
@@ -162,13 +154,10 @@ describe("catalogue evidence resolver", () => {
       verifiedAt: "2026-09-28T00:00:00Z",
     });
 
-    const resolved = resolveCompatibilityEvidence(
-      { flightController: fcF7, esc: esc55 },
-      snapshot,
+    const resolved = resolveCompatibilityEvidence({ flightController: fcF7, esc: esc55 }, snapshot);
+    expect(resolved.technicalEvidence.fcEscConnector?.directConnectionCompatibility).toBe(
+      "compatible",
     );
-    expect(
-      resolved.technicalEvidence.fcEscConnector?.directConnectionCompatibility,
-    ).toBe("compatible");
 
     snapshot.fcEscConnection[0] = {
       ...snapshot.fcEscConnection[0]!,
@@ -193,10 +182,7 @@ describe("catalogue evidence resolver", () => {
       receiver: "receiver",
     });
 
-    const resolved = resolveCompatibilityEvidence(
-      selected,
-      emptyCatalogueEvidenceSnapshot(),
-    );
+    const resolved = resolveCompatibilityEvidence(selected, emptyCatalogueEvidenceSnapshot());
     expect(resolved.verification).toEqual({});
     expect(resolved.technicalEvidence).toEqual({});
   });

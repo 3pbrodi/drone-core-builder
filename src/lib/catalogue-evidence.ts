@@ -6,18 +6,10 @@ import type {
   SelectedProducts,
 } from "./build-calculations";
 
-export type EvidenceVerificationStatus =
-  | "unverified"
-  | "pending_review"
-  | "verified"
-  | "rejected";
+export type EvidenceVerificationStatus = "unverified" | "pending_review" | "verified" | "rejected";
 
 export type CatalogueEvidenceAuthority =
-  | "manufacturer"
-  | "official_documentation"
-  | "retailer"
-  | "community"
-  | "internal_demo";
+  "manufacturer" | "official_documentation" | "retailer" | "community" | "internal_demo";
 
 export type CatalogueFieldEvidence = {
   productId: string;
@@ -91,10 +83,7 @@ export type ResolvedCompatibilityEvidence = {
   technicalEvidence: CompatibilityTechnicalEvidence;
 };
 
-function isVerifiedFieldEvidence(
-  evidence: CatalogueFieldEvidence,
-  product: Product,
-) {
+function isVerifiedFieldEvidence(evidence: CatalogueFieldEvidence, product: Product) {
   return (
     evidence.productId === product.id &&
     evidence.verificationStatus === "verified" &&
@@ -147,8 +136,7 @@ export function resolveCompatibilityEvidence(
         item.retrievedAt != null &&
         item.verifiedAt != null &&
         Object.keys(item.operatingConditions).length > 0 &&
-        (item.authority === "manufacturer" ||
-          item.authority === "official_documentation"),
+        (item.authority === "manufacturer" || item.authority === "official_documentation"),
     );
 
     if (pair) {
@@ -208,8 +196,7 @@ export function resolveCompatibilityEvidence(
         item.voltageCompatibilityVerified &&
         item.retrievedAt != null &&
         item.verifiedAt != null &&
-        (item.authority === "manufacturer" ||
-          item.authority === "official_documentation"),
+        (item.authority === "manufacturer" || item.authority === "official_documentation"),
     );
 
     if (connection) {

@@ -142,19 +142,17 @@ export async function fetchCatalogueEvidenceSnapshot(
       })}`,
     );
 
-    snapshot.motorPropeller = rows.map(
-      (row): CatalogueMotorPropellerEvidence => ({
-        motorId: row.motor_product_id,
-        propellerId: row.propeller_product_id,
-        result: row.result,
-        authority: row.authority,
-        exactProductsVerified: row.exact_products_verified,
-        verificationStatus: row.verification_status,
-        retrievedAt: row.retrieved_at,
-        verifiedAt: row.verified_at,
-        operatingConditions: row.operating_conditions,
-      }),
-    );
+    snapshot.motorPropeller = rows.map((row): CatalogueMotorPropellerEvidence => ({
+      motorId: row.motor_product_id,
+      propellerId: row.propeller_product_id,
+      result: row.result,
+      authority: row.authority,
+      exactProductsVerified: row.exact_products_verified,
+      verificationStatus: row.verification_status,
+      retrievedAt: row.retrieved_at,
+      verifiedAt: row.verified_at,
+      operatingConditions: row.operating_conditions,
+    }));
   }
 
   if (motors && esc) {
@@ -168,24 +166,21 @@ export async function fetchCatalogueEvidenceSnapshot(
       })}`,
     );
 
-    snapshot.motorEscCurrent = rows.map(
-      (row): CatalogueMotorEscCurrentEvidence => ({
-        motorId: row.motor_product_id,
-        escId: row.esc_product_id,
-        motorCurrentAmps: row.motor_current_amps,
-        motorRatingType: row.motor_rating_type,
-        escCurrentAmps: row.esc_current_amps,
-        escRatingType: row.esc_rating_type,
-        exactProductsVerified: row.exact_products_verified,
-        ratingTypesVerified: row.rating_types_verified,
-        motorOperatingConditionsVerified:
-          row.motor_operating_conditions_verified,
-        verificationStatus: row.verification_status,
-        retrievedAt: row.retrieved_at,
-        verifiedAt: row.verified_at,
-        operatingConditions: row.operating_conditions,
-      }),
-    );
+    snapshot.motorEscCurrent = rows.map((row): CatalogueMotorEscCurrentEvidence => ({
+      motorId: row.motor_product_id,
+      escId: row.esc_product_id,
+      motorCurrentAmps: row.motor_current_amps,
+      motorRatingType: row.motor_rating_type,
+      escCurrentAmps: row.esc_current_amps,
+      escRatingType: row.esc_rating_type,
+      exactProductsVerified: row.exact_products_verified,
+      ratingTypesVerified: row.rating_types_verified,
+      motorOperatingConditionsVerified: row.motor_operating_conditions_verified,
+      verificationStatus: row.verification_status,
+      retrievedAt: row.retrieved_at,
+      verifiedAt: row.verified_at,
+      operatingConditions: row.operating_conditions,
+    }));
   }
 
   if (flightController && esc) {
@@ -199,23 +194,21 @@ export async function fetchCatalogueEvidenceSnapshot(
       })}`,
     );
 
-    snapshot.fcEscConnection = rows.map(
-      (row): CatalogueFcEscConnectionEvidence => ({
-        flightControllerId: row.flight_controller_product_id,
-        escId: row.esc_product_id,
-        result: row.result,
-        authority: row.authority,
-        exactProductsVerified: row.exact_products_verified,
-        connectorFamilyVerified: row.connector_family_verified,
-        pinoutVerified: row.pinout_verified,
-        wireOrderVerified: row.wire_order_verified,
-        signalCompatibilityVerified: row.signal_compatibility_verified,
-        voltageCompatibilityVerified: row.voltage_compatibility_verified,
-        verificationStatus: row.verification_status,
-        retrievedAt: row.retrieved_at,
-        verifiedAt: row.verified_at,
-      }),
-    );
+    snapshot.fcEscConnection = rows.map((row): CatalogueFcEscConnectionEvidence => ({
+      flightControllerId: row.flight_controller_product_id,
+      escId: row.esc_product_id,
+      result: row.result,
+      authority: row.authority,
+      exactProductsVerified: row.exact_products_verified,
+      connectorFamilyVerified: row.connector_family_verified,
+      pinoutVerified: row.pinout_verified,
+      wireOrderVerified: row.wire_order_verified,
+      signalCompatibilityVerified: row.signal_compatibility_verified,
+      voltageCompatibilityVerified: row.voltage_compatibility_verified,
+      verificationStatus: row.verification_status,
+      retrievedAt: row.retrieved_at,
+      verifiedAt: row.verified_at,
+    }));
   }
 
   return snapshot;
