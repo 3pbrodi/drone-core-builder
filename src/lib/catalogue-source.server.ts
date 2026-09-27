@@ -3,13 +3,7 @@ import "@tanstack/react-start/server-only";
 import { supabaseRestRequest } from "./supabase-rest.server";
 
 export type CatalogueSourceKind =
-  | "manual"
-  | "csv"
-  | "xml"
-  | "api"
-  | "shopify"
-  | "manufacturer"
-  | "retailer";
+  "manual" | "csv" | "xml" | "api" | "shopify" | "manufacturer" | "retailer";
 
 type IdRow = { id: string };
 
@@ -46,9 +40,7 @@ export async function findOrCreateCatalogueSource(
 
   const createdSource = created[0];
   if (!createdSource) {
-    throw new Error(
-      "Supabase did not return the newly created catalogue source.",
-    );
+    throw new Error("Supabase did not return the newly created catalogue source.");
   }
 
   return createdSource.id;

@@ -1,10 +1,7 @@
 import { z } from "zod";
 
 import { parseCsvRecords } from "./catalogue-import";
-import type {
-  CatalogueEvidenceAuthority,
-  EvidenceVerificationStatus,
-} from "./catalogue-evidence";
+import type { CatalogueEvidenceAuthority, EvidenceVerificationStatus } from "./catalogue-evidence";
 import type { CatalogueSourceKind } from "./catalogue-source.server";
 
 const stableProductId = z
@@ -15,8 +12,7 @@ const stableProductId = z
   .regex(/^[A-Za-z0-9][A-Za-z0-9._:-]*$/);
 
 const optionalText = z.preprocess(
-  (value) =>
-    typeof value === "string" && value.trim() === "" ? undefined : value,
+  (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
   z.string().trim().optional(),
 );
 
@@ -173,15 +169,10 @@ function evidenceReviewIssues(row: CatalogueSpecEvidenceImportRow) {
   const issues: string[] = [];
 
   if (!row.exactModelAssociation) {
-    issues.push(
-      "The source is not confirmed to describe the exact product/model.",
-    );
+    issues.push("The source is not confirmed to describe the exact product/model.");
   }
 
-  if (
-    row.authority !== "manufacturer" &&
-    row.authority !== "official_documentation"
-  ) {
+  if (row.authority !== "manufacturer" && row.authority !== "official_documentation") {
     issues.push(
       "This source is not manufacturer or official documentation and requires technical review.",
     );
@@ -207,21 +198,15 @@ export function validateCatalogueSpecEvidenceCsv(
     index === 0 ? header.replace(/^\uFEFF/, "").trim() : header.trim(),
   );
 
-  const duplicates = headers.filter(
-    (header, index) => headers.indexOf(header) !== index,
-  );
+  const duplicates = headers.filter((header, index) => headers.indexOf(header) !== index);
   if (duplicates.length > 0) {
-    throw new Error(
-      `CSV contains duplicate headers: ${[...new Set(duplicates)].join(", ")}`,
-    );
+    throw new Error(`CSV contains duplicate headers: ${[...new Set(duplicates)].join(", ")}`);
   }
 
   const supported = new Set<string>(catalogueSpecEvidenceCsvColumns);
   const unknownHeaders = headers.filter((header) => !supported.has(header));
   if (unknownHeaders.length > 0) {
-    throw new Error(
-      `CSV contains unsupported columns: ${unknownHeaders.join(", ")}`,
-    );
+    throw new Error(`CSV contains unsupported columns: ${unknownHeaders.join(", ")}`);
   }
 
   for (const required of catalogueSpecEvidenceCsvColumns) {
@@ -236,17 +221,13 @@ export function validateCatalogueSpecEvidenceCsv(
 
   records.slice(1).forEach((cells, recordIndex) => {
     const rowNumber = recordIndex + 2;
-    const raw = Object.fromEntries(
-      headers.map((header, index) => [header, cells[index] ?? ""]),
-    );
+    const raw = Object.fromEntries(headers.map((header, index) => [header, cells[index] ?? ""]));
 
     if (cells.length !== headers.length) {
       invalidRows.push({
         rowNumber,
         raw,
-        errors: [
-          `Expected ${headers.length} columns but found ${cells.length}.`,
-        ],
+        errors: [`Expected ${headers.length} columns but found ${cells.length}.`],
       });
       return;
     }
@@ -273,18 +254,13 @@ export function validateCatalogueSpecEvidenceCsv(
       invalidRows.push({
         rowNumber,
         raw,
-        errors: [
-          "Duplicate evidence row for the same product, field, and source URL.",
-        ],
+        errors: ["Duplicate evidence row for the same product, field, and source URL."],
       });
       return;
     }
 
     try {
-      const typedValue = parseTypedValue(
-        parsed.data.value_type,
-        parsed.data.value,
-      );
+      const typedValue = parseTypedValue(parsed.data.value_type, parsed.data.value);
       const conditions = parseConditions(parsed.data.conditions_json);
       const expectedUnit = expectedUnits[parsed.data.field_key];
 
@@ -304,9 +280,7 @@ export function validateCatalogueSpecEvidenceCsv(
         fieldKey: parsed.data.field_key,
         value: typedValue,
         ...(parsed.data.unit ? { unit: parsed.data.unit } : {}),
-        ...(parsed.data.value_semantics
-          ? { valueSemantics: parsed.data.value_semantics }
-          : {}),
+        ...(parsed.data.value_semantics ? { valueSemantics: parsed.data.value_semantics } : {}),
         sourceName: parsed.data.source_name,
         sourceKind: parsed.data.source_kind,
         sourceUrl: parsed.data.source_url,
@@ -329,9 +303,7 @@ export function validateCatalogueSpecEvidenceCsv(
       invalidRows.push({
         rowNumber,
         raw,
-        errors: [
-          error instanceof Error ? error.message : "Invalid evidence row.",
-        ],
+        errors: [error instanceof Error ? error.message : "Invalid evidence row."],
       });
     }
   });

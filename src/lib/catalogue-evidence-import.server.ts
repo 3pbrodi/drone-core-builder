@@ -15,30 +15,25 @@ export async function stageCatalogueSpecEvidenceCsv({
   fileName,
 }: StageCatalogueSpecEvidenceCsvInput) {
   const validation = validateCatalogueSpecEvidenceCsv(csvText);
-  const batchStatus =
-    validation.validRows.length > 0 ? "needs_review" : "rejected";
+  const batchStatus = validation.validRows.length > 0 ? "needs_review" : "rejected";
 
-  const batches = await supabaseRestRequest<ImportBatchRow[]>(
-    "catalogue_import_batches",
-    {
-      method: "POST",
-      headers: { Prefer: "return=representation" },
-      body: JSON.stringify([
-        {
-          source_id: null,
-          file_name: fileName,
-          import_kind: "spec_evidence",
-          status: batchStatus,
-          total_rows:
-            validation.validRows.length + validation.invalidRows.length,
-          valid_rows: validation.validRows.length,
-          invalid_rows: validation.invalidRows.length,
-          notes:
-            "Specification evidence is staged only. Canonical verification requires explicit review and promotion.",
-        },
-      ]),
-    },
-  );
+  const batches = await supabaseRestRequest<ImportBatchRow[]>("catalogue_import_batches", {
+    method: "POST",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify([
+      {
+        source_id: null,
+        file_name: fileName,
+        import_kind: "spec_evidence",
+        status: batchStatus,
+        total_rows: validation.validRows.length + validation.invalidRows.length,
+        valid_rows: validation.validRows.length,
+        invalid_rows: validation.invalidRows.length,
+        notes:
+          "Specification evidence is staged only. Canonical verification requires explicit review and promotion.",
+      },
+    ]),
+  });
 
   const batch = batches[0];
   if (!batch) {

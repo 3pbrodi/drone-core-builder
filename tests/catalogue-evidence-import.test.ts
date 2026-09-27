@@ -66,26 +66,20 @@ function evidenceRow(overrides: Partial<Record<string, string>> = {}) {
 
 describe("Phase C source-backed evidence import", () => {
   test("reviewed evidence dataset parses without structural errors and never imports as verified", async () => {
-    const csv = await Bun.file(
-      "docs/data/catalogue-phase-c-reviewed-evidence.csv",
-    ).text();
+    const csv = await Bun.file("docs/data/catalogue-phase-c-reviewed-evidence.csv").text();
     const result = validateCatalogueSpecEvidenceCsv(csv);
 
     expect(result.invalidRows).toHaveLength(0);
     expect(result.validRows).toHaveLength(7);
     for (const row of result.validRows) {
       expect(row.data.verificationStatus).toBe("pending_review");
-      expect(row.reviewIssues.some((issue) => issue.includes("staged only"))).toBe(
-        true,
-      );
+      expect(row.reviewIssues.some((issue) => issue.includes("staged only"))).toBe(true);
     }
   });
 
   test("duplicate evidence for the same product, field, and source URL is rejected", () => {
     const row = evidenceRow();
-    const result = validateCatalogueSpecEvidenceCsv(
-      [evidenceHeader, row, row].join("\n"),
-    );
+    const result = validateCatalogueSpecEvidenceCsv([evidenceHeader, row, row].join("\n"));
 
     expect(result.validRows).toHaveLength(1);
     expect(result.invalidRows).toHaveLength(1);
@@ -158,10 +152,9 @@ describe("Phase C source-backed evidence import", () => {
   });
 
   test("product CSV rejects malformed source URLs", () => {
-    const csv = [
-      "id,category,display_name,source_url",
-      "bad-url,frame,Bad URL,not-a-url",
-    ].join("\n");
+    const csv = ["id,category,display_name,source_url", "bad-url,frame,Bad URL,not-a-url"].join(
+      "\n",
+    );
 
     const result = validateCatalogueProductCsv(csv);
     expect(result.validRows).toHaveLength(0);

@@ -1,9 +1,6 @@
 import "@tanstack/react-start/server-only";
 
-import {
-  catalogueSourceChanged,
-  hashCatalogueSourceContent,
-} from "./catalogue-source-snapshot";
+import { catalogueSourceChanged, hashCatalogueSourceContent } from "./catalogue-source-snapshot";
 import { supabaseRestRequest } from "./supabase-rest.server";
 
 type SourceSnapshotInput = {
@@ -44,9 +41,7 @@ export async function recordCatalogueSourceSnapshot({
   };
 
   filters["external_product_id"] =
-    externalProductId == null
-      ? "is.null"
-      : `eq.${externalProductId}`;
+    externalProductId == null ? "is.null" : `eq.${externalProductId}`;
 
   const previousRows = await supabaseRestRequest<SnapshotRow[]>(
     `catalogue_source_snapshots?${query(filters)}`,
@@ -62,23 +57,20 @@ export async function recordCatalogueSourceSnapshot({
     };
   }
 
-  const created = await supabaseRestRequest<SnapshotRow[]>(
-    "catalogue_source_snapshots",
-    {
-      method: "POST",
-      headers: { Prefer: "return=representation" },
-      body: JSON.stringify([
-        {
-          source_id: sourceId,
-          external_product_id: externalProductId,
-          source_url: sourceUrl,
-          content_hash: contentHash,
-          retrieved_at: retrievedAt,
-          metadata,
-        },
-      ]),
-    },
-  );
+  const created = await supabaseRestRequest<SnapshotRow[]>("catalogue_source_snapshots", {
+    method: "POST",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify([
+      {
+        source_id: sourceId,
+        external_product_id: externalProductId,
+        source_url: sourceUrl,
+        content_hash: contentHash,
+        retrieved_at: retrievedAt,
+        metadata,
+      },
+    ]),
+  });
 
   const snapshot = created[0];
   if (!snapshot) {
