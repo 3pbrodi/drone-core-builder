@@ -17,6 +17,7 @@ export const categoryNames: Record<Category, string> = {
   frame: "Frame", motors: "Motors", flightController: "Flight Controller", esc: "ESC",
   propellers: "Propellers", battery: "Battery", camera: "Camera", receiver: "Receiver",
 };
+// Static Phase 1 catalogue source. Access products through catalogue-service outside this module.
 // Demo specifications and prices are illustrative, not verified manufacturer listings or live offers.
 export const products: Product[] = [
   { id:"frame5", category:"frame", name:"iFlight Nazgul Evoque F5", spec:'5” freestyle frame · 16×16 mm motor mount', price:59.90, weight:180, frameInches:5, mount:"16x16" },
@@ -40,7 +41,6 @@ export const products: Product[] = [
   { id:"receiver", category:"receiver", name:"TBS Crossfire Nano RX", spec:"Receiver · 2.4 g", price:49.90, weight:3, image:{src:"https://www.simacfpv.com/img/tbs-crossfire-nano-rx.jpg",alt:"TBS Crossfire Nano RX receiver",sourceUrl:"https://www.team-blacksheep.com/products/prod:crossfire_nano_rx"} },
   { id:"receiver2", category:"receiver", name:"Demo ELRS Receiver", spec:"2.4 GHz · radio receiver", price:24.90, weight:2 },
 ];
-export const byId = Object.fromEntries(products.map((p) => [p.id, p])) as Record<string, Product>;
 export const presets: Record<string, { name: string; selection: BuildSelection }> = {
   cinematic: { name:"Cinematic 4K Cruiser", selection:{frame:"frame7", motors:"motors7", flightController:"fcF7", esc:"esc55", propellers:"props7", battery:"battery6long", camera:"camera4k", receiver:"receiver"}},
   racer: { name:"Backyard Racer", selection:{frame:"frame5", motors:"motors5", flightController:"fcF7", esc:"esc55", propellers:"props5", battery:"battery6", camera:"cameraFpv", receiver:"receiver"}},
