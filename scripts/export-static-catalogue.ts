@@ -8,12 +8,6 @@ function csvCell(value: unknown) {
 }
 
 const rows = products.map((product) => {
-  const motorSize = product.motorSize;
-  const motorStatorWidth =
-    motorSize !== undefined ? Math.floor(motorSize / 100) : undefined;
-  const motorStatorHeight =
-    motorSize !== undefined ? motorSize % 100 : undefined;
-
   const row: Record<string, unknown> = {
     id: product.id,
     category: product.category,
@@ -29,8 +23,8 @@ const rows = products.map((product) => {
     motor_mount_pattern: product.mount,
     propeller_diameter_inches: product.propInches,
     motor_size_code: product.motorSize,
-    motor_stator_width_mm: motorStatorWidth,
-    motor_stator_height_mm: motorStatorHeight,
+    motor_stator_width_mm: "",
+    motor_stator_height_mm: "",
     motor_kv: "",
     min_battery_cells: product.minVoltage,
     max_battery_cells: product.maxVoltage,
