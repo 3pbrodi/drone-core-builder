@@ -19,13 +19,17 @@ describe("reviewed static compatibility evidence", () => {
 
     const evidence = resolveStaticCompatibilityEvidence(selected);
 
-    expect(evidence.verification.frame).toContain("mount");
+    expect(evidence.verification.frame).toBeUndefined();
     expect(evidence.verification.esc).toContain("escAmps");
     expect(evidence.verification.esc).not.toContain("minVoltage");
     expect(evidence.verification.esc).toContain("maxVoltage");
     expect(evidence.verification.camera).toContain("weight");
     expect(evidence.verification.camera).toContain("video");
-    expect(evidence.verification.receiver).toBeUndefined();
+    expect(evidence.verification.receiver).toContain("receiverProtocol");
+    expect(evidence.verification.receiver).toContain("receiverSignalInterface");
+    expect(evidence.verification.receiver).toContain("receiverFrequencyMinMhz");
+    expect(evidence.verification.receiver).toContain("receiverFrequencyMaxMhz");
+    expect(evidence.verification.receiver).not.toContain("weight");
     expect(evidence.verification.motors).toBeUndefined();
     expect(evidence.technicalEvidence).toEqual({});
   });
