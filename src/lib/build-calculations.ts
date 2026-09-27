@@ -1,8 +1,9 @@
-import { byId, categories, type BuildSelection, type Category, type Product } from "./build-data";
+import { categories, type Category, type Product } from "./build-data";
 
 export type Check = { status: "compatible" | "incompatible" | "unknown"; messages: string[] };
-export function evaluate(selection: BuildSelection) {
-  const selected = Object.fromEntries(categories.map((c) => [c, byId[selection[c] ?? ""]])) as Partial<Record<Category, Product>>;
+export type SelectedProducts = Partial<Record<Category, Product>>;
+
+export function evaluate(selected: SelectedProducts) {
   const frame = selected.frame, motors = selected.motors, props = selected.propellers, battery = selected.battery;
   const fc = selected.flightController, esc = selected.esc;
   const warnings: string[] = [];
@@ -33,7 +34,12 @@ export function evaluate(selection: BuildSelection) {
   const status: Check["status"] = warnings.length ? "incompatible" : !complete || missing.length ? "unknown" : "compatible";
   return { selected, count, price, weight, speed, score, status, warnings, missing, complete };
 }
-export function candidateCheck(selection: BuildSelection, category: Category, id: string) {
-  const result = evaluate({ ...selection, [category]: id });
+
+export function candidateCheck(
+  selected: SelectedProducts,
+  category: Category,
+  candidate: Product,
+) {
+  const result = evaluate({ ...selected, [category]: candidate });
   return { status: result.status, messages: [...result.warnings, ...result.missing] };
 }
