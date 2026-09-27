@@ -1,0 +1,275 @@
+name: Verify Catalogue Phase B
+
+permissions:
+  contents: write
+
+on:
+  push:
+    branches:
+      - feature/shared-drone-configurator
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: dronecores_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d dronecores_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Format Phase B files
+        run: >-
+          bunx prettier --write
+          src/lib/catalogue-evidence.ts
+          src/lib/catalogue-evidence.server.ts
+          tests/catalogue-evidence.test.ts
+
+      - name: Evidence and compatibility tests
+        run: >-
+          bun test
+          tests/catalogue-quality.test.ts
+          tests/catalogue-evidence.test.ts
+          tests/build-calculations.test.ts
+
+      - name: Targeted lint
+        run: >-
+          bunx eslint
+          src/lib/catalogue-quality.ts
+          src/lib/catalogue-evidence.ts
+          src/lib/catalogue-evidence.server.ts
+          tests/catalogue-quality.test.ts
+          tests/catalogue-evidence.test.ts
+          tests/build-calculations.test.ts
+
+      - name: Type check
+        run: bunx tsc --noEmit
+
+      - name: Production build
+        run: bun run build
+
+      - name: Validate Phase A and B migrations on local PostgreSQL
+        env:
+          PGPASSWORD: postgres
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+          psql -h 127.0.0.1 -U postgres -d dronecores_test -v ON_ERROR_STOP=1 <<'SQL'
+          create role anon nologin;
+          create role authenticated nologin;
+          create role service_role nologin bypassrls;
+          SQL
+
+          psql -h 127.0.0.1 -U postgres -d dronecores_test -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/20260927190000_catalogue_phase2.sql
+          psql -h 127.0.0.1 -U postgres -d dronecores_test -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/20260928210000_catalogue_evidence_phase_b.sql
+
+          psql -h 127.0.0.1 -U postgres -d dronecores_test -v ON_ERROR_STOP=1 <<'SQL'
+          insert into public.catalogue_sources (
+            id, name, kind, verification_status
+          ) values (
+            '00000000-0000-0000-0000-000000000001',
+            'Phase B test manufacturer',
+            'manufacturer',
+            'verified'
+          );
+
+          insert into public.catalogue_products (
+            id,
+            model,
+            display_name,
+            category,
+            identity_status,
+            verification_status,
+            selectable
+          ) values
+            (
+              'test-motor',
+              'Test Motor',
+              'Test Motor',
+              'motors',
+              'verified',
+              'verified',
+              false
+            ),
+            (
+              'test-prop',
+              'Test Prop',
+              'Test Prop',
+              'propellers',
+              'verified',
+              'verified',
+              false
+            ),
+            (
+              'test-esc',
+              'Test ESC',
+              'Test ESC',
+              'esc',
+              'verified',
+              'verified',
+              false
+            );
+
+          update public.catalogue_products
+          set selectable = true
+          where id = 'test-motor';
+
+          do $$
+          begin
+            begin
+              insert into public.catalogue_products (
+                id,
+                model,
+                display_name,
+                category,
+                verification_status,
+                selectable
+              ) values (
+                'invalid-selectable',
+                'Invalid',
+                'Invalid',
+                'frame',
+                'verified',
+                true
+              );
+              raise exception 'expected selectable identity constraint to fail';
+            exception
+              when check_violation then null;
+            end;
+          end
+          $$;
+
+          do $$
+          begin
+            begin
+              insert into public.catalogue_spec_evidence (
+                product_id,
+                field_key,
+                value,
+                source_id,
+                authority,
+                exact_model_association,
+                verification_status,
+                retrieved_at,
+                verified_at
+              ) values (
+                'test-motor',
+                'current',
+                '30',
+                '00000000-0000-0000-0000-000000000001',
+                'manufacturer',
+                false,
+                'verified',
+                now(),
+                now()
+              );
+              raise exception 'expected exact-model evidence constraint to fail';
+            exception
+              when check_violation then null;
+            end;
+          end
+          $$;
+
+          do $$
+          begin
+            begin
+              insert into public.catalogue_motor_propeller_evidence (
+                motor_product_id,
+                propeller_product_id,
+                result,
+                source_id,
+                authority,
+                exact_products_verified,
+                operating_conditions,
+                verification_status,
+                retrieved_at,
+                verified_at
+              ) values (
+                'test-motor',
+                'test-prop',
+                'compatible',
+                '00000000-0000-0000-0000-000000000001',
+                'manufacturer',
+                true,
+                '{}'::jsonb,
+                'verified',
+                now(),
+                now()
+              );
+              raise exception 'expected operating-condition constraint to fail';
+            exception
+              when check_violation then null;
+            end;
+          end
+          $$;
+
+          insert into public.catalogue_motor_esc_current_evidence (
+            motor_product_id,
+            esc_product_id,
+            motor_current_amps,
+            motor_rating_type,
+            esc_current_amps,
+            esc_rating_type,
+            motor_current_source_id,
+            esc_current_source_id,
+            operating_conditions_source_id,
+            exact_products_verified,
+            rating_types_verified,
+            motor_operating_conditions_verified,
+            operating_conditions,
+            verification_status,
+            retrieved_at,
+            verified_at
+          ) values (
+            'test-motor',
+            'test-esc',
+            30,
+            'continuous',
+            55,
+            'continuous',
+            '00000000-0000-0000-0000-000000000001',
+            '00000000-0000-0000-0000-000000000001',
+            '00000000-0000-0000-0000-000000000001',
+            true,
+            true,
+            true,
+            '{"battery_cells":6,"propeller":"test-prop"}'::jsonb,
+            'verified',
+            now(),
+            now()
+          );
+
+          select count(*) from public.catalogue_spec_evidence;
+          select count(*) from public.catalogue_motor_esc_current_evidence;
+          SQL
+
+      - name: Commit targeted formatting
+        if: success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            src/lib/catalogue-evidence.ts \
+            src/lib/catalogue-evidence.server.ts \
+            tests/catalogue-evidence.test.ts
+          if ! git diff --cached --quiet; then
+            git commit -m "Format Phase B catalogue files [skip ci]"
+            git push origin HEAD:feature/shared-drone-configurator
+          fi
