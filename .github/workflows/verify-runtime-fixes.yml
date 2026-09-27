@@ -27,11 +27,11 @@ jobs:
           npm install --no-save @playwright/test@1.55.0
           npx playwright install --with-deps chromium
 
-      - name: Start preview server
+      - name: Start development server
         run: |
-          bun run preview --host 0.0.0.0 --port 4173 > /tmp/dronecores-vite.log 2>&1 &
+          bun run dev --host 0.0.0.0 > /tmp/dronecores-vite.log 2>&1 &
           for i in {1..40}; do
-            if curl -fsS http://127.0.0.1:4173/ >/dev/null; then exit 0; fi
+            if curl -fsS http://127.0.0.1:8080/ >/dev/null; then exit 0; fi
             sleep 2
           done
           cat /tmp/dronecores-vite.log
@@ -46,7 +46,7 @@ jobs:
           test("custom build survives first component selection", async ({ page }) => {
             const errors: string[] = [];
             page.on("pageerror", error => errors.push(error.message));
-            await page.goto("http://127.0.0.1:4173/create-custom-build");
+            await page.goto("http://127.0.0.1:8080/create-custom-build");
             await expect(page.getByRole("heading", { name: "Custom Build" })).toBeVisible();
             await page.getByRole("button", { name: /Select Component/ }).first().click();
             await expect(page.getByRole("dialog")).toBeVisible();
@@ -59,7 +59,7 @@ jobs:
           test("template build loads shared configurator", async ({ page }) => {
             const errors: string[] = [];
             page.on("pageerror", error => errors.push(error.message));
-            await page.goto("http://127.0.0.1:4173/create-custom-build?source=template&template=freestyle");
+            await page.goto("http://127.0.0.1:8080/create-custom-build?source=template&template=freestyle");
             await expect(page.getByText("Template", { exact: true })).toBeVisible();
             await expect(page.getByText("FPV Freestyle Rig", { exact: true })).toBeVisible();
             await page.waitForTimeout(1200);
@@ -69,7 +69,7 @@ jobs:
           test("AI questionnaire hands off without crashing", async ({ page }) => {
             const errors: string[] = [];
             page.on("pageerror", error => errors.push(error.message));
-            await page.goto("http://127.0.0.1:4173/ai-build");
+            await page.goto("http://127.0.0.1:8080/ai-build");
             await page.getByRole("button", { name: "Skip" }).click();
             await expect(page.getByRole("heading", { name: "What matters most to you?" })).toBeVisible();
             await page.getByRole("button", { name: /Crisp, Stable Camera Footage/ }).click();
