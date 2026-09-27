@@ -70,7 +70,7 @@ describe("Phase C source-backed evidence import", () => {
     const result = validateCatalogueSpecEvidenceCsv(csv);
 
     expect(result.invalidRows).toHaveLength(0);
-    expect(result.validRows).toHaveLength(7);
+    expect(result.validRows).toHaveLength(22);
     for (const row of result.validRows) {
       expect(row.data.verificationStatus).toBe("pending_review");
       expect(row.reviewIssues.some((issue) => issue.includes("staged only"))).toBe(true);
