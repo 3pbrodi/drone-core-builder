@@ -1,0 +1,100 @@
+name: Verify Catalogue Phase 1
+
+on:
+  push:
+    branches:
+      - feature/shared-drone-configurator
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Type check
+        run: bunx tsc --noEmit
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Production build
+        run: bun run build
+
+      - name: Catalogue and compatibility smoke test
+        run: |
+          mkdir -p tests
+          cat > tests/catalogue-phase1.smoke.ts <<'EOF'
+          import { categories, aiPreset, presets } from "../src/lib/build-data";
+          import {
+            normalizeBuildSelection,
+            productCatalogue,
+            resolveBuildSelection,
+          } from "../src/lib/catalogue-service";
+          import { candidateCheck, evaluate } from "../src/lib/build-calculations";
+
+          function assert(condition: unknown, message: string): asserts condition {
+            if (!condition) throw new Error(message);
+          }
+
+          const all = productCatalogue.getAllProducts();
+          assert(all.length > 0, "catalogue should expose products");
+
+          const first = all[0];
+          assert(first, "catalogue should have a first product");
+          assert(productCatalogue.getProductById(first.id)?.id === first.id, "getProductById should resolve exact IDs");
+
+          const firstThree = all.slice(0, 3).map((product) => product.id);
+          const retrieved = productCatalogue.getProductsByIds(firstThree);
+          assert(retrieved.map((product) => product.id).join("|") === firstThree.join("|"), "getProductsByIds should preserve requested order");
+
+          for (const category of categories) {
+            const products = productCatalogue.getProductsByCategory(category);
+            assert(products.length > 0, `category ${category} should have products`);
+            assert(products.every((product) => product.category === category), `category ${category} should only return matching products`);
+          }
+
+          const emptyStats = evaluate(resolveBuildSelection({}));
+          assert(emptyStats.price === 0, "empty Custom Build should still start at zero price");
+          assert(emptyStats.status === "unknown", "empty Custom Build should remain incomplete");
+
+          for (const [key, preset] of Object.entries(presets)) {
+            const normalized = normalizeBuildSelection(preset.selection);
+            assert(
+              JSON.stringify(normalized) === JSON.stringify(preset.selection),
+              `template ${key} should retain all stable product IDs`,
+            );
+            const stats = evaluate(resolveBuildSelection(normalized));
+            assert(stats.complete, `template ${key} should still resolve a complete build`);
+            assert(stats.price > 0, `template ${key} should still calculate a price`);
+          }
+
+          const generated = aiPreset(["footage", "range"], 1200);
+          const normalizedAi = normalizeBuildSelection(generated.selection);
+          assert(
+            JSON.stringify(normalizedAi) === JSON.stringify(generated.selection),
+            "AI seed should retain all stable product IDs",
+          );
+          const aiStats = evaluate(resolveBuildSelection(normalizedAi));
+          assert(aiStats.complete, "AI Build should still resolve a complete selection");
+          assert(aiStats.price > 0, "AI Build should still calculate a price");
+
+          const frame = productCatalogue.getProductsByCategory("frame")[0];
+          assert(frame, "frame candidate should exist");
+          const candidate = candidateCheck(aiStats.selected, "frame", frame);
+          assert(
+            ["compatible", "incompatible", "unknown"].includes(candidate.status),
+            "candidate compatibility should return a valid status",
+          );
+
+          console.log("Catalogue Phase 1 smoke test passed", {
+            products: all.length,
+            templates: Object.keys(presets).length,
+            aiBuild: generated.name,
+          });
+          EOF
+          bun tests/catalogue-phase1.smoke.ts
