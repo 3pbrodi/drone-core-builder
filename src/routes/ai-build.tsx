@@ -40,7 +40,7 @@ const COLOR_OPTIONS: { name: string; hex: string }[] = [
   { name: "Forest Green", hex: "#22C55E" },
 ];
 
-const STEP_LABELS = ["Budget", "Preferred color", "What matters most", "Personalization"];
+const STEP_LABELS = ["Budget", "What matters most", "Preferred color", "Personalization"];
 
 const PRIORITY_OPTIONS: { id: Priority; title: string; description: string }[] = [
   {
@@ -224,57 +224,6 @@ function AiBuildPage() {
           questionCard(
             <>
               <h2 className="mt-3 font-display text-2xl font-semibold text-foreground">
-                What color should your drone be?
-              </h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Pick a shell color — or skip this and decide later.
-              </p>
-              <div
-                className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3"
-                role="radiogroup"
-                aria-label="Preferred color"
-              >
-                {COLOR_OPTIONS.map((option) => {
-                  const selected = color === option.name;
-                  return (
-                    <button
-                      key={option.name}
-                      type="button"
-                      role="radio"
-                      aria-checked={selected}
-                      onClick={() => setColor(option.name)}
-                      className={`flex flex-col items-center gap-2 rounded-2xl border p-3 transition-all active:scale-95 ${
-                        selected
-                          ? "border-primary bg-secondary"
-                          : "border-border hover:border-primary/40"
-                      }`}
-                    >
-                      <span
-                        className="h-9 w-9 rounded-full border border-border shadow-sm"
-                        style={{ backgroundColor: option.hex }}
-                        aria-hidden
-                      />
-                      <span className="text-xs font-medium text-foreground">
-                        {option.name}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-              {navigationRow({
-                onContinue: nextStep,
-                onSkip: () => {
-                  setColor(null);
-                  nextStep();
-                },
-              })}
-            </>,
-          )}
-
-        {step === 2 &&
-          questionCard(
-            <>
-              <h2 className="mt-3 font-display text-2xl font-semibold text-foreground">
                 What matters most to you?
               </h2>
               <p className="mt-1 text-sm text-muted-foreground">
@@ -323,6 +272,57 @@ function AiBuildPage() {
                 onContinue: nextStep,
                 onSkip: () => {
                   setSelectedPriorities([]);
+                  nextStep();
+                },
+              })}
+            </>,
+          )}
+
+        {step === 2 &&
+          questionCard(
+            <>
+              <h2 className="mt-3 font-display text-2xl font-semibold text-foreground">
+                What color should your drone be?
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Pick a shell color — or skip this and decide later.
+              </p>
+              <div
+                className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3"
+                role="radiogroup"
+                aria-label="Preferred color"
+              >
+                {COLOR_OPTIONS.map((option) => {
+                  const selected = color === option.name;
+                  return (
+                    <button
+                      key={option.name}
+                      type="button"
+                      role="radio"
+                      aria-checked={selected}
+                      onClick={() => setColor(option.name)}
+                      className={`flex flex-col items-center gap-2 rounded-2xl border p-3 transition-all active:scale-95 ${
+                        selected
+                          ? "border-primary bg-secondary"
+                          : "border-border hover:border-primary/40"
+                      }`}
+                    >
+                      <span
+                        className="h-9 w-9 rounded-full border border-border shadow-sm"
+                        style={{ backgroundColor: option.hex }}
+                        aria-hidden
+                      />
+                      <span className="text-xs font-medium text-foreground">
+                        {option.name}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              {navigationRow({
+                onContinue: nextStep,
+                onSkip: () => {
+                  setColor(null);
                   nextStep();
                 },
               })}
