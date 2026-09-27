@@ -1,0 +1,170 @@
+name: Verify Image Sizing Polish
+
+on:
+  push:
+    branches:
+      - feature/shared-drone-configurator
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Type check
+        run: bunx tsc --noEmit
+
+      - name: Production build
+        run: bun run build
+
+      - name: Install Playwright
+        run: |
+          npm install --no-save @playwright/test@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Start development server
+        run: |
+          bun run dev --host 0.0.0.0 > /tmp/dronecores-vite.log 2>&1 &
+          for i in {1..40}; do
+            if curl -fsS http://127.0.0.1:8080/ >/dev/null; then exit 0; fi
+            sleep 2
+          done
+          cat /tmp/dronecores-vite.log
+          exit 1
+
+      - name: Responsive image sizing smoke test
+        run: |
+          mkdir -p tests
+          cat > tests/image-sizing.spec.ts <<'EOF'
+          import { test, expect, type Page } from "@playwright/test";
+
+          const viewports = [
+            { name: "tablet portrait", width: 768, height: 1024 },
+            { name: "tablet landscape", width: 1024, height: 768 },
+            { name: "desktop", width: 1440, height: 900 },
+          ];
+
+          async function prepare(page: Page, width: number, height: number) {
+            await page.setViewportSize({ width, height });
+            await page.route(/^https?:\/\/(?!127\.0\.0\.1:8080).+/, async (route) => {
+              if (route.request().resourceType() === "image") {
+                await route.fulfill({
+                  status: 200,
+                  contentType: "image/svg+xml",
+                  body: '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="800"><rect width="800" height="800" fill="transparent"/></svg>',
+                });
+                return;
+              }
+              await route.continue();
+            });
+            await page.goto("http://127.0.0.1:8080/create-custom-build?source=template&template=racer");
+            await expect(page.getByRole("heading", { name: "Components" })).toBeVisible();
+            await page.waitForTimeout(1000);
+          }
+
+          for (const viewport of viewports) {
+            test(viewport.name, async ({ page }) => {
+              await prepare(page, viewport.width, viewport.height);
+
+              const preview = page.locator('section[aria-label="Drone preview"]');
+              const droneImage = preview.locator('img[alt*="illustrative drone reference"]').first();
+              await expect(droneImage).toBeVisible();
+
+              const previewGeometry = await droneImage.evaluate((image) => {
+                const parent = image.parentElement;
+                if (!parent) throw new Error("Drone preview image has no container");
+                const imageRect = image.getBoundingClientRect();
+                const parentRect = parent.getBoundingClientRect();
+                const style = getComputedStyle(image);
+                return {
+                  objectFit: style.objectFit,
+                  widthRatio: imageRect.width / parentRect.width,
+                  heightRatio: imageRect.height / parentRect.height,
+                  centerDeltaX: Math.abs((imageRect.left + imageRect.width / 2) - (parentRect.left + parentRect.width / 2)),
+                  centerDeltaY: Math.abs((imageRect.top + imageRect.height / 2) - (parentRect.top + parentRect.height / 2)),
+                };
+              });
+
+              expect(previewGeometry.objectFit).toBe("contain");
+              expect(previewGeometry.widthRatio).toBeGreaterThan(0.94);
+              expect(previewGeometry.heightRatio).toBeGreaterThan(0.92);
+              expect(previewGeometry.centerDeltaX).toBeLessThan(2);
+              expect(previewGeometry.centerDeltaY).toBeLessThan(2);
+
+              const motorsHeading = page.getByRole("heading", { name: "Motors", exact: true });
+              const motorsRow = motorsHeading.locator("..").locator("..");
+              const productImage = motorsRow.locator("img").first();
+              await expect(productImage).toBeVisible();
+
+              const thumbnailStyle = await productImage.evaluate((image) => {
+                const wrapper = image.parentElement;
+                if (!wrapper) throw new Error("Product image has no sizing wrapper");
+                const wrapperStyle = getComputedStyle(wrapper);
+                const imageStyle = getComputedStyle(image);
+                const rect = wrapper.getBoundingClientRect();
+                return {
+                  backgroundColor: wrapperStyle.backgroundColor,
+                  borderTopWidth: wrapperStyle.borderTopWidth,
+                  borderRadius: wrapperStyle.borderRadius,
+                  objectFit: imageStyle.objectFit,
+                  width: rect.width,
+                  height: rect.height,
+                };
+              });
+
+              expect(thumbnailStyle.backgroundColor).toBe("rgba(0, 0, 0, 0)");
+              expect(thumbnailStyle.borderTopWidth).toBe("0px");
+              expect(thumbnailStyle.borderRadius).toBe("0px");
+              expect(thumbnailStyle.objectFit).toBe("contain");
+              expect(thumbnailStyle.width).toBeGreaterThanOrEqual(68);
+              expect(thumbnailStyle.height).toBeGreaterThanOrEqual(56);
+
+              const layout = await motorsRow.evaluate((row) => {
+                const rect = row.getBoundingClientRect();
+                return {
+                  scrollWidth: row.scrollWidth,
+                  clientWidth: row.clientWidth,
+                  left: rect.left,
+                  right: rect.right,
+                };
+              });
+              expect(layout.scrollWidth).toBeLessThanOrEqual(layout.clientWidth + 1);
+              expect(layout.left).toBeGreaterThanOrEqual(0);
+              expect(layout.right).toBeLessThanOrEqual(viewport.width + 1);
+
+              const imageRect = await productImage.boundingBox();
+              const nameRect = await motorsRow.getByText("T-Motor F60 Pro V 2020", { exact: true }).boundingBox();
+              const priceRect = await motorsRow.getByText("€ 89,90", { exact: true }).boundingBox();
+              const changeRect = await motorsRow.getByRole("button", { name: /Change/ }).boundingBox();
+
+              expect(imageRect).not.toBeNull();
+              expect(nameRect).not.toBeNull();
+              expect(priceRect).not.toBeNull();
+              expect(changeRect).not.toBeNull();
+
+              if (imageRect && nameRect) {
+                expect(imageRect.x + imageRect.width).toBeLessThanOrEqual(nameRect.x + 1);
+              }
+              if (priceRect && changeRect) {
+                const verticalOverlap =
+                  Math.min(priceRect.y + priceRect.height, changeRect.y + changeRect.height) -
+                  Math.max(priceRect.y, changeRect.y);
+                if (verticalOverlap > 0) {
+                  expect(priceRect.x + priceRect.width).toBeLessThanOrEqual(changeRect.x + 1);
+                }
+              }
+
+              const documentOverflow = await page.evaluate(() => ({
+                scrollWidth: document.documentElement.scrollWidth,
+                clientWidth: document.documentElement.clientWidth,
+              }));
+              expect(documentOverflow.scrollWidth).toBeLessThanOrEqual(documentOverflow.clientWidth + 1);
+            });
+          }
+          EOF
+          npx playwright test tests/image-sizing.spec.ts --reporter=line --workers=1
