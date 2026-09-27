@@ -37,7 +37,7 @@ The machine-readable companion is `src/lib/catalogue-quality.ts`.
 | `battery4` | Battery | 4S 850mAh 100C LiPo | Unverified demo | Unverified | Unknown | Missing | Illustrative | Yes |
 | `cameraFpv` | Camera | RunCam Phoenix 2 | Verified | Partially verified | Standalone | Verified exact-model image | Illustrative | No |
 | `camera4k` | Camera | Action Camera 4K Module | Unverified demo | Unverified | Unknown | Missing | Illustrative | Yes |
-| `receiver` | Receiver | TBS Crossfire Nano RX | Verified | Partially verified | Standalone | Verified exact-model image | Illustrative | No |
+| `receiver` | Receiver | TBS Crossfire Nano RX | Verified | **Conflicting weight** | Standalone | Verified exact-model image | Illustrative | Yes |
 | `receiver2` | Receiver | Demo ELRS Receiver 2.4GHz | Unverified demo | Unverified | Unknown | Missing | Illustrative | Yes |
 
 ## Source-backed findings
@@ -132,9 +132,9 @@ The source confirms:
 - CRSF signal format;
 - 868-915 MHz range;
 - 3.3-8.4V input;
-- 0.5 g weight.
+- 0.5 g receiver weight.
 
-The static spec text mentions only 915 MHz, which is incomplete for the manufacturer-documented range. The current live product type has no typed receiver protocol/frequency/voltage fields, so these values remain source-backed review data rather than new compatibility inputs.
+The static record stores `weight: 3` and its spec text says 2.4 g, so the runtime weight is conflicting and is not treated as verified. The static text also mentions only 915 MHz, which is incomplete for the manufacturer-documented range. The current live product type has no typed receiver protocol/frequency/voltage fields, so those source-backed values remain review data rather than compatibility inputs.
 
 ## Products remaining intentionally unverified
 
