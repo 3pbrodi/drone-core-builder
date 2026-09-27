@@ -1,0 +1,4 @@
+- [ ] Build shared Custom/AI/Template configurator with empty Custom start, selection, compatibility, estimates and save.
+- [ ] Add interactive 3D viewer and reference-inspired compact build layout.
+- [ ] Connect template choices and AI questionnaire to shared configurator; update AI question 3 with two-choice limit.
+- [ ] Verify navigation, calculations, controls, desktop and iPad appearance.
