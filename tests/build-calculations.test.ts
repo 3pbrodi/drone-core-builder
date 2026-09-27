@@ -525,8 +525,13 @@ describe("candidate-specific compatibility", () => {
 
     const cameraCheck = candidateCheck(existing, "camera", cameraFpv, verification);
     expect(cameraCheck.status).toBe("potentially-compatible");
-    expect(cameraCheck.rules).toHaveLength(0);
-    expect(cameraCheck.messages[0]).toContain("No current compatibility rule verifies");
+    expect(cameraCheck.rules).toHaveLength(2);
+    expect(
+      cameraCheck.rules.every(
+        (rule) => rule.status !== "fail" || rule.evidenceLevel !== "verified",
+      ),
+    ).toBe(true);
+    expect(cameraCheck.messages.join(" ")).toContain("flight controller");
   });
 
   test("an unverified candidate conflict remains potentially compatible rather than confirmed incompatible", () => {
@@ -621,6 +626,6 @@ describe("existing build flows", () => {
     const result = evaluate(compact);
     expect(result.complete).toBe(true);
     expect(result.price).toBeGreaterThan(0);
-    expect(result.rules).toHaveLength(8);
+    expect(result.rules).toHaveLength(12);
   });
 });
