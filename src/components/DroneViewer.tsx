@@ -1,59 +1,174 @@
-import { Canvas, useThree } from "@react-three/fiber";
-import { Environment, Lightformer, OrbitControls } from "@react-three/drei";
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Image as ImageIcon, ImageOff } from "lucide-react";
 import type { BuildSelection } from "@/lib/build-data";
-import { byId } from "@/lib/build-data";
 
-const ink = "#17263c", carbon = "#293745", metal = "#8c9baa", accent = "#2271e6";
-const cameraPositions: [number,number,number][] = [[5,5,6],[0,9,0.01],[0,2,9],[9,2,0]];
-function CameraController({ view, resetToken }: { view:number; resetToken:number }) {
-  const { camera, invalidate } = useThree();
+type PreviewView = "front" | "top" | "bottom";
+type ReferenceSet = {
+  label: string;
+  sourceUrl: string;
+  images: Record<PreviewView, string>;
+};
+
+const referenceSets: Record<"freestyle" | "longRange" | "cinematic", ReferenceSet> = {
+  freestyle: {
+    label: "iFlight Nazgul Evoque F5 V2",
+    sourceUrl: "https://shop.iflight.com/Nazgul-Evoque-F5-V2-6S-Pro1954",
+    images: {
+      front: "https://www.shopsta.co.uk/cdn/shop/products/0edcd0e0-e80f-4b6e-b57b-d0135dede32e_700x700.png?v=1686076083",
+      top: "https://www.drone-fpv-racer.com/75462-large_default/nazgul-evoque-f5d-v2-6s-dji-o4-pro-bnf-crossfire-gps-by-iflight.jpg",
+      bottom: "https://www.shopsta.co.uk/cdn/shop/products/f49d21e6-d300-424a-9d3c-e03f1f2e9625_700x700.png?v=1686077561",
+    },
+  },
+  longRange: {
+    label: "iFlight Chimera7 Pro V2",
+    sourceUrl: "https://shop.iflight.com/Chimera7-Pro-V2-6S-Pro1947",
+    images: {
+      front: "https://pyrodrone.com/cdn/shop/files/Chimera7_Pro_V2_Analog_2_9bef496b-341c-4a83-a6b6-c7761e640167_700x700.png?v=1685382506",
+      top: "https://www.drone-fpv-racer.com/77393-large_default/chimera7-pro-v2-hd-6s-dji-o4-pro-bnf-crossfire-gps-by-iflight.jpg",
+      bottom: "https://viatec.ua/upload/images/13-243/Chimera7%20Pro%20V2%206S4.webp",
+    },
+  },
+  cinematic: {
+    label: "iFlight Defender 25",
+    sourceUrl: "https://shop.iflight.com/Defender-25-O4-4S-HD-Pro2329",
+    images: {
+      front: "https://uk.robotshop.com/cdn/shop/files/iflight_defender_25_frame_kit_1_1200x1200.webp?v=1733931949",
+      top: "https://iflight-rc.eu/cdn/shop/files/Defender-25-hd-6.png?v=1745004546&width=1000",
+      bottom: "https://cdn.getmidnight.com/8aee729bc77d09ed01e86b375983212f/2023/11/Defender-25-hd-5.webp",
+    },
+  },
+};
+
+const viewLabels: Record<PreviewView, string> = {
+  front: "Front view",
+  top: "Top view",
+  bottom: "Bottom view",
+};
+
+function chooseReferenceSet(selection: BuildSelection): ReferenceSet {
+  if (selection.frame === "frame3") return referenceSets.cinematic;
+  if (selection.frame === "frame7" || selection.battery === "battery6long") return referenceSets.longRange;
+  return referenceSets.freestyle;
+}
+
+export function DroneViewer({ selection }: { selection: BuildSelection }) {
+  const reference = useMemo(() => chooseReferenceSet(selection), [selection]);
+  const [view, setView] = useState<PreviewView>("front");
+  const [failedViews, setFailedViews] = useState<Partial<Record<PreviewView, boolean>>>({});
+
   useEffect(() => {
-    const position = cameraPositions[view] ?? cameraPositions[0]!;
-    camera.position.set(...position);
-    camera.lookAt(0,0,0);
-    camera.updateProjectionMatrix();
-    invalidate();
-  }, [camera, invalidate, resetToken, view]);
-  return null;
-}
-function DroneShape({ selection }: { selection: BuildSelection }) {
-  const frame = byId[selection.frame ?? ""];
-  const radius = frame?.frameInches === 7 ? 2.05 : frame?.frameInches === 3 ? 1.15 : 1.6;
-  const propSize = (byId[selection.propellers ?? ""]?.propInches ?? 5) / 5 * 0.66;
-  const positions: [number, number, number][] = [[-radius,0,-radius],[radius,0,-radius],[-radius,0,radius],[radius,0,radius]];
-  return <group rotation-y={Math.PI / 6}>
-    {frame && <>
-      <mesh castShadow position={[0,0,0]}><boxGeometry args={[0.95,0.2,1.45]}/><meshStandardMaterial color={carbon} metalness={0.38} roughness={0.57}/></mesh>
-      <mesh castShadow position={[0,0.16,0]}><boxGeometry args={[0.73,0.12,1.12]}/><meshStandardMaterial color={ink} metalness={0.55} roughness={0.36}/></mesh>
-      {positions.map(([x,,z],i) => <group key={i} rotation-y={(x*z>0 ? -1 : 1)*Math.PI/4}>
-        <mesh castShadow position={[x/2,-0.04,z/2]}><boxGeometry args={[0.22,0.09,Math.hypot(x,z)*1.35]}/><meshStandardMaterial color={carbon} metalness={0.55} roughness={0.42}/></mesh>
-      </group>)}
-      <mesh position={[0,0.24,-0.16]}><boxGeometry args={[0.48,0.04,0.17]}/><meshStandardMaterial color={accent} metalness={0.6} roughness={0.28}/></mesh>
-    </>}
-    {selection.motors && positions.map(([x,,z],i) => <group key={i} position={[x,0.13,z]}>
-      <mesh castShadow><cylinderGeometry args={[0.27,0.29,0.31,24]}/><meshStandardMaterial color={ink} metalness={0.75} roughness={0.3}/></mesh>
-      <mesh position-y={0.18}><cylinderGeometry args={[0.22,0.22,0.05,24]}/><meshStandardMaterial color={accent} metalness={0.55} roughness={0.27}/></mesh>
-    </group>)}
-    {selection.propellers && selection.motors && positions.map(([x,,z],i) => <group key={i} position={[x,0.39,z]}>
-      <mesh rotation-y={i*Math.PI/3}><boxGeometry args={[propSize*2,0.028,0.16]}/><meshStandardMaterial color={metal} metalness={0.65} roughness={0.32} side={2}/></mesh>
-      <mesh rotation-y={i*Math.PI/3 + Math.PI/2}><boxGeometry args={[propSize*2,0.028,0.16]}/><meshStandardMaterial color={metal} metalness={0.65} roughness={0.32} side={2}/></mesh>
-      <mesh position-y={0.03}><cylinderGeometry args={[0.09,0.09,0.06,16]}/><meshStandardMaterial color={ink}/></mesh>
-    </group>)}
-    {selection.flightController && <mesh position={[0,0.3,0.12]} castShadow><boxGeometry args={[0.48,0.13,0.5]}/><meshStandardMaterial color={accent} metalness={0.35} roughness={0.45}/></mesh>}
-    {selection.esc && <mesh position={[0,-0.19,0]} castShadow><boxGeometry args={[0.55,0.1,0.65]}/><meshStandardMaterial color={carbon}/></mesh>}
-    {selection.battery && <mesh position={[0,0.48,0.36]} castShadow><boxGeometry args={[0.62,0.27,0.9]}/><meshStandardMaterial color={ink} metalness={0.15} roughness={0.8}/></mesh>}
-    {selection.camera && <group position={[0,-0.03,0.85]}><mesh castShadow><boxGeometry args={[0.38,0.32,0.3]}/><meshStandardMaterial color={carbon} metalness={0.4}/></mesh><mesh position-z={0.17} rotation-x={Math.PI/2}><cylinderGeometry args={[0.13,0.13,0.08,24]}/><meshStandardMaterial color={ink} metalness={0.7}/></mesh><mesh position-z={0.22}><sphereGeometry args={[0.07,16,12]}/><meshStandardMaterial color={accent} metalness={0.8} roughness={0.12}/></mesh></group>}
-    {selection.receiver && <mesh position={[0,0.26,-0.68]} rotation-x={-0.35} castShadow><cylinderGeometry args={[0.026,0.026,0.7,8]}/><meshStandardMaterial color={ink}/></mesh>}
-  </group>;
-}
-export function DroneViewer({ selection, view, resetToken }: { selection: BuildSelection; view: number; resetToken: number }) {
-  const position = cameraPositions[view] ?? cameraPositions[0]!;
-  return <Canvas frameloop="demand" dpr={[1,1.5]} camera={{ position, fov: 40, near: 0.1, far: 100 }} shadows>
-    <ambientLight intensity={1.5}/><directionalLight position={[4,9,5]} intensity={2.5} castShadow shadow-mapSize={[1024,1024]}/>
-    <Environment><Lightformer intensity={2} position={[0,5,0]} scale={[10,10,1]}/><Lightformer intensity={1} color="#a8cdeb" position={[-5,1,-1]} rotation-y={Math.PI/2} scale={[20,1,1]}/></Environment>
-    <DroneShape selection={selection}/>
-    <CameraController view={view} resetToken={resetToken}/>
-    <OrbitControls makeDefault enablePan={false} enableDamping minDistance={3.2} maxDistance={16} target={[0,0,0]}/>
-  </Canvas>;
+    setView("front");
+    setFailedViews({});
+  }, [reference]);
+
+  const activeImage = reference.images[view];
+  const hasAnySelection = Object.keys(selection).length > 0;
+  const activeFailed = failedViews[view] === true;
+
+  return (
+    <section
+      aria-label="Drone preview"
+      className="rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-6"
+    >
+      <div className="inline-flex items-center gap-2 rounded-full bg-secondary px-3 py-2 text-sm font-medium text-primary">
+        <ImageIcon className="size-4" aria-hidden />
+        Drone Preview
+      </div>
+
+      <div className="mt-4">
+        <h2 className="font-display text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl">
+          Your Drone
+        </h2>
+        <p className="mt-1 text-sm text-muted-foreground sm:text-base">
+          Realistic preview based on your selected components
+        </p>
+      </div>
+
+      <div className="mt-5 grid h-[260px] place-items-center overflow-hidden rounded-2xl border border-primary/10 bg-gradient-to-b from-background to-brand-soft p-4 sm:h-[330px] lg:h-[390px]">
+        {!hasAnySelection ? (
+          <div className="text-center">
+            <span className="mx-auto grid size-14 place-items-center rounded-2xl bg-secondary text-primary">
+              <ImageIcon className="size-7" aria-hidden />
+            </span>
+            <p className="mt-3 font-display text-lg font-bold text-foreground">
+              Your drone preview will appear here
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Select components below to start building your drone.
+            </p>
+          </div>
+        ) : activeFailed ? (
+          <div className="text-center">
+            <span className="mx-auto grid size-14 place-items-center rounded-2xl bg-secondary text-muted-foreground">
+              <ImageOff className="size-7" aria-hidden />
+            </span>
+            <p className="mt-3 font-display text-lg font-bold text-foreground">
+              Preview image unavailable
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Your build data is unaffected. Try another view or reload the page.
+            </p>
+          </div>
+        ) : (
+          <img
+            key={activeImage}
+            src={activeImage}
+            alt={`${reference.label} — ${viewLabels[view]} illustrative drone reference`}
+            className="size-full object-contain"
+            loading="eager"
+            decoding="async"
+            referrerPolicy="no-referrer"
+            onError={() => setFailedViews((current) => ({ ...current, [view]: true }))}
+          />
+        )}
+      </div>
+
+      <div
+        className="mx-auto mt-5 grid max-w-3xl grid-cols-3 gap-2 sm:gap-3"
+        aria-label="Drone preview views"
+      >
+        {(Object.keys(viewLabels) as PreviewView[]).map((option) => {
+          const selected = view === option;
+          const failed = failedViews[option] === true;
+
+          return (
+            <button
+              key={option}
+              type="button"
+              aria-pressed={selected}
+              onClick={() => setView(option)}
+              className={`flex min-h-14 min-w-0 items-center justify-center gap-2 rounded-2xl border px-2 py-2 text-xs font-medium transition-colors sm:min-h-16 sm:gap-3 sm:px-3 sm:text-sm ${
+                selected
+                  ? "border-primary bg-secondary text-primary"
+                  : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
+              }`}
+            >
+              <span className="grid size-9 shrink-0 place-items-center overflow-hidden rounded-lg bg-card sm:size-11">
+                {failed ? (
+                  <ImageOff className="size-4 text-muted-foreground/60" aria-hidden />
+                ) : (
+                  <img
+                    src={reference.images[option]}
+                    alt=""
+                    aria-hidden
+                    className="size-full object-contain"
+                    loading="lazy"
+                    decoding="async"
+                    referrerPolicy="no-referrer"
+                    onError={() => setFailedViews((current) => ({ ...current, [option]: true }))}
+                  />
+                )}
+              </span>
+              <span className="truncate">{viewLabels[option]}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <p className="mx-auto mt-4 max-w-4xl text-center text-[11px] leading-relaxed text-muted-foreground sm:text-xs">
+        Illustrative reference based on the closest demo build type ({reference.label}), not a photograph
+        of your exact selected components. The exact appearance may vary depending on the final configuration.
+      </p>
+    </section>
+  );
 }
