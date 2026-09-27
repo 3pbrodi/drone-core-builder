@@ -459,10 +459,12 @@ export const catalogueQualityReviews: readonly CatalogueQualityReview[] = [
     priceStatus: "illustrative",
     issues: [
       "Manufacturer evidence supports PAL/NTSC analog video, 5-36V power, 9 g weight, and 19 mm-class dimensions.",
-      "The live Product type cannot yet represent camera voltage range, dimensions, or interface details.",
+      "Camera voltage range, dimensions, and analog interface are now represented as source-backed typed fields.",
+      "Flight-controller camera interface and power-rail evidence is still missing for the current demo FC records.",
     ],
     remediation: [
-      "Preserve identity and image provenance; normalize camera-specific fields in a later evidence-aware schema phase.",
+      "Preserve identity and image provenance.",
+      "Keep camera/FC compatibility unknown until the exact FC revision has source-backed camera interface and power-rail data.",
     ],
     humanReviewRequired: false,
     sourceIds: ["runcam-phoenix-2"],
