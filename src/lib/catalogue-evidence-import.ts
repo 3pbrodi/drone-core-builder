@@ -90,6 +90,18 @@ const expectedUnits: Record<string, string> = {
   current: "A",
   escAmps: "A",
   batteryMah: "mAh",
+  cameraMinVoltageV: "V",
+  cameraMaxVoltageV: "V",
+  cameraWidthMm: "mm",
+  cameraHeightMm: "mm",
+  cameraDepthMm: "mm",
+  receiverFrequencyMinMhz: "MHz",
+  receiverFrequencyMaxMhz: "MHz",
+  receiverMinVoltageV: "V",
+  receiverMaxVoltageV: "V",
+  receiverWidthMm: "mm",
+  receiverHeightMm: "mm",
+  receiverDepthMm: "mm",
 };
 
 export type CatalogueSpecEvidenceImportRow = {
