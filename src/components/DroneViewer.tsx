@@ -52,7 +52,7 @@ function chooseReferenceSet(selection: BuildSelection): ReferenceSet {
 }
 
 const clampZoom = (value: number) => Math.min(5, Math.max(1, value));
-const touchDistance = (touches: TouchList) => {
+const touchDistance = (touches: TouchEvent<HTMLDivElement>["touches"]) => {
   const first = touches[0];
   const second = touches[1];
   if (!first || !second) return 0;
