@@ -313,7 +313,7 @@ export const catalogueQualityReviews: readonly CatalogueQualityReview[] = [
     productId: "esc55",
     category: "esc",
     identityStatus: "verified",
-    technicalStatus: "partially-verified",
+    technicalStatus: "conflicting",
     imageStatus: "verified-exact-model",
     productKind: "standalone",
     manufacturer: "T-Motor",
@@ -321,10 +321,12 @@ export const catalogueQualityReviews: readonly CatalogueQualityReview[] = [
     priceStatus: "illustrative",
     issues: [
       "Manufacturer evidence supports 55 A and 3-6S.",
-      "The static 8-pin connector label and 18 g weight were not established from the accessible manufacturer text used in this review.",
+      "The static record currently stores minVoltage: 4, which conflicts with the manufacturer-supported 3S minimum.",
+      "The static 8-pin connector label and 22 g weight were not established from the accessible manufacturer text used in this review.",
     ],
     remediation: [
-      "Keep 55 A and 3-6S as source-backed fields.",
+      "Keep 55 A and the 6S maximum as source-backed fields.",
+      "Do not mark the stored 4S minimum as verified; resolve the conflict before changing runtime compatibility behavior.",
       "Leave connector/pinout and weight unverified until exact documentation is captured.",
     ],
     humanReviewRequired: true,
