@@ -1,15 +1,14 @@
 import "@tanstack/react-start/server-only";
 
 import { validateCatalogueProductCsv, type ValidatedCatalogueImportRow } from "./catalogue-import";
+import { findOrCreateCatalogueSource, type CatalogueSourceKind } from "./catalogue-source.server";
 import { supabaseRestRequest } from "./supabase-rest.server";
-
-type SourceKind = "manual" | "csv" | "xml" | "api" | "shopify" | "manufacturer" | "retailer";
 
 type StageCatalogueCsvInput = {
   csvText: string;
   fileName: string;
   sourceName: string;
-  sourceKind?: SourceKind;
+  sourceKind?: CatalogueSourceKind;
 };
 
 type IdRow = { id: string };
@@ -20,36 +19,6 @@ type ImportBatchRow = {
 
 function toPostgrestQuery(params: Record<string, string>) {
   return new URLSearchParams(params).toString();
-}
-
-async function findOrCreateSource(name: string, kind: SourceKind): Promise<string> {
-  const query = toPostgrestQuery({
-    select: "id",
-    name: `eq.${name}`,
-    kind: `eq.${kind}`,
-    limit: "1",
-  });
-  const existing = await supabaseRestRequest<IdRow[]>(`catalogue_sources?${query}`);
-  const first = existing[0];
-  if (first) return first.id;
-
-  const created = await supabaseRestRequest<IdRow[]>("catalogue_sources", {
-    method: "POST",
-    headers: { Prefer: "return=representation" },
-    body: JSON.stringify([
-      {
-        name,
-        kind,
-        verification_status: "unverified",
-      },
-    ]),
-  });
-
-  const createdSource = created[0];
-  if (!createdSource) {
-    throw new Error("Supabase did not return the newly created catalogue source.");
-  }
-  return createdSource.id;
 }
 
 async function findExistingProductIds(ids: string[]) {
@@ -76,7 +45,7 @@ export async function stageCatalogueProductCsv({
   sourceKind = "csv",
 }: StageCatalogueCsvInput) {
   const validation = validateCatalogueProductCsv(csvText);
-  const sourceId = await findOrCreateSource(sourceName, sourceKind);
+  const sourceId = await findOrCreateCatalogueSource(sourceName, sourceKind);
   const duplicateProductIds = await findExistingProductIds(
     validation.validRows.map((row) => row.data.id),
   );
