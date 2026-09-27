@@ -1,12 +1,14 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
+  Check,
   RotateCcw,
   SkipForward,
 } from "lucide-react";
 import { PageShell } from "@/components/PageShell";
+import type { FlightStyle, Priority } from "@/lib/build-data";
 
 export const Route = createFileRoute("/ai-build")({
   head: () => ({
@@ -49,17 +51,48 @@ const COLOR_OPTIONS: { name: string; hex: string }[] = [
   { name: "Forest Green", hex: "#22C55E" },
 ];
 
-const STEP_LABELS = ["Budget", "Preferred color", "Flying style", "Special wishes"];
+const STEP_LABELS = ["Budget", "Flight Style", "What matters most", "Personalization"];
 
-const STYLE_OPTIONS: { name: string; hint: string }[] = [
+const STYLE_OPTIONS: { name: FlightStyle; hint: string }[] = [
   { name: "FPV", hint: "Fly through goggles — fast and immersive" },
   { name: "Cinematic", hint: "Smooth, steady video of your trips" },
   { name: "Racing", hint: "Maximum speed on a race track" },
   { name: "Long Range", hint: "Fly far and explore wide landscapes" },
 ];
 
+const PRIORITY_OPTIONS: { id: Priority; title: string; description: string }[] = [
+  {
+    id: "footage",
+    title: "🎬 Crisp, Stable Camera Footage",
+    description:
+      "4K gimbal camera and smooth hovering for cinematic travel clips and YouTube videos.",
+  },
+  {
+    id: "parkour",
+    title: "🏁 Freestyle Parkour & Racing",
+    description:
+      "Instant throttle response, sharp cornering, and agility for flips, dives, and race gates.",
+  },
+  {
+    id: "range",
+    title: "⏱️ Long Flight Time & Range",
+    description:
+      "25–35+ min battery and GPS Return-to-Home so you can explore further without stress.",
+  },
+  {
+    id: "beginner",
+    title: "🛡️ Easy to Fly & Crash-Resistant",
+    description:
+      "Ducted prop guards and forgiving controls so beginners can practice without breaking parts.",
+  },
+];
+
 function formatBudget(value: number) {
-  return `$${value.toLocaleString("en-US")}`;
+  return new Intl.NumberFormat("de-DE", {
+    style: "currency",
+    currency: "EUR",
+    maximumFractionDigits: 0,
+  }).format(value);
 }
 
 function buildSuggestion(
@@ -170,16 +203,27 @@ function buildSuggestion(
 }
 
 function AiBuildPage() {
+  const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [budget, setBudget] = useState(1000);
   const [color, setColor] = useState<string | null>(null);
-  const [style, setStyle] = useState<string | null>(null);
+  const [style, setStyle] = useState<FlightStyle | null>(null);
+  const [selectedPriorities, setSelectedPriorities] = useState<Priority[]>([]);
   const [wishes, setWishes] = useState("");
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
 
   const finish = () => {
-    setSuggestion(buildSuggestion(budget, color, style));
-    setStep(4);
+    void navigate({
+      to: "/create-custom-build",
+      search: {
+        source: "ai",
+        budget,
+        ...(style ? { style } : {}),
+        ...(selectedPriorities.length
+          ? { priorities: selectedPriorities.join(",") }
+          : {}),
+      },
+    });
   };
 
   const startOver = () => {
@@ -187,12 +231,23 @@ function AiBuildPage() {
     setBudget(1000);
     setColor(null);
     setStyle(null);
+    setSelectedPriorities([]);
     setWishes("");
     setSuggestion(null);
   };
 
-  const nextStep = () => setStep((current) => Math.min(current + 1, 4));
+  const nextStep = () => setStep((current) => Math.min(current + 1, 3));
   const prevStep = () => setStep((current) => Math.max(current - 1, 0));
+
+  const togglePriority = (priority: Priority) => {
+    setSelectedPriorities((current) => {
+      if (current.includes(priority)) {
+        return current.filter((item) => item !== priority);
+      }
+      if (current.length >= 2) return current;
+      return [...current, priority];
+    });
+  };
 
   const buttonBase =
     "inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition-all active:scale-[0.98]";
@@ -218,14 +273,16 @@ function AiBuildPage() {
           Back
         </button>
       )}
-      <button
-        type="button"
-        onClick={nextStep}
-        className={`${buttonBase} border border-border text-muted-foreground hover:border-primary/40 hover:text-foreground`}
-      >
-        <SkipForward className="h-4 w-4" aria-hidden />
-        Skip
-      </button>
+      {step < 3 && (
+        <button
+          type="button"
+          onClick={nextStep}
+          className={`${buttonBase} border border-border text-muted-foreground hover:border-primary/40 hover:text-foreground`}
+        >
+          <SkipForward className="h-4 w-4" aria-hidden />
+          Skip
+        </button>
+      )}
       <button
         type="button"
         onClick={onContinue}
@@ -241,7 +298,7 @@ function AiBuildPage() {
     <PageShell
       eyebrow="Path 3"
       title="AI Build"
-      description="Answer four quick questions — budget, color, flying style, and any special wishes — and get a suggested parts list you can open in the custom builder."
+      description="Answer four quick questions and open a suggested parts selection in the same shared configurator used by Custom Build and Templates."
     >
       {/* Progress dots */}
       <div className="mb-6 flex items-center gap-3" aria-hidden>
