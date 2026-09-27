@@ -286,7 +286,7 @@ export function DroneViewer({ selection }: { selection: BuildSelection }) {
         </div>
       </div>
 
-      <div className="relative mt-4 flex h-[clamp(250px,46vw,480px)] w-full items-center justify-center overflow-hidden rounded-2xl border border-primary/10 bg-gradient-to-b from-background to-brand-soft p-[clamp(14px,3vw,32px)]">
+      <div className="relative mt-4 flex h-[clamp(250px,46vw,480px)] w-full items-center justify-center overflow-hidden rounded-2xl border border-primary/10 bg-gradient-to-b from-background to-brand-soft p-[clamp(4px,1vw,12px)]">
         {!hasAnySelection ? (
           <div className="text-center">
             <span className="mx-auto grid size-14 place-items-center rounded-2xl bg-secondary text-primary">
@@ -317,7 +317,7 @@ export function DroneViewer({ selection }: { selection: BuildSelection }) {
               key={activeImage}
               src={activeImage}
               alt={`${reference.label} — ${viewLabels[view]} illustrative drone reference`}
-              className={`block h-auto max-h-full w-auto max-w-full cursor-zoom-in object-contain object-center ${view === "top" ? "mix-blend-multiply" : ""}`}
+              className={`block h-full w-full cursor-zoom-in object-contain object-center ${view === "top" ? "mix-blend-multiply" : ""}`}
               loading="eager"
               decoding="async"
               referrerPolicy="no-referrer"
