@@ -53,6 +53,7 @@ export function DroneViewer({ selection, view, resetToken }: { selection: BuildS
     <ambientLight intensity={1.5}/><directionalLight position={[4,9,5]} intensity={2.5} castShadow shadow-mapSize={[1024,1024]}/>
     <Environment><Lightformer intensity={2} position={[0,5,0]} scale={[10,10,1]}/><Lightformer intensity={1} color="#a8cdeb" position={[-5,1,-1]} rotation-y={Math.PI/2} scale={[20,1,1]}/></Environment>
     <DroneShape selection={selection}/>
-    <OrbitControls key={`${view}-${resetToken}`} ref={controls} makeDefault enablePan={false} enableDamping minDistance={3.2} maxDistance={16} target={[0,0,0]}/>
+    <CameraController view={view} resetToken={resetToken}/>
+    <OrbitControls makeDefault enablePan={false} enableDamping minDistance={3.2} maxDistance={16} target={[0,0,0]}/>
   </Canvas>;
 }
