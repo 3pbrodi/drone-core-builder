@@ -21,10 +21,10 @@ describe("product availability price labels", () => {
     expect(productPriceLabel(product())).toBe(money(42.5));
   });
 
-  test("replaces the price with Out of stock without making the product unselectable", () => {
+  test("replaces the price with Out of Stock without making the product unselectable", () => {
     const unavailable = product({ stockStatus: "out_of_stock" });
 
-    expect(productPriceLabel(unavailable)).toBe("Out of stock");
+    expect(productPriceLabel(unavailable)).toBe("Out of Stock");
     expect(unavailable.id).toBe("availability-test");
   });
 
