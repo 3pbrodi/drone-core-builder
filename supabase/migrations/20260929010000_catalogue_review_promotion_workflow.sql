@@ -341,6 +341,45 @@ begin
 end;
 $$;
 
+create or replace function public.enforce_catalogue_product_promotion_gate()
+returns trigger
+language plpgsql
+security invoker
+set search_path = public
+as $
+declare
+  blockers text[];
+begin
+  if old.record_class = 'canonical' and new.record_class = 'demo_seed' then
+    raise exception 'Canonical products cannot be downgraded to demo_seed.';
+  end if;
+
+  if (
+    (old.record_class = 'demo_seed' and new.record_class = 'canonical')
+    or (old.identity_status <> 'verified' and new.identity_status = 'verified')
+  ) then
+    blockers := public.catalogue_identity_promotion_blockers(old.id);
+    if cardinality(blockers) > 0 then
+      raise exception 'Identity promotion blocked: %', array_to_string(blockers, ' | ');
+    end if;
+  end if;
+
+  if old.selectable = false and new.selectable = true then
+    blockers := public.catalogue_publication_blockers(old.id);
+    if cardinality(blockers) > 0 then
+      raise exception 'Publication blocked: %', array_to_string(blockers, ' | ');
+    end if;
+  end if;
+
+  return new;
+end;
+$;
+
+create trigger catalogue_products_promotion_gate
+before update of record_class, identity_status, verification_status, selectable
+on public.catalogue_products
+for each row execute function public.enforce_catalogue_product_promotion_gate();
+
 create or replace function public.catalogue_promote_identity(
   p_product_id text,
   p_reviewer text,
@@ -530,6 +569,8 @@ left join public.catalogue_product_quality_reviews q
 revoke all on public.catalogue_promotion_readiness from anon, authenticated;
 grant select on public.catalogue_promotion_readiness to service_role;
 
+revoke all on function public.enforce_catalogue_product_promotion_gate()
+  from public, anon, authenticated;
 revoke all on function public.catalogue_identity_promotion_blockers(text)
   from public, anon, authenticated;
 revoke all on function public.catalogue_publication_blockers(text)
