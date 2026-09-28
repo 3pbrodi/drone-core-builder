@@ -50,9 +50,15 @@ class StaticProductCatalogueService implements ProductCatalogueService {
   }
 }
 
-export const productCatalogue: ProductCatalogueService = new StaticProductCatalogueService(
-  products,
-);
+export function createProductCatalogue(
+  sourceProducts: readonly Product[],
+): ProductCatalogueService {
+  return new StaticProductCatalogueService(sourceProducts);
+}
+
+// Legacy/demo catalogue retained for seed generation and regression fixtures.
+// Runtime configurator routes construct a catalogue from the verified Supabase payload instead.
+export const productCatalogue: ProductCatalogueService = createProductCatalogue(products);
 
 export function resolveBuildSelection(
   selection: BuildSelection,
@@ -83,4 +89,30 @@ export function normalizeBuildSelection(
   }
 
   return normalized;
+}
+
+
+export function rebaseBuildSelectionToCatalogue(
+  selection: BuildSelection,
+  catalogue: ProductCatalogueService,
+): BuildSelection {
+  const rebased: BuildSelection = {};
+
+  for (const category of categories) {
+    const requestedId = selection[category];
+    if (!requestedId) continue;
+
+    const requested = catalogue.getProductById(requestedId);
+    if (requested?.category === category) {
+      rebased[category] = requestedId;
+      continue;
+    }
+
+    const replacement = catalogue.getProductsByCategory(category)[0];
+    if (replacement) {
+      rebased[category] = replacement.id;
+    }
+  }
+
+  return rebased;
 }

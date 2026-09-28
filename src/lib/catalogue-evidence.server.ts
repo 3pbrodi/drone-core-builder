@@ -103,46 +103,57 @@ function toFieldEvidence(row: SpecEvidenceRow): CatalogueFieldEvidence | null {
   };
 }
 
-export async function fetchCatalogueEvidenceSnapshot(
-  selected: SelectedProducts,
+export async function fetchCatalogueEvidenceSnapshotForProductIds(
+  productIds: readonly string[],
 ): Promise<CatalogueEvidenceSnapshot> {
-  const productIds = Object.values(selected)
-    .filter((product): product is Product => Boolean(product))
-    .map((product) => product.id);
-
-  if (productIds.length === 0) {
+  const uniqueProductIds = [...new Set(productIds.filter(Boolean))];
+  if (uniqueProductIds.length === 0) {
     return emptyCatalogueEvidenceSnapshot();
   }
 
-  const fields = await supabaseRestRequest<SpecEvidenceRow[]>(
-    `catalogue_verified_spec_evidence?${query({
-      select: "*",
-      product_id: encodeIn(productIds),
-    })}`,
-  );
+  const inFilter = encodeIn(uniqueProductIds);
+
+  const [fields, motorPropellerRows, motorEscRows, fcEscRows] = await Promise.all([
+    supabaseRestRequest<SpecEvidenceRow[]>(
+      `catalogue_verified_spec_evidence?${query({
+        select: "*",
+        product_id: inFilter,
+      })}`,
+    ),
+    supabaseRestRequest<MotorPropellerEvidenceRow[]>(
+      `catalogue_motor_propeller_evidence?${query({
+        select: "*",
+        motor_product_id: inFilter,
+        propeller_product_id: inFilter,
+        verification_status: "eq.verified",
+      })}`,
+    ),
+    supabaseRestRequest<MotorEscCurrentEvidenceRow[]>(
+      `catalogue_motor_esc_current_evidence?${query({
+        select: "*",
+        motor_product_id: inFilter,
+        esc_product_id: inFilter,
+        verification_status: "eq.verified",
+      })}`,
+    ),
+    supabaseRestRequest<FcEscConnectionEvidenceRow[]>(
+      `catalogue_fc_esc_connection_evidence?${query({
+        select: "*",
+        flight_controller_product_id: inFilter,
+        esc_product_id: inFilter,
+        verification_status: "eq.verified",
+      })}`,
+    ),
+  ]);
 
   const snapshot = emptyCatalogueEvidenceSnapshot();
+
   snapshot.fields = fields
     .map(toFieldEvidence)
     .filter((item): item is CatalogueFieldEvidence => item !== null);
 
-  const motors = selected.motors;
-  const propellers = selected.propellers;
-  const esc = selected.esc;
-  const flightController = selected.flightController;
-
-  if (motors && propellers) {
-    const rows = await supabaseRestRequest<MotorPropellerEvidenceRow[]>(
-      `catalogue_motor_propeller_evidence?${query({
-        select: "*",
-        motor_product_id: `eq.${motors.id}`,
-        propeller_product_id: `eq.${propellers.id}`,
-        verification_status: "eq.verified",
-        limit: "10",
-      })}`,
-    );
-
-    snapshot.motorPropeller = rows.map((row): CatalogueMotorPropellerEvidence => ({
+  snapshot.motorPropeller = motorPropellerRows.map(
+    (row): CatalogueMotorPropellerEvidence => ({
       motorId: row.motor_product_id,
       propellerId: row.propeller_product_id,
       result: row.result,
@@ -152,21 +163,11 @@ export async function fetchCatalogueEvidenceSnapshot(
       retrievedAt: row.retrieved_at,
       verifiedAt: row.verified_at,
       operatingConditions: row.operating_conditions,
-    }));
-  }
+    }),
+  );
 
-  if (motors && esc) {
-    const rows = await supabaseRestRequest<MotorEscCurrentEvidenceRow[]>(
-      `catalogue_motor_esc_current_evidence?${query({
-        select: "*",
-        motor_product_id: `eq.${motors.id}`,
-        esc_product_id: `eq.${esc.id}`,
-        verification_status: "eq.verified",
-        limit: "10",
-      })}`,
-    );
-
-    snapshot.motorEscCurrent = rows.map((row): CatalogueMotorEscCurrentEvidence => ({
+  snapshot.motorEscCurrent = motorEscRows.map(
+    (row): CatalogueMotorEscCurrentEvidence => ({
       motorId: row.motor_product_id,
       escId: row.esc_product_id,
       motorCurrentAmps: row.motor_current_amps,
@@ -180,21 +181,11 @@ export async function fetchCatalogueEvidenceSnapshot(
       retrievedAt: row.retrieved_at,
       verifiedAt: row.verified_at,
       operatingConditions: row.operating_conditions,
-    }));
-  }
+    }),
+  );
 
-  if (flightController && esc) {
-    const rows = await supabaseRestRequest<FcEscConnectionEvidenceRow[]>(
-      `catalogue_fc_esc_connection_evidence?${query({
-        select: "*",
-        flight_controller_product_id: `eq.${flightController.id}`,
-        esc_product_id: `eq.${esc.id}`,
-        verification_status: "eq.verified",
-        limit: "10",
-      })}`,
-    );
-
-    snapshot.fcEscConnection = rows.map((row): CatalogueFcEscConnectionEvidence => ({
+  snapshot.fcEscConnection = fcEscRows.map(
+    (row): CatalogueFcEscConnectionEvidence => ({
       flightControllerId: row.flight_controller_product_id,
       escId: row.esc_product_id,
       result: row.result,
@@ -208,10 +199,20 @@ export async function fetchCatalogueEvidenceSnapshot(
       verificationStatus: row.verification_status,
       retrievedAt: row.retrieved_at,
       verifiedAt: row.verified_at,
-    }));
-  }
+    }),
+  );
 
   return snapshot;
+}
+
+export async function fetchCatalogueEvidenceSnapshot(
+  selected: SelectedProducts,
+): Promise<CatalogueEvidenceSnapshot> {
+  const productIds = Object.values(selected)
+    .filter((product): product is Product => Boolean(product))
+    .map((product) => product.id);
+
+  return fetchCatalogueEvidenceSnapshotForProductIds(productIds);
 }
 
 export async function fetchResolvedCompatibilityEvidence(

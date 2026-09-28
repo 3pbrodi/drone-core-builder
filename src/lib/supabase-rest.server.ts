@@ -25,7 +25,13 @@ export function getSupabaseRestConfig(): SupabaseRestConfig | null {
 }
 
 export function isDatabaseCatalogueEnabled() {
-  return process.env["CATALOGUE_DATABASE_ENABLED"] === "true";
+  const flag = process.env["CATALOGUE_DATABASE_ENABLED"]?.trim().toLowerCase();
+  if (flag === "false") return false;
+  if (flag === "true") return true;
+
+  return Boolean(
+    process.env["SUPABASE_URL"]?.trim() && process.env["SUPABASE_SECRET_KEY"]?.trim(),
+  );
 }
 
 export async function supabaseRestRequest<T>(path: string, init: RequestInit = {}): Promise<T> {

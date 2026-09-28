@@ -1,7 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { BuildInterface } from "@/components/BuildInterface";
 import { aiPreset, presets, type BuildSelection, type Priority } from "@/lib/build-data";
-import { normalizeBuildSelection } from "@/lib/catalogue-service";
+import {
+  createProductCatalogue,
+  rebaseBuildSelectionToCatalogue,
+} from "@/lib/catalogue-service";
+import { getConfiguratorCatalogue } from "@/lib/configurator-catalogue.server-fn";
 
 type BuildSearch = {
   source?: "ai" | "template";
@@ -47,6 +51,7 @@ export const Route = createFileRoute("/create-custom-build")({
       ...(selectedPriorities.length ? { priorities: selectedPriorities.join(",") } : {}),
     };
   },
+  loader: async () => getConfiguratorCatalogue(),
   head: () => ({
     meta: [
       { title: "Custom Build — DroneCores" },
@@ -70,6 +75,8 @@ export const Route = createFileRoute("/create-custom-build")({
 
 function CreateCustomBuildPage() {
   const search = Route.useSearch();
+  const catalogueSnapshot = Route.useLoaderData();
+  const runtimeCatalogue = createProductCatalogue(catalogueSnapshot.products);
 
   let source: "Custom" | "AI Build" | "Template" = "Custom";
   let name = "Custom Build";
@@ -80,7 +87,7 @@ function CreateCustomBuildPage() {
     if (preset) {
       source = "Template";
       name = preset.name;
-      initial = normalizeBuildSelection(preset.selection);
+      initial = rebaseBuildSelectionToCatalogue(preset.selection, runtimeCatalogue);
     }
   } else if (search["source"] === "ai") {
     const selectedPriorities = (search["priorities"] ?? "")
@@ -93,10 +100,28 @@ function CreateCustomBuildPage() {
     );
     source = "AI Build";
     name = generated.name;
-    initial = normalizeBuildSelection(generated.selection);
+    initial = rebaseBuildSelectionToCatalogue(generated.selection, runtimeCatalogue);
   }
 
-  const identity = source + ":" + name + ":" + Object.values(initial).join("|");
+  const identity =
+    source +
+    ":" +
+    name +
+    ":" +
+    catalogueSnapshot.products.map((product) => product.id).join(",") +
+    ":" +
+    Object.values(initial).join("|");
 
-  return <BuildInterface key={identity} source={source} name={name} initial={initial} />;
+  return (
+    <BuildInterface
+      key={identity}
+      source={source}
+      name={name}
+      initial={initial}
+      products={catalogueSnapshot.products}
+      evidenceSnapshot={catalogueSnapshot.evidence}
+      catalogueReady={catalogueSnapshot.status === "ready"}
+      catalogueMessage={catalogueSnapshot.error}
+    />
+  );
 }
