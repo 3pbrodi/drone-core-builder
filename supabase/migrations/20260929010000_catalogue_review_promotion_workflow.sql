@@ -19,7 +19,7 @@ create table public.catalogue_identity_evidence (
     references public.catalogue_products(id) on delete cascade,
   source_id uuid not null
     references public.catalogue_sources(id) on delete restrict,
-  source_url text not null check (length(trim(source_url)) > 0),
+  source_url text not null check (source_url ~ '^https://'),
   authority public.catalogue_evidence_authority not null,
   manufacturer_label text not null check (length(trim(manufacturer_label)) > 0),
   model_label text not null check (length(trim(model_label)) > 0),
@@ -44,11 +44,7 @@ create table public.catalogue_identity_evidence (
 );
 
 create unique index catalogue_identity_evidence_source_unique
-  on public.catalogue_identity_evidence (
-    product_id,
-    source_id,
-    source_url
-  );
+  on public.catalogue_identity_evidence (product_id, source_id, source_url);
 
 create index catalogue_identity_evidence_review_idx
   on public.catalogue_identity_evidence (
@@ -104,7 +100,7 @@ insert into public.catalogue_category_field_requirements (
   ('camera', 'cameraMinVoltageV', 'Minimum camera supply voltage.'),
   ('camera', 'cameraMaxVoltageV', 'Maximum camera supply voltage.'),
 
-  ('receiver', 'receiverProtocol', 'Receiver protocol retained as a core canonical identity/spec field.'),
+  ('receiver', 'receiverProtocol', 'Receiver protocol retained as a core canonical product field.'),
   ('receiver', 'receiverSignalInterface', 'Receiver signal interface used by the current FC/receiver rule.'),
   ('receiver', 'receiverFrequencyMinMhz', 'Minimum supported receiver frequency.'),
   ('receiver', 'receiverFrequencyMaxMhz', 'Maximum supported receiver frequency.'),
@@ -124,10 +120,7 @@ create table public.catalogue_promotion_events (
 );
 
 create index catalogue_promotion_events_product_idx
-  on public.catalogue_promotion_events (
-    product_id,
-    created_at desc
-  );
+  on public.catalogue_promotion_events (product_id, created_at desc);
 
 alter table public.catalogue_identity_evidence enable row level security;
 alter table public.catalogue_category_field_requirements enable row level security;
@@ -142,6 +135,142 @@ grant select on public.catalogue_category_field_requirements to service_role;
 grant select, insert on public.catalogue_promotion_events to service_role;
 grant usage, select on sequence public.catalogue_promotion_events_id_seq to service_role;
 
+create or replace function public.catalogue_product_field_value_json(
+  p_product_id text,
+  p_field_key text
+)
+returns jsonb
+language plpgsql
+stable
+security invoker
+set search_path = public
+as $fn$
+declare
+  p public.catalogue_products%rowtype;
+  s public.catalogue_product_specs%rowtype;
+begin
+  select * into p
+  from public.catalogue_products
+  where id = p_product_id;
+
+  if not found then
+    return null;
+  end if;
+
+  select * into s
+  from public.catalogue_product_specs
+  where product_id = p_product_id;
+
+  case p_field_key
+    when 'weight' then return to_jsonb(p.weight_grams);
+    when 'frameInches' then return to_jsonb(s.frame_size_inches);
+    when 'mount' then return to_jsonb(s.motor_mount_pattern);
+    when 'propInches' then return to_jsonb(s.propeller_diameter_inches);
+    when 'motorSize' then return to_jsonb(s.motor_size_code);
+    when 'minVoltage' then return to_jsonb(s.min_battery_cells);
+    when 'maxVoltage' then return to_jsonb(s.max_battery_cells);
+    when 'connector' then return to_jsonb(s.connector);
+    when 'escInput' then return to_jsonb(s.esc_input);
+    when 'thrust' then return to_jsonb(s.thrust_grams);
+    when 'current' then return to_jsonb(s.peak_current_amps);
+    when 'escAmps' then return to_jsonb(s.esc_amps);
+    when 'voltage' then return to_jsonb(s.battery_cells);
+    when 'batteryMah' then return to_jsonb(s.battery_capacity_mah);
+    when 'video' then return to_jsonb(s.video_system);
+    when 'cameraVideoInterface' then return to_jsonb(s.camera_video_interface);
+    when 'cameraMinVoltageV' then return to_jsonb(s.camera_min_voltage_v);
+    when 'cameraMaxVoltageV' then return to_jsonb(s.camera_max_voltage_v);
+    when 'cameraWidthMm' then return to_jsonb(s.camera_width_mm);
+    when 'cameraHeightMm' then return to_jsonb(s.camera_height_mm);
+    when 'cameraDepthMm' then return to_jsonb(s.camera_depth_mm);
+    when 'fcCameraVideoInterfaces' then return to_jsonb(s.fc_camera_video_interfaces);
+    when 'fcCameraPowerVoltagesV' then return to_jsonb(s.fc_camera_power_voltages_v);
+    when 'receiverProtocol' then return to_jsonb(s.receiver_protocol);
+    when 'receiverFrequencyMinMhz' then return to_jsonb(s.receiver_frequency_min_mhz);
+    when 'receiverFrequencyMaxMhz' then return to_jsonb(s.receiver_frequency_max_mhz);
+    when 'receiverMinVoltageV' then return to_jsonb(s.receiver_min_voltage_v);
+    when 'receiverMaxVoltageV' then return to_jsonb(s.receiver_max_voltage_v);
+    when 'receiverSignalInterface' then return to_jsonb(s.receiver_signal_interface);
+    when 'receiverWidthMm' then return to_jsonb(s.receiver_width_mm);
+    when 'receiverHeightMm' then return to_jsonb(s.receiver_height_mm);
+    when 'receiverDepthMm' then return to_jsonb(s.receiver_depth_mm);
+    when 'fcReceiverSignalInterfaces' then return to_jsonb(s.fc_receiver_signal_interfaces);
+    when 'fcReceiverPowerVoltagesV' then return to_jsonb(s.fc_receiver_power_voltages_v);
+    else return null;
+  end case;
+end;
+$fn$;
+
+create or replace function public.catalogue_missing_required_fields(
+  p_product_id text
+)
+returns text[]
+language plpgsql
+stable
+security invoker
+set search_path = public
+as $fn$
+declare
+  missing_fields text[] := array[]::text[];
+  product_category public.drone_product_category;
+  requirement record;
+  stored_value jsonb;
+begin
+  select category into product_category
+  from public.catalogue_products
+  where id = p_product_id;
+
+  if product_category is null then
+    return array['Product does not exist.'];
+  end if;
+
+  for requirement in
+    select field_key, explanation
+    from public.catalogue_category_field_requirements
+    where category = product_category
+    order by field_key
+  loop
+    stored_value := public.catalogue_product_field_value_json(
+      p_product_id,
+      requirement.field_key
+    );
+
+    if stored_value is null then
+      missing_fields := array_append(
+        missing_fields,
+        format(
+          'Canonical field %s is missing: %s',
+          requirement.field_key,
+          requirement.explanation
+        )
+      );
+    elsif not exists (
+      select 1
+      from public.catalogue_spec_evidence e
+      where e.product_id = p_product_id
+        and e.field_key = requirement.field_key
+        and e.value = stored_value
+        and e.verification_status = 'verified'
+        and e.exact_model_association = true
+        and e.retrieved_at is not null
+        and e.verified_at is not null
+        and e.authority in ('manufacturer', 'official_documentation')
+    ) then
+      missing_fields := array_append(
+        missing_fields,
+        format(
+          'Missing verified matching field evidence for %s: %s',
+          requirement.field_key,
+          requirement.explanation
+        )
+      );
+    end if;
+  end loop;
+
+  return missing_fields;
+end;
+$fn$;
+
 create or replace function public.catalogue_identity_promotion_blockers(
   p_product_id text
 )
@@ -150,15 +279,14 @@ language plpgsql
 stable
 security invoker
 set search_path = public
-as $$
+as $fn$
 declare
   blockers text[] := array[]::text[];
   product_record public.catalogue_products%rowtype;
   quality_record public.catalogue_product_quality_reviews%rowtype;
-  manufacturer_name text;
+  verified_manufacturer_name text;
 begin
-  select *
-  into product_record
+  select * into product_record
   from public.catalogue_products
   where id = p_product_id;
 
@@ -172,14 +300,12 @@ begin
     return blockers;
   end if;
 
-  select *
-  into quality_record
+  select * into quality_record
   from public.catalogue_product_quality_reviews
   where product_id = p_product_id;
 
   if not found then
-    blockers := array_append(blockers, 'Phase A quality review is missing.');
-    return blockers;
+    return array['Phase A / candidate quality review is missing.'];
   end if;
 
   if quality_record.identity_quality_status <> 'verified' then
@@ -202,16 +328,16 @@ begin
   if product_record.manufacturer_id is null then
     blockers := array_append(blockers, 'Canonical manufacturer link is missing.');
   else
-    select name
-    into manufacturer_name
+    select name into verified_manufacturer_name
     from public.catalogue_manufacturers
     where id = product_record.manufacturer_id
       and verification_status = 'verified';
 
-    if manufacturer_name is null then
+    if verified_manufacturer_name is null then
       blockers := array_append(blockers, 'Linked manufacturer is not verified.');
     elsif quality_record.manufacturer_label is not null
-      and lower(trim(manufacturer_name)) <> lower(trim(quality_record.manufacturer_label)) then
+      and lower(trim(verified_manufacturer_name)) <>
+          lower(trim(quality_record.manufacturer_label)) then
       blockers := array_append(
         blockers,
         'Reviewed manufacturer does not match the linked canonical manufacturer.'
@@ -245,62 +371,7 @@ begin
 
   return blockers;
 end;
-$$;
-
-create or replace function public.catalogue_missing_required_fields(
-  p_product_id text
-)
-returns text[]
-language plpgsql
-stable
-security invoker
-set search_path = public
-as $
-declare
-  missing_fields text[] := array[]::text[];
-  product_category public.drone_product_category;
-  requirement record;
-begin
-  select category
-  into product_category
-  from public.catalogue_products
-  where id = p_product_id;
-
-  if product_category is null then
-    return array['Product does not exist.'];
-  end if;
-
-  for requirement in
-    select field_key, explanation
-    from public.catalogue_category_field_requirements
-    where category = product_category
-    order by field_key
-  loop
-    if not exists (
-      select 1
-      from public.catalogue_spec_evidence e
-      where e.product_id = p_product_id
-        and e.field_key = requirement.field_key
-        and e.verification_status = 'verified'
-        and e.exact_model_association = true
-        and e.retrieved_at is not null
-        and e.verified_at is not null
-        and e.authority in ('manufacturer', 'official_documentation')
-    ) then
-      missing_fields := array_append(
-        missing_fields,
-        format(
-          'Missing verified field evidence for %s: %s',
-          requirement.field_key,
-          requirement.explanation
-        )
-      );
-    end if;
-  end loop;
-
-  return missing_fields;
-end;
-$;
+$fn$;
 
 create or replace function public.catalogue_publication_blockers(
   p_product_id text
@@ -310,14 +381,13 @@ language plpgsql
 stable
 security invoker
 set search_path = public
-as $$
+as $fn$
 declare
   blockers text[] := array[]::text[];
   product_record public.catalogue_products%rowtype;
   quality_record public.catalogue_product_quality_reviews%rowtype;
 begin
-  select *
-  into product_record
+  select * into product_record
   from public.catalogue_products
   where id = p_product_id;
 
@@ -334,25 +404,20 @@ begin
     );
   end if;
 
-  select *
-  into quality_record
+  select * into quality_record
   from public.catalogue_product_quality_reviews
   where product_id = p_product_id;
 
   if not found then
-    blockers := array_append(blockers, 'Phase A quality review is missing.');
-    return blockers;
+    return blockers || array['Product quality review is missing.'];
   end if;
 
   if quality_record.identity_quality_status <> 'verified' then
     blockers := array_append(blockers, 'Identity quality review is not verified.');
   end if;
 
-  if quality_record.technical_quality_status in ('unverified', 'conflicting') then
-    blockers := array_append(
-      blockers,
-      'Technical quality still contains unresolved or unverified catalogue data.'
-    );
+  if quality_record.technical_quality_status <> 'verified' then
+    blockers := array_append(blockers, 'Technical review has not been completed.');
   end if;
 
   if quality_record.human_review_required then
@@ -378,14 +443,14 @@ begin
 
   return blockers;
 end;
-$$;
+$fn$;
 
 create or replace function public.enforce_catalogue_product_promotion_gate()
 returns trigger
 language plpgsql
 security invoker
 set search_path = public
-as $
+as $fn$
 declare
   blockers text[];
 begin
@@ -394,7 +459,7 @@ begin
   end if;
 
   if (
-    (old.record_class = 'demo_seed' and new.record_class = 'canonical')
+    (old.record_class <> 'canonical' and new.record_class = 'canonical')
     or (old.identity_status <> 'verified' and new.identity_status = 'verified')
   ) then
     blockers := public.catalogue_identity_promotion_blockers(old.id);
@@ -412,108 +477,14 @@ begin
 
   return new;
 end;
-$;
+$fn$;
 
 create trigger catalogue_products_promotion_gate
 before update of record_class, identity_status, verification_status, selectable
 on public.catalogue_products
 for each row execute function public.enforce_catalogue_product_promotion_gate();
 
-create or replace function public.catalogue_verify_identity_evidence(
-  p_identity_evidence_id uuid,
-  p_reviewer text,
-  p_notes text default null
-)
-returns jsonb
-language plpgsql
-security definer
-set search_path = public
-as $
-declare
-  evidence_record public.catalogue_identity_evidence%rowtype;
-  v_manufacturer_id uuid;
-begin
-  if p_reviewer is null or length(trim(p_reviewer)) = 0 then
-    raise exception 'Reviewer is required.';
-  end if;
-
-  select *
-  into evidence_record
-  from public.catalogue_identity_evidence
-  where id = p_identity_evidence_id;
-
-  if not found then
-    raise exception 'Identity evidence does not exist.';
-  end if;
-
-  if not evidence_record.exact_model_association
-     or evidence_record.authority not in ('manufacturer', 'official_documentation')
-     or evidence_record.retrieved_at is null then
-    raise exception 'Identity evidence is not sufficient for exact-model verification.';
-  end if;
-
-  select id
-  into v_manufacturer_id
-  from public.catalogue_manufacturers
-  where lower(name) = lower(evidence_record.manufacturer_label)
-  limit 1;
-
-  if v_manufacturer_id is null then
-    insert into public.catalogue_manufacturers (
-      name,
-      verification_status
-    ) values (
-      evidence_record.manufacturer_label,
-      'verified'
-    )
-    returning id into v_manufacturer_id;
-  else
-    update public.catalogue_manufacturers
-    set verification_status = 'verified'
-    where id = v_manufacturer_id;
-  end if;
-
-  update public.catalogue_identity_evidence
-  set
-    verification_status = 'verified',
-    verified_at = now()
-  where id = p_identity_evidence_id;
-
-  update public.catalogue_products
-  set manufacturer_id = v_manufacturer_id
-  where id = evidence_record.product_id;
-
-  update public.catalogue_product_quality_reviews
-  set
-    identity_quality_status = 'verified',
-    manufacturer_label = evidence_record.manufacturer_label,
-    exact_model_label = evidence_record.model_label,
-    variant_label = evidence_record.variant_label
-  where product_id = evidence_record.product_id;
-
-  insert into public.catalogue_promotion_events (
-    product_id,
-    action,
-    reviewer,
-    notes,
-    blockers_snapshot
-  ) values (
-    evidence_record.product_id,
-    'identity_evidence_verified',
-    trim(p_reviewer),
-    p_notes,
-    '[]'::jsonb
-  );
-
-  return jsonb_build_object(
-    'productId', evidence_record.product_id,
-    'identityEvidenceId', p_identity_evidence_id,
-    'verificationStatus', 'verified'
-  );
-end;
-$;
-
-create or replace function public.catalogue_accept_spec_evidence_from_import(
+create or replace function public.catalogue_create_candidate_from_import(
   p_import_row_id bigint,
   p_reviewer text,
   p_notes text default null
@@ -522,21 +493,22 @@ returns jsonb
 language plpgsql
 security definer
 set search_path = public
-as $
+as $fn$
 declare
   import_record public.catalogue_import_rows%rowtype;
   batch_record public.catalogue_import_batches%rowtype;
   data jsonb;
-  v_source_id uuid;
-  v_evidence_id uuid;
-  source_kind_value public.catalogue_source_kind;
+  v_product_id text;
+  v_category public.drone_product_category;
+  v_manufacturer_name text;
+  v_manufacturer_id uuid;
+  v_model_label text;
 begin
   if p_reviewer is null or length(trim(p_reviewer)) = 0 then
     raise exception 'Reviewer is required.';
   end if;
 
-  select *
-  into import_record
+  select * into import_record
   from public.catalogue_import_rows
   where id = p_import_row_id;
 
@@ -544,348 +516,7 @@ begin
     raise exception 'Import row does not exist.';
   end if;
 
-  select *
-  into batch_record
-  from public.catalogue_import_batches
-  where id = import_record.batch_id;
-
-  if not found or batch_record.import_kind <> 'spec_evidence' then
-    raise exception 'Import row is not specification evidence.';
-  end if;
-
-  if import_record.normalized_data is null
-     or import_record.status not in ('validated', 'needs_review') then
-    raise exception 'Specification evidence row is not eligible for review.';
-  end if;
-
-  data := import_record.normalized_data;
-
-  if not exists (
-    select 1 from public.catalogue_products
-    where id = data->>'productId'
-  ) then
-    raise exception 'Referenced product does not exist.';
-  end if;
-
-  source_kind_value := (data->>'sourceKind')::public.catalogue_source_kind;
-
-  select id
-  into v_source_id
-  from public.catalogue_sources
-  where lower(name) = lower(data->>'sourceName')
-    and kind = source_kind_value
-  limit 1;
-
-  if v_source_id is null then
-    insert into public.catalogue_sources (
-      name,
-      kind,
-      verification_status
-    ) values (
-      data->>'sourceName',
-      source_kind_value,
-      'pending_review'
-    )
-    returning id into v_source_id;
-  end if;
-
-  insert into public.catalogue_spec_evidence (
-    product_id,
-    field_key,
-    value,
-    unit,
-    value_semantics,
-    source_id,
-    source_url,
-    authority,
-    exact_model_association,
-    verification_status,
-    retrieved_at,
-    verified_at,
-    conditions,
-    caveats
-  ) values (
-    data->>'productId',
-    data->>'fieldKey',
-    data->'value',
-    nullif(data->>'unit', ''),
-    nullif(data->>'valueSemantics', ''),
-    v_source_id,
-    data->>'sourceUrl',
-    (data->>'authority')::public.catalogue_evidence_authority,
-    coalesce((data->>'exactModelAssociation')::boolean, false),
-    'pending_review',
-    (data->>'retrievedAt')::timestamptz,
-    null,
-    coalesce(data->'conditions', '{}'::jsonb),
-    nullif(data->>'caveats', '')
-  )
-  on conflict do nothing
-  returning id into v_evidence_id;
-
-  if v_evidence_id is null then
-    select id
-    into v_evidence_id
-    from public.catalogue_spec_evidence
-    where product_id = data->>'productId'
-      and field_key = data->>'fieldKey'
-      and source_id = v_source_id
-      and coalesce(source_url, '') = coalesce(data->>'sourceUrl', '')
-    limit 1;
-  end if;
-
-  update public.catalogue_import_rows
-  set
-    status = 'imported',
-    reviewed_at = now()
-  where id = p_import_row_id;
-
-  insert into public.catalogue_promotion_events (
-    product_id,
-    action,
-    reviewer,
-    notes,
-    blockers_snapshot
-  ) values (
-    data->>'productId',
-    'spec_evidence_imported',
-    trim(p_reviewer),
-    p_notes,
-    '[]'::jsonb
-  );
-
-  return jsonb_build_object(
-    'productId', data->>'productId',
-    'specEvidenceId', v_evidence_id,
-    'verificationStatus', 'pending_review'
-  );
-end;
-$;
-
-create or replace function public.catalogue_verify_spec_evidence(
-  p_spec_evidence_id uuid,
-  p_reviewer text,
-  p_notes text default null
-)
-returns jsonb
-language plpgsql
-security definer
-set search_path = public
-as $
-declare
-  evidence_record public.catalogue_spec_evidence%rowtype;
-begin
-  if p_reviewer is null or length(trim(p_reviewer)) = 0 then
-    raise exception 'Reviewer is required.';
-  end if;
-
-  select *
-  into evidence_record
-  from public.catalogue_spec_evidence
-  where id = p_spec_evidence_id;
-
-  if not found then
-    raise exception 'Specification evidence does not exist.';
-  end if;
-
-  if not evidence_record.exact_model_association
-     or evidence_record.authority not in ('manufacturer', 'official_documentation')
-     or evidence_record.retrieved_at is null then
-    raise exception 'Specification evidence is not sufficient for verified technical data.';
-  end if;
-
-  update public.catalogue_sources
-  set verification_status = 'verified'
-  where id = evidence_record.source_id;
-
-  update public.catalogue_spec_evidence
-  set
-    verification_status = 'verified',
-    verified_at = now()
-  where id = p_spec_evidence_id;
-
-  update public.catalogue_product_quality_reviews
-  set technical_quality_status =
-    case
-      when technical_quality_status = 'unverified'
-        then 'partially_verified'::public.catalogue_quality_status
-      else technical_quality_status
-    end
-  where product_id = evidence_record.product_id;
-
-  insert into public.catalogue_promotion_events (
-    product_id,
-    action,
-    reviewer,
-    notes,
-    blockers_snapshot
-  ) values (
-    evidence_record.product_id,
-    'spec_evidence_verified',
-    trim(p_reviewer),
-    p_notes,
-    '[]'::jsonb
-  );
-
-  return jsonb_build_object(
-    'productId', evidence_record.product_id,
-    'specEvidenceId', p_spec_evidence_id,
-    'verificationStatus', 'verified'
-  );
-end;
-$;
-
-create or replace function public.catalogue_complete_technical_review(
-  p_product_id text,
-  p_reviewer text,
-  p_notes text default null
-)
-returns jsonb
-language plpgsql
-security definer
-set search_path = public
-as $
-declare
-  missing_fields text[];
-begin
-  if p_reviewer is null or length(trim(p_reviewer)) = 0 then
-    raise exception 'Reviewer is required.';
-  end if;
-
-  if not exists (
-    select 1
-    from public.catalogue_products
-    where id = p_product_id
-      and record_class = 'canonical'
-      and identity_status = 'verified'
-      and identity_verified_at is not null
-  ) then
-    raise exception 'Canonical verified identity is required before technical review can be completed.';
-  end if;
-
-  missing_fields := public.catalogue_missing_required_fields(p_product_id);
-
-  if cardinality(missing_fields) > 0 then
-    raise exception 'Technical review blocked: %', array_to_string(missing_fields, ' | ');
-  end if;
-
-  update public.catalogue_product_quality_reviews
-  set
-    technical_quality_status = 'verified',
-    human_review_required = false
-  where product_id = p_product_id;
-
-  if not found then
-    raise exception 'Product quality review is missing.';
-  end if;
-
-  insert into public.catalogue_promotion_events (
-    product_id,
-    action,
-    reviewer,
-    notes,
-    blockers_snapshot
-  ) values (
-    p_product_id,
-    'technical_review_completed',
-    trim(p_reviewer),
-    p_notes,
-    '[]'::jsonb
-  );
-
-  return jsonb_build_object(
-    'productId', p_product_id,
-    'technicalQualityStatus', 'verified',
-    'humanReviewRequired', false
-  );
-end;
-$;
-
-create or replace function public.catalogue_add_verified_eu_offer(
-  p_product_id text,
-  p_merchant_name text,
-  p_product_url text,
-  p_price_amount numeric,
-  p_stock_status public.stock_status,
-  p_last_checked_at timestamptz,
-  p_reviewer text,
-  p_notes text default null,
-  p_merchant_country_code text default null
-)
-returns jsonb
-language plpgsql
-security definer
-set search_path = public
-as $
-declare
-  v_merchant_id uuid;
-  v_offer_id uuid;
-begin
-  if p_reviewer is null or length(trim(p_reviewer)) = 0 then
-    raise exception 'Reviewer is required.';
-  end if;
-
-  if not exists (
-    select 1
-    from public.catalogue_products
-    where id = p_product_id
-      and record_class = 'canonical'
-      and identity_status = 'verified'
-  ) then
-    raise exception 'A canonical verified product identity is required before adding a verified offer.';
-  end if;
-
-  if p_merchant_name is null or length(trim(p_merchant_name)) = 0 then
-    raise exception 'Merchant name is required.';
-  end if;
-
-  if p_product_url is null or p_product_url !~ '^https://' then
-    raise exception 'Verified offers require an HTTPS product URL.';
-  end if;
-
-  if p_price_amount is null or p_price_amount < 0 then
-    raise exception 'Offer price must be zero or greater.';
-  end if;
-
-  if p_last_checked_at is null then
-    raise exception 'Offer check timestamp is required.';
-  end if;
-
-  if p_merchant_country_code is not null
-     and p_merchant_country_code !~ '^[A-Z]{2}
-  p_reviewer text,
-  p_notes text default null
-)
-returns jsonb
-language plpgsql
-security definer
-set search_path = public
-as $
-declare
-  import_record public.catalogue_import_rows%rowtype;
-  batch_record public.catalogue_import_batches%rowtype;
-  data jsonb;
-  product_id text;
-  category_value public.drone_product_category;
-  manufacturer_name text;
-  manufacturer_id uuid;
-  model_label text;
-begin
-  if p_reviewer is null or length(trim(p_reviewer)) = 0 then
-    raise exception 'Reviewer is required.';
-  end if;
-
-  select *
-  into import_record
-  from public.catalogue_import_rows
-  where id = p_import_row_id;
-
-  if not found then
-    raise exception 'Import row does not exist.';
-  end if;
-
-  select *
-  into batch_record
+  select * into batch_record
   from public.catalogue_import_batches
   where id = import_record.batch_id;
 
@@ -893,56 +524,50 @@ begin
     raise exception 'Import row is not part of a product import batch.';
   end if;
 
-  if import_record.normalized_data is null then
-    raise exception 'Import row has no normalized product data.';
-  end if;
-
-  if import_record.status not in ('validated', 'needs_review') then
+  if import_record.normalized_data is null
+     or import_record.status not in ('validated', 'needs_review') then
     raise exception 'Import row is not eligible to become a review candidate.';
   end if;
 
   data := import_record.normalized_data;
-  product_id := nullif(trim(data->>'id'), '');
+  v_product_id := nullif(trim(data->>'id'), '');
 
-  if product_id is null then
+  if v_product_id is null then
     raise exception 'Normalized product ID is missing.';
   end if;
 
   if exists (
-    select 1
-    from public.catalogue_products p
-    where p.id = product_id
+    select 1 from public.catalogue_products where id = v_product_id
   ) then
-    raise exception 'Product ID % already exists in the catalogue.', product_id;
+    raise exception 'Product ID % already exists in the catalogue.', v_product_id;
   end if;
 
-  category_value := (data->>'category')::public.drone_product_category;
-  manufacturer_name := nullif(trim(data->>'manufacturer'), '');
-  model_label := coalesce(
+  v_category := (data->>'category')::public.drone_product_category;
+  v_manufacturer_name := nullif(trim(data->>'manufacturer'), '');
+  v_model_label := coalesce(
     nullif(trim(data->>'model'), ''),
     nullif(trim(data->>'display_name'), '')
   );
 
-  if model_label is null then
+  if v_model_label is null then
     raise exception 'A display name or model label is required.';
   end if;
 
-  if manufacturer_name is not null then
-    select id
-    into manufacturer_id
+  if v_manufacturer_name is not null then
+    select id into v_manufacturer_id
     from public.catalogue_manufacturers
-    where lower(name) = lower(manufacturer_name)
+    where lower(name) = lower(v_manufacturer_name)
     limit 1;
 
-    if manufacturer_id is null then
+    if v_manufacturer_id is null then
       insert into public.catalogue_manufacturers (
         name,
         verification_status
       ) values (
-        manufacturer_name,
+        v_manufacturer_name,
         'pending_review'
       )
-      returning id into manufacturer_id;
+      returning id into v_manufacturer_id;
     end if;
   end if;
 
@@ -965,12 +590,12 @@ begin
     identity_verified_at,
     record_class
   ) values (
-    product_id,
-    manufacturer_id,
-    model_label,
+    v_product_id,
+    v_manufacturer_id,
+    v_model_label,
     nullif(trim(data->>'variant'), ''),
     data->>'display_name',
-    category_value,
+    v_category,
     nullif(trim(data->>'mpn'), ''),
     nullif(trim(data->>'manufacturer_sku'), ''),
     nullif(data->>'spec_summary', ''),
@@ -1029,7 +654,7 @@ begin
     fc_receiver_power_voltages_v,
     attributes
   ) values (
-    product_id,
+    v_product_id,
     nullif(data->>'frame_size_inches', '')::numeric,
     nullif(data->>'motor_mount_pattern', ''),
     nullif(data->>'propeller_diameter_inches', '')::numeric,
@@ -1056,16 +681,14 @@ begin
     nullif(data->>'camera_depth_mm', '')::numeric,
     case
       when jsonb_typeof(data->'fc_camera_video_interfaces') = 'array'
-      then array(
-        select jsonb_array_elements_text(data->'fc_camera_video_interfaces')
-      )
+      then array(select jsonb_array_elements_text(data->'fc_camera_video_interfaces'))
       else null
     end,
     case
       when jsonb_typeof(data->'fc_camera_power_voltages_v') = 'array'
       then array(
         select value::numeric
-        from jsonb_array_elements_text(data->'fc_camera_power_voltages_v') value
+        from jsonb_array_elements_text(data->'fc_camera_power_voltages_v') as value
       )
       else null
     end,
@@ -1080,16 +703,14 @@ begin
     nullif(data->>'receiver_depth_mm', '')::numeric,
     case
       when jsonb_typeof(data->'fc_receiver_signal_interfaces') = 'array'
-      then array(
-        select jsonb_array_elements_text(data->'fc_receiver_signal_interfaces')
-      )
+      then array(select jsonb_array_elements_text(data->'fc_receiver_signal_interfaces'))
       else null
     end,
     case
       when jsonb_typeof(data->'fc_receiver_power_voltages_v') = 'array'
       then array(
         select value::numeric
-        from jsonb_array_elements_text(data->'fc_receiver_power_voltages_v') value
+        from jsonb_array_elements_text(data->'fc_receiver_power_voltages_v') as value
       )
       else null
     end,
@@ -1113,11 +734,11 @@ begin
     review_dataset,
     reviewed_at
   ) values (
-    product_id,
+    v_product_id,
     'unverified',
     'unverified',
     'unknown',
-    manufacturer_name,
+    v_manufacturer_name,
     nullif(trim(data->>'model'), ''),
     nullif(trim(data->>'variant'), ''),
     'missing',
@@ -1147,7 +768,7 @@ begin
       license_name,
       license_url
     ) values (
-      product_id,
+      v_product_id,
       data->>'image_url',
       nullif(trim(data->>'image_source_url'), ''),
       coalesce(nullif(data->>'image_alt', ''), data->>'display_name'),
@@ -1164,9 +785,7 @@ begin
   end if;
 
   update public.catalogue_import_rows
-  set
-    status = 'imported',
-    reviewed_at = now()
+  set status = 'imported', reviewed_at = now()
   where id = p_import_row_id;
 
   insert into public.catalogue_promotion_events (
@@ -1176,7 +795,7 @@ begin
     notes,
     blockers_snapshot
   ) values (
-    product_id,
+    v_product_id,
     'candidate_created',
     trim(p_reviewer),
     p_notes,
@@ -1184,13 +803,115 @@ begin
   );
 
   return jsonb_build_object(
-    'productId', product_id,
+    'productId', v_product_id,
     'recordClass', 'candidate',
     'identityStatus', 'pending_review',
     'selectable', false
   );
 end;
-$;
+$fn$;
+
+create or replace function public.catalogue_verify_identity_evidence(
+  p_identity_evidence_id uuid,
+  p_reviewer text,
+  p_notes text default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+declare
+  evidence_record public.catalogue_identity_evidence%rowtype;
+  v_manufacturer_id uuid;
+begin
+  if p_reviewer is null or length(trim(p_reviewer)) = 0 then
+    raise exception 'Reviewer is required.';
+  end if;
+
+  select * into evidence_record
+  from public.catalogue_identity_evidence
+  where id = p_identity_evidence_id;
+
+  if not found then
+    raise exception 'Identity evidence does not exist.';
+  end if;
+
+  if not evidence_record.exact_model_association
+     or evidence_record.authority not in ('manufacturer', 'official_documentation')
+     or evidence_record.retrieved_at is null then
+    raise exception 'Identity evidence is not sufficient for exact-model verification.';
+  end if;
+
+  if not exists (
+    select 1
+    from public.catalogue_product_quality_reviews
+    where product_id = evidence_record.product_id
+  ) then
+    raise exception 'Product quality review is missing.';
+  end if;
+
+  update public.catalogue_sources
+  set verification_status = 'verified'
+  where id = evidence_record.source_id;
+
+  select id into v_manufacturer_id
+  from public.catalogue_manufacturers
+  where lower(name) = lower(evidence_record.manufacturer_label)
+  limit 1;
+
+  if v_manufacturer_id is null then
+    insert into public.catalogue_manufacturers (
+      name,
+      verification_status
+    ) values (
+      evidence_record.manufacturer_label,
+      'verified'
+    )
+    returning id into v_manufacturer_id;
+  else
+    update public.catalogue_manufacturers
+    set verification_status = 'verified'
+    where id = v_manufacturer_id;
+  end if;
+
+  update public.catalogue_identity_evidence
+  set verification_status = 'verified', verified_at = now()
+  where id = p_identity_evidence_id;
+
+  update public.catalogue_products
+  set manufacturer_id = v_manufacturer_id
+  where id = evidence_record.product_id;
+
+  update public.catalogue_product_quality_reviews
+  set
+    identity_quality_status = 'verified',
+    manufacturer_label = evidence_record.manufacturer_label,
+    exact_model_label = evidence_record.model_label,
+    variant_label = evidence_record.variant_label
+  where product_id = evidence_record.product_id;
+
+  insert into public.catalogue_promotion_events (
+    product_id,
+    action,
+    reviewer,
+    notes,
+    blockers_snapshot
+  ) values (
+    evidence_record.product_id,
+    'identity_evidence_verified',
+    trim(p_reviewer),
+    p_notes,
+    '[]'::jsonb
+  );
+
+  return jsonb_build_object(
+    'productId', evidence_record.product_id,
+    'identityEvidenceId', p_identity_evidence_id,
+    'verificationStatus', 'verified'
+  );
+end;
+$fn$;
 
 create or replace function public.catalogue_promote_identity(
   p_product_id text,
@@ -1201,7 +922,7 @@ returns jsonb
 language plpgsql
 security definer
 set search_path = public
-as $$
+as $fn$
 declare
   blockers text[];
   quality_record public.catalogue_product_quality_reviews%rowtype;
@@ -1216,8 +937,7 @@ begin
     raise exception 'Identity promotion blocked: %', array_to_string(blockers, ' | ');
   end if;
 
-  select *
-  into quality_record
+  select * into quality_record
   from public.catalogue_product_quality_reviews
   where product_id = p_product_id;
 
@@ -1253,10 +973,10 @@ begin
     'selectable', false
   );
 end;
-$$;
+$fn$;
 
-create or replace function public.catalogue_publish_product(
-  p_product_id text,
+create or replace function public.catalogue_accept_spec_evidence_from_import(
+  p_import_row_id bigint,
   p_reviewer text,
   p_notes text default null
 )
@@ -1264,29 +984,116 @@ returns jsonb
 language plpgsql
 security definer
 set search_path = public
-as $$
+as $fn$
 declare
-  blockers text[];
+  import_record public.catalogue_import_rows%rowtype;
+  batch_record public.catalogue_import_batches%rowtype;
+  data jsonb;
+  v_source_id uuid;
+  v_evidence_id uuid;
+  v_source_kind public.catalogue_source_kind;
 begin
   if p_reviewer is null or length(trim(p_reviewer)) = 0 then
     raise exception 'Reviewer is required.';
   end if;
 
-  blockers := public.catalogue_publication_blockers(p_product_id);
+  select * into import_record
+  from public.catalogue_import_rows
+  where id = p_import_row_id;
 
-  if cardinality(blockers) > 0 then
-    raise exception 'Publication blocked: %', array_to_string(blockers, ' | ');
+  if not found then
+    raise exception 'Import row does not exist.';
   end if;
 
-  update public.catalogue_products
-  set
-    verification_status = 'verified',
-    selectable = true
-  where id = p_product_id;
+  select * into batch_record
+  from public.catalogue_import_batches
+  where id = import_record.batch_id;
 
-  update public.catalogue_product_quality_reviews
-  set price_status = 'market_offer_backed'
-  where product_id = p_product_id;
+  if not found or batch_record.import_kind <> 'spec_evidence' then
+    raise exception 'Import row is not specification evidence.';
+  end if;
+
+  if import_record.normalized_data is null
+     or import_record.status not in ('validated', 'needs_review') then
+    raise exception 'Specification evidence row is not eligible for review.';
+  end if;
+
+  data := import_record.normalized_data;
+
+  if not exists (
+    select 1 from public.catalogue_products where id = data->>'productId'
+  ) then
+    raise exception 'Referenced product does not exist.';
+  end if;
+
+  v_source_kind := (data->>'sourceKind')::public.catalogue_source_kind;
+
+  select id into v_source_id
+  from public.catalogue_sources
+  where lower(name) = lower(data->>'sourceName')
+    and kind = v_source_kind
+  limit 1;
+
+  if v_source_id is null then
+    insert into public.catalogue_sources (
+      name,
+      kind,
+      verification_status
+    ) values (
+      data->>'sourceName',
+      v_source_kind,
+      'pending_review'
+    )
+    returning id into v_source_id;
+  end if;
+
+  insert into public.catalogue_spec_evidence (
+    product_id,
+    field_key,
+    value,
+    unit,
+    value_semantics,
+    source_id,
+    source_url,
+    authority,
+    exact_model_association,
+    verification_status,
+    retrieved_at,
+    verified_at,
+    conditions,
+    caveats
+  ) values (
+    data->>'productId',
+    data->>'fieldKey',
+    data->'value',
+    nullif(data->>'unit', ''),
+    nullif(data->>'valueSemantics', ''),
+    v_source_id,
+    data->>'sourceUrl',
+    (data->>'authority')::public.catalogue_evidence_authority,
+    coalesce((data->>'exactModelAssociation')::boolean, false),
+    'pending_review',
+    (data->>'retrievedAt')::timestamptz,
+    null,
+    coalesce(data->'conditions', '{}'::jsonb),
+    nullif(data->>'caveats', '')
+  )
+  on conflict do nothing
+  returning id into v_evidence_id;
+
+  if v_evidence_id is null then
+    select id into v_evidence_id
+    from public.catalogue_spec_evidence
+    where product_id = data->>'productId'
+      and field_key = data->>'fieldKey'
+      and source_id = v_source_id
+      and coalesce(source_url, '') = coalesce(data->>'sourceUrl', '')
+    limit 1;
+  end if;
+
+  update public.catalogue_import_rows
+  set status = 'imported', reviewed_at = now()
+  where id = p_import_row_id;
 
   insert into public.catalogue_promotion_events (
     product_id,
@@ -1295,22 +1102,106 @@ begin
     notes,
     blockers_snapshot
   ) values (
-    p_product_id,
-    'publication_enabled',
+    data->>'productId',
+    'spec_evidence_imported',
     trim(p_reviewer),
     p_notes,
     '[]'::jsonb
   );
 
   return jsonb_build_object(
-    'productId', p_product_id,
-    'verificationStatus', 'verified',
-    'selectable', true
+    'productId', data->>'productId',
+    'specEvidenceId', v_evidence_id,
+    'verificationStatus', 'pending_review'
   );
 end;
-$$;
+$fn$;
 
-create or replace function public.catalogue_unpublish_product(
+create or replace function public.catalogue_verify_spec_evidence(
+  p_spec_evidence_id uuid,
+  p_reviewer text,
+  p_notes text default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+declare
+  evidence_record public.catalogue_spec_evidence%rowtype;
+  stored_value jsonb;
+begin
+  if p_reviewer is null or length(trim(p_reviewer)) = 0 then
+    raise exception 'Reviewer is required.';
+  end if;
+
+  select * into evidence_record
+  from public.catalogue_spec_evidence
+  where id = p_spec_evidence_id;
+
+  if not found then
+    raise exception 'Specification evidence does not exist.';
+  end if;
+
+  if not evidence_record.exact_model_association
+     or evidence_record.authority not in ('manufacturer', 'official_documentation')
+     or evidence_record.retrieved_at is null then
+    raise exception 'Specification evidence is not sufficient for verified technical data.';
+  end if;
+
+  stored_value := public.catalogue_product_field_value_json(
+    evidence_record.product_id,
+    evidence_record.field_key
+  );
+
+  if stored_value is null then
+    raise exception 'The corresponding canonical product field is missing or unsupported.';
+  end if;
+
+  if stored_value <> evidence_record.value then
+    raise exception 'Evidence value does not match the current stored product value.';
+  end if;
+
+  update public.catalogue_sources
+  set verification_status = 'verified'
+  where id = evidence_record.source_id;
+
+  update public.catalogue_spec_evidence
+  set verification_status = 'verified', verified_at = now()
+  where id = p_spec_evidence_id;
+
+  update public.catalogue_product_quality_reviews
+  set technical_quality_status =
+    case
+      when technical_quality_status = 'unverified'
+        then 'partially_verified'::public.catalogue_quality_status
+      else technical_quality_status
+    end
+  where product_id = evidence_record.product_id;
+
+  insert into public.catalogue_promotion_events (
+    product_id,
+    action,
+    reviewer,
+    notes,
+    blockers_snapshot
+  ) values (
+    evidence_record.product_id,
+    'spec_evidence_verified',
+    trim(p_reviewer),
+    p_notes,
+    '[]'::jsonb
+  );
+
+  return jsonb_build_object(
+    'productId', evidence_record.product_id,
+    'specEvidenceId', p_spec_evidence_id,
+    'verificationStatus', 'verified'
+  );
+end;
+$fn$;
+
+create or replace function public.catalogue_complete_technical_review(
   p_product_id text,
   p_reviewer text,
   p_notes text default null
@@ -1319,7 +1210,9 @@ returns jsonb
 language plpgsql
 security definer
 set search_path = public
-as $$
+as $fn$
+declare
+  missing_fields text[];
 begin
   if p_reviewer is null or length(trim(p_reviewer)) = 0 then
     raise exception 'Reviewer is required.';
@@ -1329,13 +1222,29 @@ begin
     select 1
     from public.catalogue_products
     where id = p_product_id
+      and record_class = 'canonical'
+      and identity_status = 'verified'
+      and identity_verified_at is not null
   ) then
-    raise exception 'Product does not exist.';
+    raise exception 'Canonical verified identity is required before technical review can be completed.';
   end if;
 
-  update public.catalogue_products
-  set selectable = false
-  where id = p_product_id;
+  missing_fields := public.catalogue_missing_required_fields(p_product_id);
+
+  if cardinality(missing_fields) > 0 then
+    raise exception 'Technical review blocked: %', array_to_string(missing_fields, ' | ');
+  end if;
+
+  update public.catalogue_product_quality_reviews
+  set
+    technical_quality_status = 'verified',
+    human_review_required = false
+  where product_id = p_product_id
+    and technical_quality_status <> 'conflicting';
+
+  if not found then
+    raise exception 'Product review is missing or still marked conflicting.';
+  end if;
 
   insert into public.catalogue_promotion_events (
     product_id,
@@ -1345,7 +1254,7 @@ begin
     blockers_snapshot
   ) values (
     p_product_id,
-    'publication_disabled',
+    'technical_review_completed',
     trim(p_reviewer),
     p_notes,
     '[]'::jsonb
@@ -1353,93 +1262,68 @@ begin
 
   return jsonb_build_object(
     'productId', p_product_id,
-    'selectable', false
+    'technicalQualityStatus', 'verified',
+    'humanReviewRequired', false
   );
 end;
-$$;
+$fn$;
 
-create or replace view public.catalogue_promotion_readiness
-with (security_invoker = true)
-as
-select
-  p.id,
-  p.category,
-  p.display_name,
-  p.record_class,
-  p.identity_status,
-  p.verification_status,
-  p.selectable,
-  q.identity_quality_status,
-  q.technical_quality_status,
-  q.human_review_required,
-  public.catalogue_identity_promotion_blockers(p.id) as identity_blockers,
-  public.catalogue_publication_blockers(p.id) as publication_blockers
-from public.catalogue_products p
-left join public.catalogue_product_quality_reviews q
-  on q.product_id = p.id;
+create or replace function public.catalogue_add_verified_eu_offer(
+  p_product_id text,
+  p_merchant_name text,
+  p_product_url text,
+  p_price_amount numeric,
+  p_stock_status public.stock_status,
+  p_last_checked_at timestamptz,
+  p_reviewer text,
+  p_notes text default null,
+  p_merchant_country_code text default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+declare
+  v_merchant_id uuid;
+  v_offer_id uuid;
+begin
+  if p_reviewer is null or length(trim(p_reviewer)) = 0 then
+    raise exception 'Reviewer is required.';
+  end if;
 
-revoke all on public.catalogue_promotion_readiness from anon, authenticated;
-grant select on public.catalogue_promotion_readiness to service_role;
+  if not exists (
+    select 1
+    from public.catalogue_products
+    where id = p_product_id
+      and record_class = 'canonical'
+      and identity_status = 'verified'
+  ) then
+    raise exception 'A canonical verified product identity is required before adding a verified offer.';
+  end if;
 
-revoke all on function public.enforce_catalogue_product_promotion_gate()
-  from public, anon, authenticated;
-revoke all on function public.catalogue_verify_identity_evidence(uuid, text, text)
-  from public, anon, authenticated;
-revoke all on function public.catalogue_accept_spec_evidence_from_import(bigint, text, text)
-  from public, anon, authenticated;
-revoke all on function public.catalogue_verify_spec_evidence(uuid, text, text)
-  from public, anon, authenticated;
-revoke all on function public.catalogue_complete_technical_review(text, text, text)
-  from public, anon, authenticated;
-revoke all on function public.catalogue_add_verified_eu_offer(
-  text, text, text, numeric, public.stock_status, timestamptz, text, text, text
-) from public, anon, authenticated;
-revoke all on function public.catalogue_create_candidate_from_import(bigint, text, text)
-  from public, anon, authenticated;
-revoke all on function public.catalogue_missing_required_fields(text)
-  from public, anon, authenticated;
-revoke all on function public.catalogue_identity_promotion_blockers(text)
-  from public, anon, authenticated;
-revoke all on function public.catalogue_publication_blockers(text)
-  from public, anon, authenticated;
-revoke all on function public.catalogue_promote_identity(text, text, text)
-  from public, anon, authenticated;
-revoke all on function public.catalogue_publish_product(text, text, text)
-  from public, anon, authenticated;
-revoke all on function public.catalogue_unpublish_product(text, text, text)
-  from public, anon, authenticated;
+  if p_merchant_name is null or length(trim(p_merchant_name)) = 0 then
+    raise exception 'Merchant name is required.';
+  end if;
 
-grant execute on function public.catalogue_verify_identity_evidence(uuid, text, text)
-  to service_role;
-grant execute on function public.catalogue_accept_spec_evidence_from_import(bigint, text, text)
-  to service_role;
-grant execute on function public.catalogue_verify_spec_evidence(uuid, text, text)
-  to service_role;
-grant execute on function public.catalogue_complete_technical_review(text, text, text)
-  to service_role;
-grant execute on function public.catalogue_add_verified_eu_offer(
-  text, text, text, numeric, public.stock_status, timestamptz, text, text, text
-) to service_role;
-grant execute on function public.catalogue_create_candidate_from_import(bigint, text, text)
-  to service_role;
-grant execute on function public.catalogue_missing_required_fields(text)
-  to service_role;
-grant execute on function public.catalogue_identity_promotion_blockers(text)
-  to service_role;
-grant execute on function public.catalogue_publication_blockers(text)
-  to service_role;
-grant execute on function public.catalogue_promote_identity(text, text, text)
-  to service_role;
-grant execute on function public.catalogue_publish_product(text, text, text)
-  to service_role;
-grant execute on function public.catalogue_unpublish_product(text, text, text)
-  to service_role;
- then
+  if p_product_url is null or p_product_url !~ '^https://' then
+    raise exception 'Verified offers require an HTTPS product URL.';
+  end if;
+
+  if p_price_amount is null or p_price_amount < 0 then
+    raise exception 'Offer price must be zero or greater.';
+  end if;
+
+  if p_last_checked_at is null then
+    raise exception 'Offer check timestamp is required.';
+  end if;
+
+  if p_merchant_country_code is not null
+     and p_merchant_country_code !~ '^[A-Z]{2}$' then
     raise exception 'Merchant country code must be a two-letter uppercase code.';
   end if;
 
-  select id
-  into v_merchant_id
+  select id into v_merchant_id
   from public.catalogue_merchants
   where lower(name) = lower(trim(p_merchant_name))
   limit 1;
@@ -1518,411 +1402,7 @@ grant execute on function public.catalogue_unpublish_product(text, text, text)
     'verificationStatus', 'verified'
   );
 end;
-$;
-
-create or replace function public.catalogue_create_candidate_from_import(
-  p_import_row_id bigint,
-  p_reviewer text,
-  p_notes text default null
-)
-returns jsonb
-language plpgsql
-security definer
-set search_path = public
-as $
-declare
-  import_record public.catalogue_import_rows%rowtype;
-  batch_record public.catalogue_import_batches%rowtype;
-  data jsonb;
-  product_id text;
-  category_value public.drone_product_category;
-  manufacturer_name text;
-  v_manufacturer_id uuid;
-  model_label text;
-begin
-  if p_reviewer is null or length(trim(p_reviewer)) = 0 then
-    raise exception 'Reviewer is required.';
-  end if;
-
-  select *
-  into import_record
-  from public.catalogue_import_rows
-  where id = p_import_row_id;
-
-  if not found then
-    raise exception 'Import row does not exist.';
-  end if;
-
-  select *
-  into batch_record
-  from public.catalogue_import_batches
-  where id = import_record.batch_id;
-
-  if not found or batch_record.import_kind <> 'products' then
-    raise exception 'Import row is not part of a product import batch.';
-  end if;
-
-  if import_record.normalized_data is null then
-    raise exception 'Import row has no normalized product data.';
-  end if;
-
-  if import_record.status not in ('validated', 'needs_review') then
-    raise exception 'Import row is not eligible to become a review candidate.';
-  end if;
-
-  data := import_record.normalized_data;
-  product_id := nullif(trim(data->>'id'), '');
-
-  if product_id is null then
-    raise exception 'Normalized product ID is missing.';
-  end if;
-
-  if exists (
-    select 1
-    from public.catalogue_products p
-    where p.id = product_id
-  ) then
-    raise exception 'Product ID % already exists in the catalogue.', product_id;
-  end if;
-
-  category_value := (data->>'category')::public.drone_product_category;
-  manufacturer_name := nullif(trim(data->>'manufacturer'), '');
-  model_label := coalesce(
-    nullif(trim(data->>'model'), ''),
-    nullif(trim(data->>'display_name'), '')
-  );
-
-  if model_label is null then
-    raise exception 'A display name or model label is required.';
-  end if;
-
-  if manufacturer_name is not null then
-    select id
-    into v_manufacturer_id
-    from public.catalogue_manufacturers
-    where lower(name) = lower(manufacturer_name)
-    limit 1;
-
-    if v_manufacturer_id is null then
-      insert into public.catalogue_manufacturers (
-        name,
-        verification_status
-      ) values (
-        manufacturer_name,
-        'pending_review'
-      )
-      returning id into v_manufacturer_id;
-    end if;
-  end if;
-
-  insert into public.catalogue_products (
-    id,
-    manufacturer_id,
-    model,
-    variant,
-    display_name,
-    category,
-    mpn,
-    manufacturer_sku,
-    spec_summary,
-    weight_grams,
-    lifecycle_status,
-    verification_status,
-    selectable,
-    attributes,
-    identity_status,
-    identity_verified_at,
-    record_class
-  ) values (
-    product_id,
-    v_manufacturer_id,
-    model_label,
-    nullif(trim(data->>'variant'), ''),
-    data->>'display_name',
-    category_value,
-    nullif(trim(data->>'mpn'), ''),
-    nullif(trim(data->>'manufacturer_sku'), ''),
-    nullif(data->>'spec_summary', ''),
-    nullif(data->>'weight_grams', '')::numeric,
-    'unknown',
-    'pending_review',
-    false,
-    jsonb_build_object(
-      'candidateSource', 'catalogue_import_rows',
-      'importRowId', p_import_row_id,
-      'importBatchId', import_record.batch_id
-    ),
-    'pending_review',
-    null,
-    'candidate'
-  );
-
-  insert into public.catalogue_product_specs (
-    product_id,
-    frame_size_inches,
-    motor_mount_pattern,
-    propeller_diameter_inches,
-    motor_size_code,
-    motor_stator_width_mm,
-    motor_stator_height_mm,
-    motor_kv,
-    min_battery_cells,
-    max_battery_cells,
-    connector,
-    esc_input,
-    thrust_grams,
-    peak_current_amps,
-    esc_amps,
-    battery_cells,
-    battery_capacity_mah,
-    battery_discharge_c,
-    video_system,
-    camera_video_interface,
-    camera_min_voltage_v,
-    camera_max_voltage_v,
-    camera_width_mm,
-    camera_height_mm,
-    camera_depth_mm,
-    fc_camera_video_interfaces,
-    fc_camera_power_voltages_v,
-    receiver_protocol,
-    receiver_frequency_min_mhz,
-    receiver_frequency_max_mhz,
-    receiver_min_voltage_v,
-    receiver_max_voltage_v,
-    receiver_signal_interface,
-    receiver_width_mm,
-    receiver_height_mm,
-    receiver_depth_mm,
-    fc_receiver_signal_interfaces,
-    fc_receiver_power_voltages_v,
-    attributes
-  ) values (
-    product_id,
-    nullif(data->>'frame_size_inches', '')::numeric,
-    nullif(data->>'motor_mount_pattern', ''),
-    nullif(data->>'propeller_diameter_inches', '')::numeric,
-    nullif(data->>'motor_size_code', '')::integer,
-    nullif(data->>'motor_stator_width_mm', '')::numeric,
-    nullif(data->>'motor_stator_height_mm', '')::numeric,
-    nullif(data->>'motor_kv', '')::integer,
-    nullif(data->>'min_battery_cells', '')::smallint,
-    nullif(data->>'max_battery_cells', '')::smallint,
-    nullif(data->>'connector', ''),
-    nullif(data->>'esc_input', ''),
-    nullif(data->>'thrust_grams', '')::numeric,
-    nullif(data->>'peak_current_amps', '')::numeric,
-    nullif(data->>'esc_amps', '')::numeric,
-    nullif(data->>'battery_cells', '')::smallint,
-    nullif(data->>'battery_capacity_mah', '')::integer,
-    nullif(data->>'battery_discharge_c', '')::numeric,
-    nullif(data->>'video_system', ''),
-    nullif(data->>'camera_video_interface', ''),
-    nullif(data->>'camera_min_voltage_v', '')::numeric,
-    nullif(data->>'camera_max_voltage_v', '')::numeric,
-    nullif(data->>'camera_width_mm', '')::numeric,
-    nullif(data->>'camera_height_mm', '')::numeric,
-    nullif(data->>'camera_depth_mm', '')::numeric,
-    case
-      when jsonb_typeof(data->'fc_camera_video_interfaces') = 'array'
-      then array(
-        select jsonb_array_elements_text(data->'fc_camera_video_interfaces')
-      )
-      else null
-    end,
-    case
-      when jsonb_typeof(data->'fc_camera_power_voltages_v') = 'array'
-      then array(
-        select value::numeric
-        from jsonb_array_elements_text(data->'fc_camera_power_voltages_v') value
-      )
-      else null
-    end,
-    nullif(data->>'receiver_protocol', ''),
-    nullif(data->>'receiver_frequency_min_mhz', '')::numeric,
-    nullif(data->>'receiver_frequency_max_mhz', '')::numeric,
-    nullif(data->>'receiver_min_voltage_v', '')::numeric,
-    nullif(data->>'receiver_max_voltage_v', '')::numeric,
-    nullif(data->>'receiver_signal_interface', ''),
-    nullif(data->>'receiver_width_mm', '')::numeric,
-    nullif(data->>'receiver_height_mm', '')::numeric,
-    nullif(data->>'receiver_depth_mm', '')::numeric,
-    case
-      when jsonb_typeof(data->'fc_receiver_signal_interfaces') = 'array'
-      then array(
-        select jsonb_array_elements_text(data->'fc_receiver_signal_interfaces')
-      )
-      else null
-    end,
-    case
-      when jsonb_typeof(data->'fc_receiver_power_voltages_v') = 'array'
-      then array(
-        select value::numeric
-        from jsonb_array_elements_text(data->'fc_receiver_power_voltages_v') value
-      )
-      else null
-    end,
-    '{}'::jsonb
-  );
-
-  insert into public.catalogue_product_quality_reviews (
-    product_id,
-    identity_quality_status,
-    technical_quality_status,
-    product_kind,
-    manufacturer_label,
-    exact_model_label,
-    variant_label,
-    price_status,
-    illustrative_price_amount,
-    illustrative_price_currency,
-    human_review_required,
-    issues,
-    remediation,
-    review_dataset,
-    reviewed_at
-  ) values (
-    product_id,
-    'unverified',
-    'unverified',
-    'unknown',
-    manufacturer_name,
-    nullif(trim(data->>'model'), ''),
-    nullif(trim(data->>'variant'), ''),
-    'missing',
-    null,
-    null,
-    true,
-    jsonb_build_array(
-      'New product candidate requires identity, technical, image, and offer review.'
-    ),
-    jsonb_build_array(
-      'Attach exact-model identity evidence and field-level technical evidence before promotion.'
-    ),
-    'staged-product-import',
-    now()
-  );
-
-  if nullif(trim(data->>'image_url'), '') is not null then
-    insert into public.catalogue_product_images (
-      product_id,
-      image_url,
-      source_url,
-      alt_text,
-      exact_model_verified,
-      verification_status,
-      provenance,
-      primary_image,
-      license_name,
-      license_url
-    ) values (
-      product_id,
-      data->>'image_url',
-      nullif(trim(data->>'image_source_url'), ''),
-      coalesce(nullif(data->>'image_alt', ''), data->>'display_name'),
-      false,
-      'pending_review',
-      coalesce(
-        nullif(data->>'image_provenance', ''),
-        'Staged product candidate image'
-      ),
-      false,
-      nullif(data->>'image_license_name', ''),
-      nullif(data->>'image_license_url', '')
-    );
-  end if;
-
-  update public.catalogue_import_rows
-  set
-    status = 'imported',
-    reviewed_at = now()
-  where id = p_import_row_id;
-
-  insert into public.catalogue_promotion_events (
-    product_id,
-    action,
-    reviewer,
-    notes,
-    blockers_snapshot
-  ) values (
-    product_id,
-    'candidate_created',
-    trim(p_reviewer),
-    p_notes,
-    '[]'::jsonb
-  );
-
-  return jsonb_build_object(
-    'productId', product_id,
-    'recordClass', 'candidate',
-    'identityStatus', 'pending_review',
-    'selectable', false
-  );
-end;
-$;
-
-create or replace function public.catalogue_promote_identity(
-  p_product_id text,
-  p_reviewer text,
-  p_notes text default null
-)
-returns jsonb
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-  blockers text[];
-  quality_record public.catalogue_product_quality_reviews%rowtype;
-begin
-  if p_reviewer is null or length(trim(p_reviewer)) = 0 then
-    raise exception 'Reviewer is required.';
-  end if;
-
-  blockers := public.catalogue_identity_promotion_blockers(p_product_id);
-
-  if cardinality(blockers) > 0 then
-    raise exception 'Identity promotion blocked: %', array_to_string(blockers, ' | ');
-  end if;
-
-  select *
-  into quality_record
-  from public.catalogue_product_quality_reviews
-  where product_id = p_product_id;
-
-  update public.catalogue_products
-  set
-    record_class = 'canonical',
-    model = quality_record.exact_model_label,
-    variant = quality_record.variant_label,
-    identity_status = 'verified',
-    identity_verified_at = now(),
-    verification_status = 'pending_review',
-    selectable = false
-  where id = p_product_id;
-
-  insert into public.catalogue_promotion_events (
-    product_id,
-    action,
-    reviewer,
-    notes,
-    blockers_snapshot
-  ) values (
-    p_product_id,
-    'identity_promoted',
-    trim(p_reviewer),
-    p_notes,
-    '[]'::jsonb
-  );
-
-  return jsonb_build_object(
-    'productId', p_product_id,
-    'recordClass', 'canonical',
-    'identityStatus', 'verified',
-    'selectable', false
-  );
-end;
-$$;
+$fn$;
 
 create or replace function public.catalogue_publish_product(
   p_product_id text,
@@ -1933,7 +1413,7 @@ returns jsonb
 language plpgsql
 security definer
 set search_path = public
-as $$
+as $fn$
 declare
   blockers text[];
 begin
@@ -1948,9 +1428,7 @@ begin
   end if;
 
   update public.catalogue_products
-  set
-    verification_status = 'verified',
-    selectable = true
+  set verification_status = 'verified', selectable = true
   where id = p_product_id;
 
   update public.catalogue_product_quality_reviews
@@ -1977,7 +1455,7 @@ begin
     'selectable', true
   );
 end;
-$$;
+$fn$;
 
 create or replace function public.catalogue_unpublish_product(
   p_product_id text,
@@ -1988,16 +1466,14 @@ returns jsonb
 language plpgsql
 security definer
 set search_path = public
-as $$
+as $fn$
 begin
   if p_reviewer is null or length(trim(p_reviewer)) = 0 then
     raise exception 'Reviewer is required.';
   end if;
 
   if not exists (
-    select 1
-    from public.catalogue_products
-    where id = p_product_id
+    select 1 from public.catalogue_products where id = p_product_id
   ) then
     raise exception 'Product does not exist.';
   end if;
@@ -2025,7 +1501,7 @@ begin
     'selectable', false
   );
 end;
-$$;
+$fn$;
 
 create or replace view public.catalogue_promotion_readiness
 with (security_invoker = true)
@@ -2050,29 +1526,59 @@ left join public.catalogue_product_quality_reviews q
 revoke all on public.catalogue_promotion_readiness from anon, authenticated;
 grant select on public.catalogue_promotion_readiness to service_role;
 
-revoke all on function public.enforce_catalogue_product_promotion_gate()
+revoke all on function public.catalogue_product_field_value_json(text, text)
   from public, anon, authenticated;
-revoke all on function public.catalogue_create_candidate_from_import(bigint, text, text)
+revoke all on function public.catalogue_missing_required_fields(text)
   from public, anon, authenticated;
 revoke all on function public.catalogue_identity_promotion_blockers(text)
   from public, anon, authenticated;
 revoke all on function public.catalogue_publication_blockers(text)
   from public, anon, authenticated;
+revoke all on function public.enforce_catalogue_product_promotion_gate()
+  from public, anon, authenticated;
+revoke all on function public.catalogue_create_candidate_from_import(bigint, text, text)
+  from public, anon, authenticated;
+revoke all on function public.catalogue_verify_identity_evidence(uuid, text, text)
+  from public, anon, authenticated;
 revoke all on function public.catalogue_promote_identity(text, text, text)
   from public, anon, authenticated;
+revoke all on function public.catalogue_accept_spec_evidence_from_import(bigint, text, text)
+  from public, anon, authenticated;
+revoke all on function public.catalogue_verify_spec_evidence(uuid, text, text)
+  from public, anon, authenticated;
+revoke all on function public.catalogue_complete_technical_review(text, text, text)
+  from public, anon, authenticated;
+revoke all on function public.catalogue_add_verified_eu_offer(
+  text, text, text, numeric, public.stock_status, timestamptz, text, text, text
+) from public, anon, authenticated;
 revoke all on function public.catalogue_publish_product(text, text, text)
   from public, anon, authenticated;
 revoke all on function public.catalogue_unpublish_product(text, text, text)
   from public, anon, authenticated;
 
-grant execute on function public.catalogue_create_candidate_from_import(bigint, text, text)
+grant execute on function public.catalogue_product_field_value_json(text, text)
+  to service_role;
+grant execute on function public.catalogue_missing_required_fields(text)
   to service_role;
 grant execute on function public.catalogue_identity_promotion_blockers(text)
   to service_role;
 grant execute on function public.catalogue_publication_blockers(text)
   to service_role;
+grant execute on function public.catalogue_create_candidate_from_import(bigint, text, text)
+  to service_role;
+grant execute on function public.catalogue_verify_identity_evidence(uuid, text, text)
+  to service_role;
 grant execute on function public.catalogue_promote_identity(text, text, text)
   to service_role;
+grant execute on function public.catalogue_accept_spec_evidence_from_import(bigint, text, text)
+  to service_role;
+grant execute on function public.catalogue_verify_spec_evidence(uuid, text, text)
+  to service_role;
+grant execute on function public.catalogue_complete_technical_review(text, text, text)
+  to service_role;
+grant execute on function public.catalogue_add_verified_eu_offer(
+  text, text, text, numeric, public.stock_status, timestamptz, text, text, text
+) to service_role;
 grant execute on function public.catalogue_publish_product(text, text, text)
   to service_role;
 grant execute on function public.catalogue_unpublish_product(text, text, text)
