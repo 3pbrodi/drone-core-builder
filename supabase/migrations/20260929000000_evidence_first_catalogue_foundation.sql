@@ -25,6 +25,7 @@ create type public.catalogue_product_kind as enum (
 );
 
 create type public.catalogue_price_data_status as enum (
+  'missing',
   'illustrative',
   'market_offer_backed'
 );
