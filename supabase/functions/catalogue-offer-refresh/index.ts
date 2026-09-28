@@ -1,4 +1,6 @@
 const jsonHeaders = { "Content-Type": "application/json; charset=utf-8" };
+const EXPECTED_REFRESH_TOKEN_SHA256 =
+  "a7ba1baeae1110ea62b2b8c8592bf48fb79200b6ca5be601e3a47162547116f7";
 
 type Target = {
   offerId: string;
@@ -512,27 +514,168 @@ async function mapConcurrent<T, R>(
   return results;
 }
 
-async function rpc<T>(name: string, body: Record<string, unknown>): Promise<T> {
-  const baseUrl = Deno.env.get("SUPABASE_URL");
-  const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
-  if (!baseUrl || !anonKey) throw new Error("Supabase function environment is incomplete.");
 
-  const response = await fetch(`${baseUrl}/rest/v1/rpc/${name}`, {
-    method: "POST",
-    headers: {
-      "apikey": anonKey,
-      "authorization": `Bearer ${anonKey}`,
-      "content-type": "application/json",
-      "accept": "application/json",
-    },
-    body: JSON.stringify(body),
-  });
+type OfferRow = {
+  id: string;
+  product_id: string;
+  merchant_id: string;
+  merchant_sku: string | null;
+  product_url: string;
+  price_amount: number | string | null;
+  currency: string | null;
+  stock_status: string;
+  region: string | null;
+  verification_status: string;
+  last_checked_at: string | null;
+};
+
+type ProductRow = {
+  id: string;
+  display_name: string;
+  model: string | null;
+  variant: string | null;
+  manufacturer_sku: string | null;
+  record_class: string;
+  identity_status: string;
+  verification_status: string;
+  selectable: boolean;
+  manufacturer_id: string | null;
+};
+
+type MerchantRow = {
+  id: string;
+  name: string;
+  active: boolean;
+  verification_status: string;
+};
+
+type ManufacturerRow = { id: string; name: string };
+
+type RunRow = {
+  id: string;
+  local_date: string;
+  status: string;
+  total_targets: number;
+};
+
+function adminApiKey() {
+  const modern = Deno.env.get("SUPABASE_SECRET_KEYS");
+  if (modern) {
+    const parsed = JSON.parse(modern) as Record<string, string>;
+    if (parsed.default) return parsed.default;
+  }
+
+  const legacy = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (legacy) return legacy;
+
+  throw new Error("Supabase admin key is unavailable inside the Edge Function.");
+}
+
+async function adminRest<T>(
+  path: string,
+  init: RequestInit = {},
+  prefer?: string,
+): Promise<T> {
+  const baseUrl = Deno.env.get("SUPABASE_URL");
+  if (!baseUrl) throw new Error("SUPABASE_URL is unavailable.");
+
+  const key = adminApiKey();
+  const headers = new Headers(init.headers);
+  headers.set("apikey", key);
+  headers.set("accept", "application/json");
+  if (!key.startsWith("sb_secret_")) {
+    headers.set("authorization", `Bearer ${key}`);
+  }
+  if (init.body && !headers.has("content-type")) {
+    headers.set("content-type", "application/json");
+  }
+  if (prefer) headers.set("prefer", prefer);
+
+  const response = await fetch(
+    `${baseUrl}/rest/v1/${path.replace(/^\//, "")}`,
+    { ...init, headers },
+  );
 
   const text = await response.text();
   if (!response.ok) {
-    throw new Error(`RPC ${name} failed (${response.status}): ${text.slice(0, 500)}`);
+    throw new Error(
+      `Supabase admin request failed (${response.status}): ${text.slice(0, 500)}`,
+    );
   }
-  return text ? JSON.parse(text) as T : (null as T);
+
+  if (!text) return undefined as T;
+  return JSON.parse(text) as T;
+}
+
+async function sha256Hex(value: string) {
+  const bytes = new TextEncoder().encode(value);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+async function validRefreshToken(token: string | null) {
+  if (!token || token.length < 32) return false;
+  return (await sha256Hex(token)) === EXPECTED_REFRESH_TOKEN_SHA256;
+}
+
+async function loadTargets(): Promise<{
+  targets: Target[];
+  offers: Map<string, OfferRow>;
+}> {
+  const [offers, products, merchants, manufacturers] = await Promise.all([
+    adminRest<OfferRow[]>(
+      "catalogue_offers?select=id,product_id,merchant_id,merchant_sku,product_url,price_amount,currency,stock_status,region,verification_status,last_checked_at&verification_status=eq.verified&currency=eq.EUR&region=eq.EU",
+    ),
+    adminRest<ProductRow[]>(
+      "catalogue_products?select=id,display_name,model,variant,manufacturer_sku,record_class,identity_status,verification_status,selectable,manufacturer_id&record_class=eq.canonical&identity_status=eq.verified&verification_status=eq.verified&selectable=eq.true",
+    ),
+    adminRest<MerchantRow[]>(
+      "catalogue_merchants?select=id,name,active,verification_status&active=eq.true&verification_status=eq.verified",
+    ),
+    adminRest<ManufacturerRow[]>(
+      "catalogue_manufacturers?select=id,name",
+    ),
+  ]);
+
+  const productById = new Map(products.map((row) => [row.id, row]));
+  const merchantById = new Map(merchants.map((row) => [row.id, row]));
+  const manufacturerById = new Map(manufacturers.map((row) => [row.id, row]));
+  const offerById = new Map<string, OfferRow>();
+  const targets: Target[] = [];
+
+  for (const offer of offers) {
+    const product = productById.get(offer.product_id);
+    const merchant = merchantById.get(offer.merchant_id);
+    if (!product || !merchant) continue;
+
+    offerById.set(offer.id, offer);
+    targets.push({
+      offerId: offer.id,
+      productId: product.id,
+      productName: product.display_name,
+      manufacturerName: product.manufacturer_id
+        ? manufacturerById.get(product.manufacturer_id)?.name ?? null
+        : null,
+      model: product.model,
+      variant: product.variant,
+      manufacturerSku: product.manufacturer_sku,
+      merchantSku: offer.merchant_sku,
+      merchantName: merchant.name,
+      productUrl: offer.product_url,
+      currentPrice: offer.price_amount,
+      currentStockStatus: offer.stock_status,
+      currency: offer.currency ?? "EUR",
+    });
+  }
+
+  targets.sort((a, b) =>
+    a.merchantName.localeCompare(b.merchantName) ||
+    a.productName.localeCompare(b.productName)
+  );
+
+  return { targets, offers: offerById };
 }
 
 function berlinDate() {
@@ -546,6 +689,179 @@ function berlinDate() {
   return `${values.year}-${values.month}-${values.day}`;
 }
 
+async function getRun(localDate: string) {
+  const rows = await adminRest<RunRow[]>(
+    `catalogue_offer_refresh_runs?select=id,local_date,status,total_targets&local_date=eq.${encodeURIComponent(localDate)}&limit=1`,
+  );
+  return rows[0] ?? null;
+}
+
+async function beginRun(localDate: string, force: boolean, targetCount: number) {
+  const existing = await getRun(localDate);
+
+  if (existing && !force) {
+    return { run: existing, skip: true };
+  }
+
+  if (existing) {
+    await adminRest(
+      `catalogue_offer_refresh_checks?run_id=eq.${existing.id}`,
+      { method: "DELETE" },
+    );
+    const updated = await adminRest<RunRow[]>(
+      `catalogue_offer_refresh_runs?id=eq.${existing.id}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({
+          started_at: new Date().toISOString(),
+          finished_at: null,
+          status: "running",
+          total_targets: targetCount,
+          successful_checks: 0,
+          failed_checks: 0,
+          updated_offers: 0,
+          error_message: null,
+        }),
+      },
+      "return=representation",
+    );
+    return { run: updated[0], skip: false };
+  }
+
+  try {
+    const inserted = await adminRest<RunRow[]>(
+      "catalogue_offer_refresh_runs",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          local_date: localDate,
+          timezone: "Europe/Berlin",
+          status: "running",
+          total_targets: targetCount,
+        }),
+      },
+      "return=representation",
+    );
+    return { run: inserted[0], skip: false };
+  } catch (error) {
+    const raced = await getRun(localDate);
+    if (raced && !force) return { run: raced, skip: true };
+    throw error;
+  }
+}
+
+async function finishRun(
+  runId: string,
+  status: "completed" | "partial" | "failed",
+  total: number,
+  successful: number,
+  failed: number,
+  applied: number,
+  errorMessage: string | null,
+) {
+  await adminRest(
+    `catalogue_offer_refresh_runs?id=eq.${runId}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({
+        finished_at: new Date().toISOString(),
+        status,
+        total_targets: total,
+        successful_checks: successful,
+        failed_checks: failed,
+        updated_offers: applied,
+        error_message: errorMessage?.slice(0, 2000) ?? null,
+      }),
+    },
+  );
+}
+
+async function applyResults(
+  runId: string,
+  results: CheckResult[],
+  offerById: Map<string, OfferRow>,
+) {
+  const checks = results
+    .map((result) => {
+      const offer = offerById.get(result.offerId);
+      if (!offer) return null;
+
+      const canApply =
+        result.success &&
+        result.price !== null &&
+        result.price >= 0 &&
+        result.currency === "EUR" &&
+        result.stockStatus !== null;
+
+      return {
+        run_id: runId,
+        offer_id: result.offerId,
+        product_id: result.productId,
+        merchant_name: result.merchantName,
+        product_url: offer.product_url,
+        previous_price: offer.price_amount,
+        observed_price: result.price,
+        previous_stock_status: offer.stock_status,
+        observed_stock_status: result.stockStatus,
+        observed_currency: result.currency,
+        parser_source: result.parserSource,
+        response_status: result.responseStatus,
+        success: result.success,
+        applied: canApply,
+        checked_at: result.checkedAt,
+        error_message: canApply
+          ? null
+          : result.error ?? "Observed offer data did not pass verification gates.",
+      };
+    })
+    .filter(Boolean);
+
+  if (checks.length) {
+    await adminRest(
+      "catalogue_offer_refresh_checks",
+      { method: "POST", body: JSON.stringify(checks) },
+    );
+  }
+
+  const updates = results.flatMap((result) => {
+    const offer = offerById.get(result.offerId);
+    if (
+      !offer ||
+      !result.success ||
+      result.price === null ||
+      result.price < 0 ||
+      result.currency !== "EUR" ||
+      result.stockStatus === null
+    ) {
+      return [];
+    }
+
+    return [{
+      id: offer.id,
+      product_id: offer.product_id,
+      merchant_id: offer.merchant_id,
+      merchant_sku: offer.merchant_sku,
+      product_url: offer.product_url,
+      price_amount: result.price,
+      currency: "EUR",
+      stock_status: result.stockStatus,
+      region: "EU",
+      verification_status: "verified",
+      last_checked_at: result.checkedAt,
+    }];
+  });
+
+  if (updates.length) {
+    await adminRest(
+      "catalogue_offers?on_conflict=id",
+      { method: "POST", body: JSON.stringify(updates) },
+      "resolution=merge-duplicates,return=minimal",
+    );
+  }
+
+  return updates.length;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") {
     return new Response(JSON.stringify({ error: "Method not allowed" }), {
@@ -555,8 +871,8 @@ Deno.serve(async (req: Request) => {
   }
 
   const token = req.headers.get("x-catalogue-refresh-token");
-  if (!token) {
-    return new Response(JSON.stringify({ error: "Missing refresh token." }), {
+  if (!(await validRefreshToken(token))) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
       headers: jsonHeaders,
     });
@@ -572,11 +888,10 @@ Deno.serve(async (req: Request) => {
   const mode = body.mode === "dry_run" ? "dry_run" : "apply";
   const force = body.force === true;
 
-  if (mode === "dry_run") {
-    try {
-      const targets = await rpc<Target[]>("catalogue_offer_refresh_preview", {
-        p_token: token,
-      });
+  try {
+    const { targets, offers } = await loadTargets();
+
+    if (mode === "dry_run") {
       const results = await mapConcurrent(targets, 4, checkTarget);
       return new Response(JSON.stringify({
         mode,
@@ -585,70 +900,65 @@ Deno.serve(async (req: Request) => {
         failed: results.filter((item) => !item.success).length,
         results,
       }), { headers: jsonHeaders });
-    } catch (error) {
-      return new Response(JSON.stringify({
-        mode,
-        error: error instanceof Error ? error.message : "Dry run failed.",
-      }), { status: 500, headers: jsonHeaders });
     }
-  }
 
-  let runId: string | null = null;
-  try {
-    const begin = await rpc<{
-      runId: string;
-      skip: boolean;
-      status: string;
-      targets: Target[];
-    }>("catalogue_offer_refresh_begin", {
-      p_token: token,
-      p_local_date: berlinDate(),
-      p_force: force,
-    });
+    const localDate = berlinDate();
+    const { run, skip } = await beginRun(localDate, force, targets.length);
+    if (!run) throw new Error("Offer refresh run could not be created.");
 
-    runId = begin.runId;
-    if (begin.skip) {
+    if (skip) {
       return new Response(JSON.stringify({
-        runId,
+        runId: run.id,
         skipped: true,
-        status: begin.status,
+        status: run.status,
       }), { headers: jsonHeaders });
     }
 
-    const results = await mapConcurrent(begin.targets, 4, checkTarget);
+    try {
+      const results = await mapConcurrent(targets, 4, checkTarget);
+      const applied = await applyResults(run.id, results, offers);
+      const successful = results.filter((item) => item.success).length;
+      const failed = results.length - successful;
+      const status = failed === 0
+        ? "completed"
+        : successful > 0
+        ? "partial"
+        : "failed";
 
-    await rpc("catalogue_offer_refresh_apply_batch", {
-      p_token: token,
-      p_run_id: runId,
-      p_results: results,
-    });
+      await finishRun(
+        run.id,
+        status,
+        targets.length,
+        successful,
+        failed,
+        applied,
+        null,
+      );
 
-    const finish = await rpc("catalogue_offer_refresh_finish", {
-      p_token: token,
-      p_run_id: runId,
-      p_error: null,
-    });
-
-    return new Response(JSON.stringify({
-      runId,
-      skipped: false,
-      ...finish as Record<string, unknown>,
-    }), { headers: jsonHeaders });
-  } catch (error) {
-    if (runId) {
-      try {
-        await rpc("catalogue_offer_refresh_finish", {
-          p_token: token,
-          p_run_id: runId,
-          p_error: error instanceof Error ? error.message : "Offer refresh failed.",
-        });
-      } catch {
-        // Keep the original failure.
-      }
+      return new Response(JSON.stringify({
+        runId: run.id,
+        skipped: false,
+        status,
+        totalTargets: targets.length,
+        successfulChecks: successful,
+        failedChecks: failed,
+        updatedOffers: applied,
+      }), { headers: jsonHeaders });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Offer refresh failed.";
+      await finishRun(
+        run.id,
+        "failed",
+        targets.length,
+        0,
+        targets.length,
+        0,
+        message,
+      );
+      throw error;
     }
-
+  } catch (error) {
     return new Response(JSON.stringify({
-      runId,
       error: error instanceof Error ? error.message : "Offer refresh failed.",
     }), { status: 500, headers: jsonHeaders });
   }
