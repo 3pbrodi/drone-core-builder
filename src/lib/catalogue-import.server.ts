@@ -237,7 +237,9 @@ export async function stageCatalogueProductBatch(
     ...validation.invalidRows.map((row) => ({
       row_number: row.rowNumber,
       proposed_product_id:
-        typeof row.raw.id === "string" && row.raw.id.trim() ? row.raw.id : null,
+        typeof row.raw["id"] === "string" && row.raw["id"].trim()
+          ? row.raw["id"]
+          : null,
       raw_data: row.raw,
       normalized_data: null,
       status: "rejected",

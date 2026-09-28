@@ -230,7 +230,7 @@ export type ValidatedCatalogueImportRow = {
 
 export type InvalidCatalogueImportRow = {
   rowNumber: number;
-  raw: Record<string, string>;
+  raw: Record<string, unknown>;
   errors: string[];
 };
 
