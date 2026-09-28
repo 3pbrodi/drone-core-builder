@@ -290,10 +290,20 @@ jobs:
           returning id as wrong_evidence_id \gset
 
           do $test$
+          declare
+            v_wrong_evidence_id uuid;
           begin
+            select id
+            into v_wrong_evidence_id
+            from public.catalogue_spec_evidence
+            where product_id = 'workflow-frame'
+              and field_key = 'frameInches'
+              and source_url = 'https://example.com/manufacturer/wf5-wrong'
+            limit 1;
+
             begin
               perform public.catalogue_verify_spec_evidence(
-                :'wrong_evidence_id',
+                v_wrong_evidence_id,
                 'ci-reviewer',
                 'Must fail because source value does not match stored value'
               );
