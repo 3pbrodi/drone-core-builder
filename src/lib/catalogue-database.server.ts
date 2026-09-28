@@ -56,6 +56,8 @@ type RuntimeProductRow = {
   stock_status: string | null;
   offer_url: string | null;
   last_checked_at: string | null;
+  offer_region: string | null;
+  record_class: "demo_seed" | "canonical";
 };
 
 export type DatabaseCatalogueLoadResult = {
@@ -100,7 +102,13 @@ function withOptionalArray<K extends keyof Product>(
 }
 
 function runtimeRowToProduct(row: RuntimeProductRow): Product | null {
-  if (row.price_amount === null || row.weight_grams === null) {
+  if (
+    row.record_class !== "canonical" ||
+    row.price_amount === null ||
+    row.weight_grams === null ||
+    row.currency !== "EUR" ||
+    row.offer_region !== "EU"
+  ) {
     return null;
   }
 
