@@ -95,7 +95,9 @@ export function BuildInterface({
           icon={null}
           label="Total Price"
           value={hasOutOfStockSelection ? "Out of Stock" : money(stats.price)}
-          detail={hasOutOfStockSelection ? "Selected build includes unavailable parts" : undefined}
+          {...(hasOutOfStockSelection
+            ? { detail: "Selected build includes unavailable parts" }
+            : {})}
         />
         <div className="col-span-2 flex items-center gap-2 border-t border-border pt-3 text-xs font-medium sm:col-span-1 sm:border-l sm:border-t-0 sm:pl-4 sm:pt-0">{stats.status==="verified-compatible"?<BadgeCheck className="size-6 shrink-0 text-emerald-600"/>:stats.status==="incompatible"?<AlertTriangle className="size-6 shrink-0 text-destructive"/>:<CircleHelp className="size-6 shrink-0 text-muted-foreground"/>}<span className={stats.status==="verified-compatible"?"text-emerald-600":stats.status==="incompatible"?"text-destructive":"text-muted-foreground"}>{stats.status==="verified-compatible"?"Verified compatible":stats.status==="incompatible"?"Compatibility needs attention":"Potentially compatible"}</span></div>
       </section>

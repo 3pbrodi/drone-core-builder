@@ -5,6 +5,8 @@ import {
   emptyCatalogueEvidenceSnapshot,
   resolveCompatibilityEvidence,
   type CatalogueEvidenceAuthority,
+  type CatalogueEvidenceJson,
+  type CatalogueEvidenceObject,
   type CatalogueEvidenceSnapshot,
   type CatalogueFcEscConnectionEvidence,
   type CatalogueFieldEvidence,
@@ -19,7 +21,7 @@ import type { Product } from "./build-data";
 type SpecEvidenceRow = {
   product_id: string;
   field_key: string;
-  value: unknown;
+  value: CatalogueEvidenceJson;
   unit: string | null;
   source_id: string;
   source_url: string | null;
@@ -28,7 +30,7 @@ type SpecEvidenceRow = {
   verification_status: EvidenceVerificationStatus;
   retrieved_at: string | null;
   verified_at: string | null;
-  conditions: Record<string, unknown>;
+  conditions: CatalogueEvidenceObject;
   caveats: string | null;
 };
 
@@ -41,7 +43,7 @@ type MotorPropellerEvidenceRow = {
   verification_status: EvidenceVerificationStatus;
   retrieved_at: string | null;
   verified_at: string | null;
-  operating_conditions: Record<string, unknown>;
+  operating_conditions: CatalogueEvidenceObject;
 };
 
 type MotorEscCurrentEvidenceRow = {
@@ -57,7 +59,7 @@ type MotorEscCurrentEvidenceRow = {
   verification_status: EvidenceVerificationStatus;
   retrieved_at: string | null;
   verified_at: string | null;
-  operating_conditions: Record<string, unknown>;
+  operating_conditions: CatalogueEvidenceObject;
 };
 
 type FcEscConnectionEvidenceRow = {

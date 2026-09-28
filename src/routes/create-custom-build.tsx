@@ -121,7 +121,7 @@ function CreateCustomBuildPage() {
       products={catalogueSnapshot.products}
       evidenceSnapshot={catalogueSnapshot.evidence}
       catalogueReady={catalogueSnapshot.status === "ready"}
-      catalogueMessage={catalogueSnapshot.error}
+      {...(catalogueSnapshot.error ? { catalogueMessage: catalogueSnapshot.error } : {})}
     />
   );
 }

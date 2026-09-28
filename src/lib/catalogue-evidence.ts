@@ -11,10 +11,20 @@ export type EvidenceVerificationStatus = "unverified" | "pending_review" | "veri
 export type CatalogueEvidenceAuthority =
   "manufacturer" | "official_documentation" | "retailer" | "community" | "internal_demo";
 
+export type CatalogueEvidenceJson =
+  | null
+  | boolean
+  | number
+  | string
+  | CatalogueEvidenceJson[]
+  | { [key: string]: CatalogueEvidenceJson };
+
+export type CatalogueEvidenceObject = { [key: string]: CatalogueEvidenceJson };
+
 export type CatalogueFieldEvidence = {
   productId: string;
   field: keyof Product;
-  value: unknown;
+  value: CatalogueEvidenceJson;
   unit?: string | null;
   sourceId: string;
   sourceUrl?: string | null;
@@ -23,7 +33,7 @@ export type CatalogueFieldEvidence = {
   verificationStatus: EvidenceVerificationStatus;
   retrievedAt?: string | null;
   verifiedAt?: string | null;
-  conditions?: Record<string, unknown>;
+  conditions?: CatalogueEvidenceObject;
   caveats?: string | null;
 };
 
@@ -36,7 +46,7 @@ export type CatalogueMotorPropellerEvidence = {
   verificationStatus: EvidenceVerificationStatus;
   retrievedAt?: string | null;
   verifiedAt?: string | null;
-  operatingConditions: Record<string, unknown>;
+  operatingConditions: CatalogueEvidenceObject;
 };
 
 export type CatalogueMotorEscCurrentEvidence = {
@@ -52,7 +62,7 @@ export type CatalogueMotorEscCurrentEvidence = {
   verificationStatus: EvidenceVerificationStatus;
   retrievedAt?: string | null;
   verifiedAt?: string | null;
-  operatingConditions: Record<string, unknown>;
+  operatingConditions: CatalogueEvidenceObject;
 };
 
 export type CatalogueFcEscConnectionEvidence = {
