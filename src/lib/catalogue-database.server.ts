@@ -1,6 +1,11 @@
 import "@tanstack/react-start/server-only";
 
-import { products as staticProducts, type Category, type Product } from "./build-data";
+import {
+  products as staticProducts,
+  type Category,
+  type Product,
+  type StockStatus,
+} from "./build-data";
 import { compareCatalogueParity, type CatalogueParityResult } from "./catalogue-parity";
 import { isDatabaseCatalogueEnabled, supabaseRestRequest } from "./supabase-rest.server";
 
@@ -53,7 +58,7 @@ type RuntimeProductRow = {
   image_source_url: string | null;
   price_amount: number | null;
   currency: string | null;
-  stock_status: string | null;
+  stock_status: StockStatus | null;
   offer_url: string | null;
   last_checked_at: string | null;
   offer_region: string | null;
@@ -119,6 +124,7 @@ function runtimeRowToProduct(row: RuntimeProductRow): Product | null {
     spec: row.spec_summary ?? "",
     price: row.price_amount,
     weight: row.weight_grams,
+    ...(row.stock_status ? { stockStatus: row.stock_status } : {}),
     ...(row.image_url
       ? {
           image: {
