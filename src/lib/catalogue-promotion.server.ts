@@ -176,7 +176,7 @@ export async function createCatalogueCandidateFromImport(
   input: CreateCatalogueCandidateInput,
 ): Promise<CataloguePromotionResult> {
   return supabaseRestRequest<CataloguePromotionResult>(
-    "rpc/catalogue_create_candidate_from_import",
+    "rpc/catalogue_create_candidate_from_deduped_import",
     {
       method: "POST",
       body: JSON.stringify({

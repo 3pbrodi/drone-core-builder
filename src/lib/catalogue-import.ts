@@ -27,6 +27,7 @@ const optionalPositiveInteger = z.preprocess(
 );
 
 const optionalBoolean = z.preprocess((value) => {
+  if (typeof value === "boolean") return value;
   if (typeof value !== "string" || value.trim() === "") return undefined;
   const normalized = value.trim().toLowerCase();
   if (["true", "1", "yes"].includes(normalized)) return true;
@@ -36,6 +37,9 @@ const optionalBoolean = z.preprocess((value) => {
 
 const optionalTextList = z.preprocess(
   (value) => {
+    if (Array.isArray(value)) {
+      return value.map((item) => String(item).trim()).filter(Boolean);
+    }
     if (typeof value !== "string" || value.trim() === "") return undefined;
     return value
       .split("|")
@@ -46,6 +50,7 @@ const optionalTextList = z.preprocess(
 );
 
 const optionalPositiveNumberList = z.preprocess((value) => {
+  if (Array.isArray(value)) return value;
   if (typeof value !== "string" || value.trim() === "") return undefined;
   return value
     .split("|")
@@ -112,7 +117,7 @@ export const catalogueProductCsvColumns = [
   "source_url",
 ] as const;
 
-const productImportSchema = z
+export const productImportSchema = z
   .object({
     id: z
       .string()
@@ -218,7 +223,7 @@ export type CatalogueProductImportRow = z.infer<typeof productImportSchema>;
 
 export type ValidatedCatalogueImportRow = {
   rowNumber: number;
-  raw: Record<string, string>;
+  raw: Record<string, unknown>;
   data: CatalogueProductImportRow;
   reviewIssues: string[];
 };
@@ -292,7 +297,7 @@ export function parseCsvRecords(csvText: string): string[][] {
   return records.filter((row) => row.some((cell) => cell.trim() !== ""));
 }
 
-function reviewIssuesForRow(row: CatalogueProductImportRow): string[] {
+export function reviewIssuesForRow(row: CatalogueProductImportRow): string[] {
   const issues: string[] = [];
 
   if (!row.manufacturer) {
@@ -438,4 +443,58 @@ export function validateCatalogueProductCsv(csvText: string): CatalogueCsvValida
   });
 
   return { headers, validRows, invalidRows };
+}
+
+
+export type CatalogueObjectValidationResult = {
+  validRows: ValidatedCatalogueImportRow[];
+  invalidRows: InvalidCatalogueImportRow[];
+};
+
+export function validateCatalogueProductRows(
+  rows: readonly unknown[],
+): CatalogueObjectValidationResult {
+  const validRows: ValidatedCatalogueImportRow[] = [];
+  const invalidRows: InvalidCatalogueImportRow[] = [];
+  const seenIds = new Set<string>();
+
+  rows.forEach((input, index) => {
+    const rowNumber = index + 1;
+    const raw =
+      input && typeof input === "object" && !Array.isArray(input)
+        ? (input as Record<string, unknown>)
+        : { value: input };
+
+    const parsed = productImportSchema.safeParse(input);
+    if (!parsed.success) {
+      invalidRows.push({
+        rowNumber,
+        raw,
+        errors: parsed.error.issues.map((issue) => {
+          const field = issue.path.join(".");
+          return field ? `${field}: ${issue.message}` : issue.message;
+        }),
+      });
+      return;
+    }
+
+    if (seenIds.has(parsed.data.id)) {
+      invalidRows.push({
+        rowNumber,
+        raw,
+        errors: [`Duplicate product ID in this batch: ${parsed.data.id}`],
+      });
+      return;
+    }
+
+    seenIds.add(parsed.data.id);
+    validRows.push({
+      rowNumber,
+      raw,
+      data: parsed.data,
+      reviewIssues: reviewIssuesForRow(parsed.data),
+    });
+  });
+
+  return { validRows, invalidRows };
 }
