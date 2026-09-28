@@ -6,9 +6,7 @@ import { catalogueDemoSeedManifest } from "../src/lib/catalogue-demo-seed";
 describe("evidence-first demo seed manifest", () => {
   test("migrates all 20 static products with stable IDs and EU/EUR demo pricing", () => {
     const productIds = products.map((product) => product.id).sort();
-    const seedIds = catalogueDemoSeedManifest.products
-      .map((product) => product.id)
-      .sort();
+    const seedIds = catalogueDemoSeedManifest.products.map((product) => product.id).sort();
 
     expect(seedIds).toEqual(productIds);
     expect(seedIds).toHaveLength(20);
@@ -31,10 +29,7 @@ describe("evidence-first demo seed manifest", () => {
 
   test("known Phase A conflicts remain conflicts instead of being normalized away", () => {
     const byId = new Map(
-      catalogueDemoSeedManifest.products.map((product) => [
-        product.id,
-        product,
-      ]),
+      catalogueDemoSeedManifest.products.map((product) => [product.id, product]),
     );
 
     for (const id of ["motors5", "props5", "battery6"]) {
@@ -42,24 +37,18 @@ describe("evidence-first demo seed manifest", () => {
       expect(byId.get(id)?.technicalQualityStatus).toBe("conflicting");
     }
 
-    expect(byId.get("frame5")?.identityQualityStatus).toBe(
-      "partially_verified",
-    );
+    expect(byId.get("frame5")?.identityQualityStatus).toBe("partially_verified");
     expect(byId.get("frame5")?.technicalQualityStatus).toBe("conflicting");
     expect(byId.get("receiver")?.technicalQualityStatus).toBe("conflicting");
   });
 
   test("ambiguous demo motor current is preserved raw but is not normalized as a peak rating", () => {
-    const motors = catalogueDemoSeedManifest.products.find(
-      (product) => product.id === "motors5",
-    );
+    const motors = catalogueDemoSeedManifest.products.find((product) => product.id === "motors5");
     expect(motors?.rawProduct.current).toBeDefined();
     expect(
       (motors?.specs as Record<string, unknown> | undefined)?.peak_current_amps,
     ).toBeUndefined();
-    expect(motors?.specs.attributes.demoMotorCurrentAmps).toBe(
-      motors?.rawProduct.current,
-    );
+    expect(motors?.specs.attributes.demoMotorCurrentAmps).toBe(motors?.rawProduct.current);
     expect(motors?.specs.attributes.demoMotorCurrentRatingType).toBe("unknown");
   });
 

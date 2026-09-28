@@ -137,9 +137,7 @@ on conflict do nothing;`,
 
 for (const product of manifest.products) {
   const identityVerifiedAt =
-    product.legacyIdentityStatus === "verified"
-      ? sqlText(manifest.reviewedAt)
-      : "null";
+    product.legacyIdentityStatus === "verified" ? sqlText(manifest.reviewedAt) : "null";
   const attributes = {
     datasetKey: manifest.datasetKey,
     recordClass: "demo_seed",
@@ -542,9 +540,7 @@ for (const [index, product] of manifest.products.entries()) {
 
 for (const field of manifest.evidence) {
   const verifiedAt =
-    field.verificationStatus === "verified"
-      ? sqlNullableText(field.verifiedAt)
-      : "null";
+    field.verificationStatus === "verified" ? sqlNullableText(field.verifiedAt) : "null";
   const sourceId = sourceIdQuery(field.sourceName, field.sourceKind);
 
   statements.push(

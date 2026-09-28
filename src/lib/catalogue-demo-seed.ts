@@ -9,15 +9,9 @@ import {
 import { staticCatalogueEvidenceSnapshot } from "./static-catalogue-evidence";
 
 export type DemoSeedQualityStatus =
-  | "unverified"
-  | "partially_verified"
-  | "verified"
-  | "conflicting";
+  "unverified" | "partially_verified" | "verified" | "conflicting";
 
-export type DemoSeedLegacyIdentityStatus =
-  | "unverified"
-  | "pending_review"
-  | "verified";
+export type DemoSeedLegacyIdentityStatus = "unverified" | "pending_review" | "verified";
 
 export type DemoSeedSpecs = {
   frame_size_inches?: number;
@@ -112,9 +106,7 @@ function qualityStatus(
   return status;
 }
 
-function legacyIdentityStatus(
-  status: CatalogueIdentityStatus,
-): DemoSeedLegacyIdentityStatus {
+function legacyIdentityStatus(status: CatalogueIdentityStatus): DemoSeedLegacyIdentityStatus {
   if (status === "verified") return "verified";
   if (status === "unverified") return "unverified";
   return "pending_review";
@@ -122,32 +114,18 @@ function legacyIdentityStatus(
 
 function demoSpecs(product: Product): DemoSeedSpecs {
   return {
-    ...(product.frameInches !== undefined
-      ? { frame_size_inches: product.frameInches }
-      : {}),
-    ...(product.mount !== undefined
-      ? { motor_mount_pattern: product.mount }
-      : {}),
-    ...(product.propInches !== undefined
-      ? { propeller_diameter_inches: product.propInches }
-      : {}),
-    ...(product.motorSize !== undefined
-      ? { motor_size_code: product.motorSize }
-      : {}),
-    ...(product.minVoltage !== undefined
-      ? { min_battery_cells: product.minVoltage }
-      : {}),
-    ...(product.maxVoltage !== undefined
-      ? { max_battery_cells: product.maxVoltage }
-      : {}),
+    ...(product.frameInches !== undefined ? { frame_size_inches: product.frameInches } : {}),
+    ...(product.mount !== undefined ? { motor_mount_pattern: product.mount } : {}),
+    ...(product.propInches !== undefined ? { propeller_diameter_inches: product.propInches } : {}),
+    ...(product.motorSize !== undefined ? { motor_size_code: product.motorSize } : {}),
+    ...(product.minVoltage !== undefined ? { min_battery_cells: product.minVoltage } : {}),
+    ...(product.maxVoltage !== undefined ? { max_battery_cells: product.maxVoltage } : {}),
     ...(product.connector !== undefined ? { connector: product.connector } : {}),
     ...(product.escInput !== undefined ? { esc_input: product.escInput } : {}),
     ...(product.thrust !== undefined ? { thrust_grams: product.thrust } : {}),
     ...(product.escAmps !== undefined ? { esc_amps: product.escAmps } : {}),
     ...(product.voltage !== undefined ? { battery_cells: product.voltage } : {}),
-    ...(product.batteryMah !== undefined
-      ? { battery_capacity_mah: product.batteryMah }
-      : {}),
+    ...(product.batteryMah !== undefined ? { battery_capacity_mah: product.batteryMah } : {}),
     ...(product.video !== undefined ? { video_system: product.video } : {}),
     ...(product.cameraVideoInterface !== undefined
       ? { camera_video_interface: product.cameraVideoInterface }
@@ -158,15 +136,9 @@ function demoSpecs(product: Product): DemoSeedSpecs {
     ...(product.cameraMaxVoltageV !== undefined
       ? { camera_max_voltage_v: product.cameraMaxVoltageV }
       : {}),
-    ...(product.cameraWidthMm !== undefined
-      ? { camera_width_mm: product.cameraWidthMm }
-      : {}),
-    ...(product.cameraHeightMm !== undefined
-      ? { camera_height_mm: product.cameraHeightMm }
-      : {}),
-    ...(product.cameraDepthMm !== undefined
-      ? { camera_depth_mm: product.cameraDepthMm }
-      : {}),
+    ...(product.cameraWidthMm !== undefined ? { camera_width_mm: product.cameraWidthMm } : {}),
+    ...(product.cameraHeightMm !== undefined ? { camera_height_mm: product.cameraHeightMm } : {}),
+    ...(product.cameraDepthMm !== undefined ? { camera_depth_mm: product.cameraDepthMm } : {}),
     ...(product.fcCameraVideoInterfaces !== undefined
       ? { fc_camera_video_interfaces: product.fcCameraVideoInterfaces }
       : {}),
@@ -225,16 +197,12 @@ function sourceKind(sourceType: "manufacturer" | "retailer" | "internal") {
 }
 
 export function buildCatalogueDemoSeedManifest(): CatalogueDemoSeedManifest {
-  const sourceById = new Map(
-    catalogueEvidenceSources.map((source) => [source.id, source]),
-  );
+  const sourceById = new Map(catalogueEvidenceSources.map((source) => [source.id, source]));
 
   const seedProducts = products.map((product) => {
     const review = catalogueQualityById.get(product.id);
     if (!review) {
-      throw new Error(
-        `Missing Phase A quality review for demo product ${product.id}.`,
-      );
+      throw new Error(`Missing Phase A quality review for demo product ${product.id}.`);
     }
 
     return {
@@ -245,9 +213,7 @@ export function buildCatalogueDemoSeedManifest(): CatalogueDemoSeedManifest {
       specSummary: product.spec,
       weightGrams: product.weight,
       illustrativePriceEur: product.price,
-      ...(review.manufacturer
-        ? { manufacturerLabel: review.manufacturer }
-        : {}),
+      ...(review.manufacturer ? { manufacturerLabel: review.manufacturer } : {}),
       ...(review.exactModel ? { exactModelCandidate: review.exactModel } : {}),
       ...(review.variant ? { variantCandidate: review.variant } : {}),
       identityQualityStatus: qualityStatus(review.identityStatus),
@@ -289,21 +255,15 @@ export function buildCatalogueDemoSeedManifest(): CatalogueDemoSeedManifest {
       authority: field.authority,
       exactModelAssociation: field.exactModelAssociation,
       verificationStatus: canBeVerified ? "verified" : "pending_review",
-      ...(field.retrievedAt !== undefined
-        ? { retrievedAt: field.retrievedAt }
-        : {}),
-      ...(canBeVerified && field.verifiedAt !== undefined
-        ? { verifiedAt: field.verifiedAt }
-        : {}),
+      ...(field.retrievedAt !== undefined ? { retrievedAt: field.retrievedAt } : {}),
+      ...(canBeVerified && field.verifiedAt !== undefined ? { verifiedAt: field.verifiedAt } : {}),
       ...(field.conditions !== undefined ? { conditions: field.conditions } : {}),
       ...(field.caveats !== undefined ? { caveats: field.caveats } : {}),
     } satisfies CatalogueDemoSeedEvidence;
   });
 
   if (seedProducts.length !== catalogueQualityReviews.length) {
-    throw new Error(
-      "Demo seed product count does not match the Phase A quality review count.",
-    );
+    throw new Error("Demo seed product count does not match the Phase A quality review count.");
   }
 
   return {
