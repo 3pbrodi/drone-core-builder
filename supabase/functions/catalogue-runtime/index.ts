@@ -1,3 +1,4 @@
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "content-type",
@@ -106,11 +107,12 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const [rows, fields, motorPropeller, motorEsc] = await Promise.all([
+    const [rows, fields, motorPropeller, motorEsc, fcEsc] = await Promise.all([
       rest("catalogue_public_runtime_products?select=*&order=id.asc"),
       rest("catalogue_public_verified_spec_evidence?select=*"),
-      rest("catalogue_public_motor_propeller_evidence?select=*").catch(() => []),
-      rest("catalogue_public_motor_esc_current_evidence?select=*").catch(() => []),
+      rest("catalogue_public_motor_propeller_evidence?select=*"),
+      rest("catalogue_public_motor_esc_current_evidence?select=*"),
+      rest("catalogue_public_fc_esc_evidence?select=*"),
     ]);
 
     const products = rows.map(toProduct).filter(Boolean);
@@ -168,7 +170,21 @@ Deno.serve(async (req: Request) => {
         verifiedAt: row.verified_at,
         operatingConditions: row.operating_conditions,
       })),
-      fcEscConnection: [],
+      fcEscConnection: fcEsc.map((row: any) => ({
+        flightControllerId: row.flight_controller_product_id,
+        escId: row.esc_product_id,
+        result: row.result,
+        authority: row.authority,
+        exactProductsVerified: row.exact_products_verified,
+        connectorFamilyVerified: row.connector_family_verified,
+        pinoutVerified: row.pinout_verified,
+        wireOrderVerified: row.wire_order_verified,
+        signalCompatibilityVerified: row.signal_compatibility_verified,
+        voltageCompatibilityVerified: row.voltage_compatibility_verified,
+        verificationStatus: row.verification_status,
+        retrievedAt: row.retrieved_at,
+        verifiedAt: row.verified_at,
+      })),
     };
 
     return new Response(JSON.stringify({
