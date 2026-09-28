@@ -4,7 +4,15 @@ import { ArrowLeft, Save, Gauge, Weight, BadgeCheck, AlertTriangle, CircleHelp, 
 import type { LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LogoMark } from "@/components/SiteHeader";
-import { categories, categoryNames, money, productPriceLabel, type BuildSelection, type Category, type Product } from "@/lib/build-data";
+import {
+  categories,
+  categoryNames,
+  money,
+  productPriceLabel,
+  type BuildSelection,
+  type Category,
+  type Product,
+} from "@/lib/build-data";
 import { evaluate, candidateCheck } from "@/lib/build-calculations";
 import { productCatalogue, resolveBuildSelection } from "@/lib/catalogue-service";
 import { resolveStaticCompatibilityEvidence } from "@/lib/static-catalogue-evidence";
@@ -62,7 +70,7 @@ export function BuildInterface({source,name,initial}:Props) {
         <Stat
           icon={null}
           label="Total Price"
-          value={hasOutOfStockSelection ? "Out of stock" : money(stats.price)}
+          value={hasOutOfStockSelection ? "Out of Stock" : money(stats.price)}
           detail={hasOutOfStockSelection ? "Selected build includes unavailable parts" : undefined}
         />
         <div className="col-span-2 flex items-center gap-2 border-t border-border pt-3 text-xs font-medium sm:col-span-1 sm:border-l sm:border-t-0 sm:pl-4 sm:pt-0">{stats.status==="verified-compatible"?<BadgeCheck className="size-6 shrink-0 text-emerald-600"/>:stats.status==="incompatible"?<AlertTriangle className="size-6 shrink-0 text-destructive"/>:<CircleHelp className="size-6 shrink-0 text-muted-foreground"/>}<span className={stats.status==="verified-compatible"?"text-emerald-600":stats.status==="incompatible"?"text-destructive":"text-muted-foreground"}>{stats.status==="verified-compatible"?"Verified compatible":stats.status==="incompatible"?"Compatibility needs attention":"Potentially compatible"}</span></div>
