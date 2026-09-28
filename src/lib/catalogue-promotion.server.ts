@@ -7,7 +7,7 @@ export type CataloguePromotionReadiness = {
   id: string;
   category: Category;
   displayName: string;
-  recordClass: "demo_seed" | "canonical";
+  recordClass: "demo_seed" | "candidate" | "canonical";
   identityStatus: "unverified" | "pending_review" | "verified" | "rejected";
   verificationStatus: "unverified" | "pending_review" | "verified" | "rejected";
   selectable: boolean;
@@ -22,7 +22,7 @@ type PromotionReadinessRow = {
   id: string;
   category: Category;
   display_name: string;
-  record_class: "demo_seed" | "canonical";
+  record_class: "demo_seed" | "candidate" | "canonical";
   identity_status: CataloguePromotionReadiness["identityStatus"];
   verification_status: CataloguePromotionReadiness["verificationStatus"];
   selectable: boolean;
