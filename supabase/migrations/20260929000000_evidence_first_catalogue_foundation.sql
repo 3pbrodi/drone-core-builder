@@ -7,6 +7,7 @@
 
 create type public.catalogue_record_class as enum (
   'demo_seed',
+  'candidate',
   'canonical'
 );
 
@@ -151,7 +152,7 @@ from public.catalogue_products p
 join public.catalogue_product_quality_reviews q
   on q.product_id = p.id
 where
-  p.record_class = 'demo_seed'
+  p.record_class in ('demo_seed', 'candidate')
   or q.human_review_required = true
   or q.identity_quality_status <> 'verified'
   or q.technical_quality_status in ('unverified', 'conflicting');
