@@ -141,9 +141,17 @@ Offer freshness is not yet enforced because no maximum offer age has been approv
 
 This is the intended working set for gradually replacing the temporary 20-product demo catalogue with real canonical products.
 
+## Review / promotion workflow
+
+The controlled review and promotion flow is implemented in
+`supabase/migrations/20260929010000_catalogue_review_promotion_workflow.sql`
+and exposed server-side through `src/lib/catalogue-promotion.server.ts`.
+
+See `docs/catalogue-review-promotion.md` for the complete staged-product-to-publication process.
+
 ## Recommended next data phase
 
-After this foundation, populate the real catalogue incrementally:
+Use the review workflow to populate the real catalogue incrementally:
 
 1. choose a real manufacturer/model/variant;
 2. create or promote the canonical identity;
