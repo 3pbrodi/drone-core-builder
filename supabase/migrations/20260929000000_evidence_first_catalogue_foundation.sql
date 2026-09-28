@@ -161,7 +161,9 @@ grant select on public.catalogue_product_review_queue to service_role;
 
 -- Verified field evidence is production-facing only after the product itself has
 -- been promoted from a demo seed into the canonical catalogue.
-create or replace view public.catalogue_verified_spec_evidence
+drop view public.catalogue_verified_spec_evidence;
+
+create view public.catalogue_verified_spec_evidence
 with (security_invoker = true)
 as
 select
