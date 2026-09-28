@@ -415,7 +415,7 @@ select
   false,
   'pending_review',
   'DroneCores demo seed Phase A',
-  true
+  false
 where exists (
   select 1
   from public.catalogue_products p
@@ -533,7 +533,7 @@ for (const [index, product] of manifest.products.entries()) {
   ${sqlJson(normalizedData)},
   'imported',
   '[]'::jsonb,
-  ${sqlText(product.id)},
+  null,
   ${sqlText(manifest.reviewedAt)}
 );`,
     "",
