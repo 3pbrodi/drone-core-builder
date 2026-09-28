@@ -14,6 +14,7 @@ export type ProductImage = {
   alt: string;
   sourceUrl: string;
 };
+export type StockStatus = "unknown" | "in_stock" | "out_of_stock" | "preorder" | "backorder";
 export type Product = {
   id: string;
   category: Category;
@@ -21,6 +22,7 @@ export type Product = {
   spec: string;
   price: number;
   weight: number;
+  stockStatus?: StockStatus;
   image?: ProductImage;
   frameInches?: number;
   mount?: string;
@@ -439,3 +441,6 @@ export function aiPreset(
 }
 export const money = (amount: number) =>
   `€ ${new Intl.NumberFormat("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount)}`;
+
+export const productPriceLabel = (product: Pick<Product, "price" | "stockStatus">) =>
+  product.stockStatus === "out_of_stock" ? "Out of stock" : money(product.price);
