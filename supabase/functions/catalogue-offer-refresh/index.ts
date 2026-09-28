@@ -309,6 +309,7 @@ function firstEuroPrice(text: string) {
   const patterns = [
     /€\s*([0-9]{1,5}(?:[.,][0-9]{1,2})?)/i,
     /([0-9]{1,5}(?:[.,][0-9]{1,2})?)\s*€/i,
+    /([0-9]{1,5}(?:[.,][0-9]{1,2})?)\s*EUR\b/i,
   ];
   for (const pattern of patterns) {
     const match = text.match(pattern);
@@ -351,6 +352,13 @@ function parseMerchantTextFallback(target: Target, html: string) {
       stock = "in_stock";
     } else if (/nicht verf[uü]gbar|ausverkauft/i.test(text)) {
       stock = "out_of_stock";
+    }
+  } else if (merchant.includes("fpvgarage")) {
+    parserSource = "fpvgarage_text";
+    if (/out of stock|sold out|not available/i.test(text)) {
+      stock = "out_of_stock";
+    } else if (/add to cart/i.test(text)) {
+      stock = "in_stock";
     }
   }
 
