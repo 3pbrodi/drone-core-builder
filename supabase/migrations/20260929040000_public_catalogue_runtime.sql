@@ -109,11 +109,11 @@ security definer
 set search_path = pg_catalog
 as $$
 begin
-  delete from public.catalogue_public_runtime_products;
+  delete from public.catalogue_public_runtime_products where true;
   insert into public.catalogue_public_runtime_products
   select * from public.catalogue_runtime_products;
 
-  delete from public.catalogue_public_verified_spec_evidence;
+  delete from public.catalogue_public_verified_spec_evidence where true;
   insert into public.catalogue_public_verified_spec_evidence (
     id, product_id, field_key, value, unit, value_semantics,
     source_url, authority, exact_model_association,
@@ -125,19 +125,19 @@ begin
     verification_status, retrieved_at, verified_at, conditions, caveats
   from public.catalogue_verified_spec_evidence;
 
-  delete from public.catalogue_public_motor_propeller_evidence;
+  delete from public.catalogue_public_motor_propeller_evidence where true;
   insert into public.catalogue_public_motor_propeller_evidence
   select *
   from public.catalogue_motor_propeller_evidence
   where verification_status = 'verified';
 
-  delete from public.catalogue_public_motor_esc_current_evidence;
+  delete from public.catalogue_public_motor_esc_current_evidence where true;
   insert into public.catalogue_public_motor_esc_current_evidence
   select *
   from public.catalogue_motor_esc_current_evidence
   where verification_status = 'verified';
 
-  delete from public.catalogue_public_fc_esc_evidence;
+  delete from public.catalogue_public_fc_esc_evidence where true;
   insert into public.catalogue_public_fc_esc_evidence
   select *
   from public.catalogue_fc_esc_connection_evidence
