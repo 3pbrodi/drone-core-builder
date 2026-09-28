@@ -1,6 +1,10 @@
 import "@tanstack/react-start/server-only";
 
 import type { Category } from "./build-data";
+import {
+  findOrCreateCatalogueSource,
+  type CatalogueSourceKind,
+} from "./catalogue-source.server";
 import { supabaseRestRequest } from "./supabase-rest.server";
 
 export type CataloguePromotionReadiness = {
@@ -45,6 +49,50 @@ export type CataloguePromotionActionInput = {
   productId: string;
   reviewer: string;
   notes?: string;
+};
+
+export type CreateCatalogueCandidateInput = {
+  importRowId: number;
+  reviewer: string;
+  notes?: string;
+};
+
+export type StageCatalogueIdentityEvidenceInput = {
+  productId: string;
+  sourceName: string;
+  sourceKind: CatalogueSourceKind;
+  sourceUrl: string;
+  authority: "manufacturer" | "official_documentation";
+  manufacturerLabel: string;
+  modelLabel: string;
+  variantLabel?: string;
+  exactModelAssociation: boolean;
+  retrievedAt: string;
+  caveats?: string;
+};
+
+export type ReviewEvidenceInput = {
+  evidenceId: string;
+  reviewer: string;
+  notes?: string;
+};
+
+export type ReviewImportedEvidenceInput = {
+  importRowId: number;
+  reviewer: string;
+  notes?: string;
+};
+
+export type AddVerifiedEuOfferInput = {
+  productId: string;
+  merchantName: string;
+  productUrl: string;
+  priceAmount: number;
+  stockStatus: "unknown" | "in_stock" | "out_of_stock" | "preorder" | "backorder";
+  lastCheckedAt: string;
+  reviewer: string;
+  notes?: string;
+  merchantCountryCode?: string;
 };
 
 function query(params: Record<string, string>) {
@@ -95,7 +143,8 @@ async function callPromotionRpc(
   functionName:
     | "catalogue_promote_identity"
     | "catalogue_publish_product"
-    | "catalogue_unpublish_product",
+    | "catalogue_unpublish_product"
+    | "catalogue_complete_technical_review",
   input: CataloguePromotionActionInput,
 ) {
   return supabaseRestRequest<CataloguePromotionResult>(
@@ -127,4 +176,136 @@ export async function unpublishCatalogueProduct(
   input: CataloguePromotionActionInput,
 ): Promise<CataloguePromotionResult> {
   return callPromotionRpc("catalogue_unpublish_product", input);
+}
+
+
+export async function createCatalogueCandidateFromImport(
+  input: CreateCatalogueCandidateInput,
+): Promise<CataloguePromotionResult> {
+  return supabaseRestRequest<CataloguePromotionResult>(
+    "rpc/catalogue_create_candidate_from_import",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        p_import_row_id: input.importRowId,
+        p_reviewer: normalizeReviewer(input.reviewer),
+        p_notes: input.notes?.trim() || null,
+      }),
+    },
+  );
+}
+
+export async function stageCatalogueIdentityEvidence(
+  input: StageCatalogueIdentityEvidenceInput,
+): Promise<string> {
+  const sourceId = await findOrCreateCatalogueSource(
+    input.sourceName.trim(),
+    input.sourceKind,
+  );
+
+  const rows = await supabaseRestRequest<{ id: string }[]>(
+    "catalogue_identity_evidence",
+    {
+      method: "POST",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify([
+        {
+          product_id: input.productId,
+          source_id: sourceId,
+          source_url: input.sourceUrl,
+          authority: input.authority,
+          manufacturer_label: input.manufacturerLabel.trim(),
+          model_label: input.modelLabel.trim(),
+          variant_label: input.variantLabel?.trim() || null,
+          exact_model_association: input.exactModelAssociation,
+          verification_status: "pending_review",
+          retrieved_at: input.retrievedAt,
+          verified_at: null,
+          caveats: input.caveats?.trim() || null,
+        },
+      ]),
+    },
+  );
+
+  const row = rows[0];
+  if (!row) {
+    throw new Error("Supabase did not return the staged identity evidence.");
+  }
+  return row.id;
+}
+
+export async function verifyCatalogueIdentityEvidence(
+  input: ReviewEvidenceInput,
+) {
+  return supabaseRestRequest(
+    "rpc/catalogue_verify_identity_evidence",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        p_identity_evidence_id: input.evidenceId,
+        p_reviewer: normalizeReviewer(input.reviewer),
+        p_notes: input.notes?.trim() || null,
+      }),
+    },
+  );
+}
+
+export async function acceptCatalogueSpecEvidenceFromImport(
+  input: ReviewImportedEvidenceInput,
+) {
+  return supabaseRestRequest(
+    "rpc/catalogue_accept_spec_evidence_from_import",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        p_import_row_id: input.importRowId,
+        p_reviewer: normalizeReviewer(input.reviewer),
+        p_notes: input.notes?.trim() || null,
+      }),
+    },
+  );
+}
+
+export async function verifyCatalogueSpecEvidence(
+  input: ReviewEvidenceInput,
+) {
+  return supabaseRestRequest(
+    "rpc/catalogue_verify_spec_evidence",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        p_spec_evidence_id: input.evidenceId,
+        p_reviewer: normalizeReviewer(input.reviewer),
+        p_notes: input.notes?.trim() || null,
+      }),
+    },
+  );
+}
+
+export async function completeCatalogueTechnicalReview(
+  input: CataloguePromotionActionInput,
+) {
+  return callPromotionRpc("catalogue_complete_technical_review", input);
+}
+
+export async function addVerifiedEuOffer(
+  input: AddVerifiedEuOfferInput,
+) {
+  return supabaseRestRequest(
+    "rpc/catalogue_add_verified_eu_offer",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        p_product_id: input.productId,
+        p_merchant_name: input.merchantName.trim(),
+        p_product_url: input.productUrl,
+        p_price_amount: input.priceAmount,
+        p_stock_status: input.stockStatus,
+        p_last_checked_at: input.lastCheckedAt,
+        p_reviewer: normalizeReviewer(input.reviewer),
+        p_notes: input.notes?.trim() || null,
+        p_merchant_country_code: input.merchantCountryCode?.trim() || null,
+      }),
+    },
+  );
 }
