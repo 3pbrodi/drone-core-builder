@@ -1,6 +1,8 @@
 # DroneCores Catalogue Phase 2
 
-Phase 2 prepares a PostgreSQL-backed catalogue for Supabase without changing the live configurator away from the Phase 1 static catalogue.
+Phase 2 prepares a PostgreSQL-backed catalogue for Supabase without changing the live configurator away from the static catalogue.
+
+The later evidence-first foundation is documented in `docs/catalogue-evidence-first.md`. It separates temporary `demo_seed` records from future canonical products and persists the Phase A quality review.
 
 ## Safety model
 
@@ -11,11 +13,14 @@ Phase 2 prepares a PostgreSQL-backed catalogue for Supabase without changing the
 - Even when enabled, the server adapter falls back to static data unless the database passes exact parity against the current static catalogue.
 - CSV imports are staged for review only. They never insert directly into canonical products.
 - Canonical products default to `verification_status = unverified` and `selectable = false`.
+- Temporary demo products use `record_class = demo_seed` and are structurally blocked from becoming selectable.
 - No remote Supabase migration or import is performed by this phase.
 
 ## Files
 
 - `supabase/migrations/20260927190000_catalogue_phase2.sql` — tracked PostgreSQL schema.
+- `supabase/migrations/20260929000000_evidence_first_catalogue_foundation.sql` — demo/canonical separation, Phase A quality reviews, canonical promotion gate, and EU/EUR runtime policy.
+- `supabase/seeds/catalogue-demo-seed.sql` — generated local/dev seed for the current 20 demo products.
 - `src/lib/supabase-rest.server.ts` — server-only Supabase REST transport.
 - `src/lib/catalogue-database.server.ts` — database-to-runtime catalogue mapping and parity fallback.
 - `src/lib/catalogue-parity.ts` — compares a database snapshot with the current static catalogue.
@@ -112,11 +117,13 @@ The staging tables do not automatically promote rows into canonical products.
 
 `catalogue_runtime_products` returns only products that are:
 
+- `record_class = canonical`
 - `selectable = true`
+- `identity_status = verified`
 - `verification_status = verified`
 - not discontinued
 
-It also selects only a verified exact-model image and a verified merchant offer.
+It selects only a verified exact-model image. Merchant pricing is restricted to verified offers with currency `EUR` and region `EU`. Illustrative demo prices never enter the runtime view.
 
 The current website is **not yet connected to this view**. The Phase 2 server adapter can load it for parity checking, but the UI stays on static data until a later approved migration step.
 
@@ -206,23 +213,30 @@ IDs must contain only letters, numbers, `.`, `_`, `:`, or `-`, begin with an alp
 
 The existing static products remain the source of truth for the live site.
 
-Export them locally with:
+The older staging CSV export is still available:
 
 ```sh
 bun run catalogue:export-static > dronecores-static-products.csv
 ```
 
-The exporter:
+For the evidence-first local/dev database, generate the reviewed 20-product demo seed with:
 
-- preserves stable product IDs;
-- preserves existing names, summaries, weights, prices-independent technical compatibility fields and image URLs;
-- does not invent manufacturer/model identifiers;
-- does not mark any image as database-verified;
-- labels provenance as the Phase 1 static demo catalogue.
+```sh
+bun run catalogue:export-demo-seed > supabase/seeds/catalogue-demo-seed.sql
+```
 
-The resulting CSV is intended for staging/review, not direct publication.
+The evidence-first seed:
 
-Current demo prices are not exported as verified merchant offers because the Phase 1 values are illustrative and are not verified live retailer data. Merchant offers must be added and verified separately before database parity can succeed.
+- preserves all 20 stable product IDs;
+- records every product as `record_class = demo_seed`;
+- persists the Phase A identity/technical quality state;
+- keeps the current prices only as illustrative EUR review data;
+- creates no merchant offers;
+- preserves raw static product snapshots in the import audit trail;
+- does not infer manufacturer specs, current-rating semantics, or pair compatibility;
+- cannot overwrite a product after it has been promoted to `canonical`.
+
+The live website remains on the static catalogue. The database seed is a migration bridge for review and future canonical product replacement, not production catalogue data.
 
 ## Parity gate
 
