@@ -431,7 +431,7 @@ set search_path = public
 as $
 declare
   evidence_record public.catalogue_identity_evidence%rowtype;
-  manufacturer_id uuid;
+  v_manufacturer_id uuid;
 begin
   if p_reviewer is null or length(trim(p_reviewer)) = 0 then
     raise exception 'Reviewer is required.';
@@ -453,12 +453,12 @@ begin
   end if;
 
   select id
-  into manufacturer_id
+  into v_manufacturer_id
   from public.catalogue_manufacturers
   where lower(name) = lower(evidence_record.manufacturer_label)
   limit 1;
 
-  if manufacturer_id is null then
+  if v_manufacturer_id is null then
     insert into public.catalogue_manufacturers (
       name,
       verification_status
@@ -466,11 +466,11 @@ begin
       evidence_record.manufacturer_label,
       'verified'
     )
-    returning id into manufacturer_id;
+    returning id into v_manufacturer_id;
   else
     update public.catalogue_manufacturers
     set verification_status = 'verified'
-    where id = manufacturer_id;
+    where id = v_manufacturer_id;
   end if;
 
   update public.catalogue_identity_evidence
@@ -480,7 +480,7 @@ begin
   where id = p_identity_evidence_id;
 
   update public.catalogue_products
-  set manufacturer_id = manufacturer_id
+  set manufacturer_id = v_manufacturer_id
   where id = evidence_record.product_id;
 
   update public.catalogue_product_quality_reviews
@@ -527,8 +527,8 @@ declare
   import_record public.catalogue_import_rows%rowtype;
   batch_record public.catalogue_import_batches%rowtype;
   data jsonb;
-  source_id uuid;
-  evidence_id uuid;
+  v_source_id uuid;
+  v_evidence_id uuid;
   source_kind_value public.catalogue_source_kind;
 begin
   if p_reviewer is null or length(trim(p_reviewer)) = 0 then
@@ -570,13 +570,13 @@ begin
   source_kind_value := (data->>'sourceKind')::public.catalogue_source_kind;
 
   select id
-  into source_id
+  into v_source_id
   from public.catalogue_sources
   where lower(name) = lower(data->>'sourceName')
     and kind = source_kind_value
   limit 1;
 
-  if source_id is null then
+  if v_source_id is null then
     insert into public.catalogue_sources (
       name,
       kind,
@@ -586,7 +586,7 @@ begin
       source_kind_value,
       'pending_review'
     )
-    returning id into source_id;
+    returning id into v_source_id;
   end if;
 
   insert into public.catalogue_spec_evidence (
@@ -610,7 +610,7 @@ begin
     data->'value',
     nullif(data->>'unit', ''),
     nullif(data->>'valueSemantics', ''),
-    source_id,
+    v_source_id,
     data->>'sourceUrl',
     (data->>'authority')::public.catalogue_evidence_authority,
     coalesce((data->>'exactModelAssociation')::boolean, false),
@@ -621,15 +621,15 @@ begin
     nullif(data->>'caveats', '')
   )
   on conflict do nothing
-  returning id into evidence_id;
+  returning id into v_evidence_id;
 
-  if evidence_id is null then
+  if v_evidence_id is null then
     select id
-    into evidence_id
+    into v_evidence_id
     from public.catalogue_spec_evidence
     where product_id = data->>'productId'
       and field_key = data->>'fieldKey'
-      and source_id = source_id
+      and source_id = v_source_id
       and coalesce(source_url, '') = coalesce(data->>'sourceUrl', '')
     limit 1;
   end if;
@@ -656,7 +656,7 @@ begin
 
   return jsonb_build_object(
     'productId', data->>'productId',
-    'specEvidenceId', evidence_id,
+    'specEvidenceId', v_evidence_id,
     'verificationStatus', 'pending_review'
   );
 end;
@@ -818,8 +818,8 @@ security definer
 set search_path = public
 as $
 declare
-  merchant_id uuid;
-  offer_id uuid;
+  v_merchant_id uuid;
+  v_offer_id uuid;
 begin
   if p_reviewer is null or length(trim(p_reviewer)) = 0 then
     raise exception 'Reviewer is required.';
@@ -1439,12 +1439,12 @@ grant execute on function public.catalogue_unpublish_product(text, text, text)
   end if;
 
   select id
-  into merchant_id
+  into v_merchant_id
   from public.catalogue_merchants
   where lower(name) = lower(trim(p_merchant_name))
   limit 1;
 
-  if merchant_id is null then
+  if v_merchant_id is null then
     insert into public.catalogue_merchants (
       name,
       country_code,
@@ -1456,14 +1456,14 @@ grant execute on function public.catalogue_unpublish_product(text, text, text)
       true,
       'verified'
     )
-    returning id into merchant_id;
+    returning id into v_merchant_id;
   else
     update public.catalogue_merchants
     set
       country_code = coalesce(p_merchant_country_code, country_code),
       active = true,
       verification_status = 'verified'
-    where id = merchant_id;
+    where id = v_merchant_id;
   end if;
 
   insert into public.catalogue_offers (
@@ -1478,7 +1478,7 @@ grant execute on function public.catalogue_unpublish_product(text, text, text)
     last_checked_at
   ) values (
     p_product_id,
-    merchant_id,
+    v_merchant_id,
     p_product_url,
     p_price_amount,
     'EUR',
@@ -1494,7 +1494,7 @@ grant execute on function public.catalogue_unpublish_product(text, text, text)
     region = excluded.region,
     verification_status = excluded.verification_status,
     last_checked_at = excluded.last_checked_at
-  returning id into offer_id;
+  returning id into v_offer_id;
 
   insert into public.catalogue_promotion_events (
     product_id,
@@ -1512,7 +1512,7 @@ grant execute on function public.catalogue_unpublish_product(text, text, text)
 
   return jsonb_build_object(
     'productId', p_product_id,
-    'offerId', offer_id,
+    'offerId', v_offer_id,
     'currency', 'EUR',
     'region', 'EU',
     'verificationStatus', 'verified'
@@ -1537,7 +1537,7 @@ declare
   product_id text;
   category_value public.drone_product_category;
   manufacturer_name text;
-  manufacturer_id uuid;
+  v_manufacturer_id uuid;
   model_label text;
 begin
   if p_reviewer is null or length(trim(p_reviewer)) = 0 then
@@ -1598,12 +1598,12 @@ begin
 
   if manufacturer_name is not null then
     select id
-    into manufacturer_id
+    into v_manufacturer_id
     from public.catalogue_manufacturers
     where lower(name) = lower(manufacturer_name)
     limit 1;
 
-    if manufacturer_id is null then
+    if v_manufacturer_id is null then
       insert into public.catalogue_manufacturers (
         name,
         verification_status
@@ -1611,7 +1611,7 @@ begin
         manufacturer_name,
         'pending_review'
       )
-      returning id into manufacturer_id;
+      returning id into v_manufacturer_id;
     end if;
   end if;
 
@@ -1635,7 +1635,7 @@ begin
     record_class
   ) values (
     product_id,
-    manufacturer_id,
+    v_manufacturer_id,
     model_label,
     nullif(trim(data->>'variant'), ''),
     data->>'display_name',
