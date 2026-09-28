@@ -2,6 +2,7 @@
 -- Local migration only. Do not apply to a remote Supabase project without explicit approval.
 
 create type public.catalogue_promotion_action as enum (
+  'candidate_created',
   'identity_promoted',
   'publication_enabled',
   'publication_disabled'
@@ -350,8 +351,8 @@ as $
 declare
   blockers text[];
 begin
-  if old.record_class = 'canonical' and new.record_class = 'demo_seed' then
-    raise exception 'Canonical products cannot be downgraded to demo_seed.';
+  if old.record_class = 'canonical' and new.record_class <> 'canonical' then
+    raise exception 'Canonical products cannot be downgraded to a review-only record class.';
   end if;
 
   if (
@@ -379,6 +380,347 @@ create trigger catalogue_products_promotion_gate
 before update of record_class, identity_status, verification_status, selectable
 on public.catalogue_products
 for each row execute function public.enforce_catalogue_product_promotion_gate();
+
+create or replace function public.catalogue_create_candidate_from_import(
+  p_import_row_id bigint,
+  p_reviewer text,
+  p_notes text default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $
+declare
+  import_record public.catalogue_import_rows%rowtype;
+  batch_record public.catalogue_import_batches%rowtype;
+  data jsonb;
+  product_id text;
+  category_value public.drone_product_category;
+  manufacturer_name text;
+  manufacturer_id uuid;
+  model_label text;
+begin
+  if p_reviewer is null or length(trim(p_reviewer)) = 0 then
+    raise exception 'Reviewer is required.';
+  end if;
+
+  select *
+  into import_record
+  from public.catalogue_import_rows
+  where id = p_import_row_id;
+
+  if not found then
+    raise exception 'Import row does not exist.';
+  end if;
+
+  select *
+  into batch_record
+  from public.catalogue_import_batches
+  where id = import_record.batch_id;
+
+  if not found or batch_record.import_kind <> 'products' then
+    raise exception 'Import row is not part of a product import batch.';
+  end if;
+
+  if import_record.normalized_data is null then
+    raise exception 'Import row has no normalized product data.';
+  end if;
+
+  if import_record.status not in ('validated', 'needs_review') then
+    raise exception 'Import row is not eligible to become a review candidate.';
+  end if;
+
+  data := import_record.normalized_data;
+  product_id := nullif(trim(data->>'id'), '');
+
+  if product_id is null then
+    raise exception 'Normalized product ID is missing.';
+  end if;
+
+  if exists (
+    select 1
+    from public.catalogue_products p
+    where p.id = product_id
+  ) then
+    raise exception 'Product ID % already exists in the catalogue.', product_id;
+  end if;
+
+  category_value := (data->>'category')::public.drone_product_category;
+  manufacturer_name := nullif(trim(data->>'manufacturer'), '');
+  model_label := coalesce(
+    nullif(trim(data->>'model'), ''),
+    nullif(trim(data->>'display_name'), '')
+  );
+
+  if model_label is null then
+    raise exception 'A display name or model label is required.';
+  end if;
+
+  if manufacturer_name is not null then
+    select id
+    into manufacturer_id
+    from public.catalogue_manufacturers
+    where lower(name) = lower(manufacturer_name)
+    limit 1;
+
+    if manufacturer_id is null then
+      insert into public.catalogue_manufacturers (
+        name,
+        verification_status
+      ) values (
+        manufacturer_name,
+        'pending_review'
+      )
+      returning id into manufacturer_id;
+    end if;
+  end if;
+
+  insert into public.catalogue_products (
+    id,
+    manufacturer_id,
+    model,
+    variant,
+    display_name,
+    category,
+    mpn,
+    manufacturer_sku,
+    spec_summary,
+    weight_grams,
+    lifecycle_status,
+    verification_status,
+    selectable,
+    attributes,
+    identity_status,
+    identity_verified_at,
+    record_class
+  ) values (
+    product_id,
+    manufacturer_id,
+    model_label,
+    nullif(trim(data->>'variant'), ''),
+    data->>'display_name',
+    category_value,
+    nullif(trim(data->>'mpn'), ''),
+    nullif(trim(data->>'manufacturer_sku'), ''),
+    nullif(data->>'spec_summary', ''),
+    nullif(data->>'weight_grams', '')::numeric,
+    'unknown',
+    'pending_review',
+    false,
+    jsonb_build_object(
+      'candidateSource', 'catalogue_import_rows',
+      'importRowId', p_import_row_id,
+      'importBatchId', import_record.batch_id
+    ),
+    'pending_review',
+    null,
+    'candidate'
+  );
+
+  insert into public.catalogue_product_specs (
+    product_id,
+    frame_size_inches,
+    motor_mount_pattern,
+    propeller_diameter_inches,
+    motor_size_code,
+    motor_stator_width_mm,
+    motor_stator_height_mm,
+    motor_kv,
+    min_battery_cells,
+    max_battery_cells,
+    connector,
+    esc_input,
+    thrust_grams,
+    peak_current_amps,
+    esc_amps,
+    battery_cells,
+    battery_capacity_mah,
+    battery_discharge_c,
+    video_system,
+    camera_video_interface,
+    camera_min_voltage_v,
+    camera_max_voltage_v,
+    camera_width_mm,
+    camera_height_mm,
+    camera_depth_mm,
+    fc_camera_video_interfaces,
+    fc_camera_power_voltages_v,
+    receiver_protocol,
+    receiver_frequency_min_mhz,
+    receiver_frequency_max_mhz,
+    receiver_min_voltage_v,
+    receiver_max_voltage_v,
+    receiver_signal_interface,
+    receiver_width_mm,
+    receiver_height_mm,
+    receiver_depth_mm,
+    fc_receiver_signal_interfaces,
+    fc_receiver_power_voltages_v,
+    attributes
+  ) values (
+    product_id,
+    nullif(data->>'frame_size_inches', '')::numeric,
+    nullif(data->>'motor_mount_pattern', ''),
+    nullif(data->>'propeller_diameter_inches', '')::numeric,
+    nullif(data->>'motor_size_code', '')::integer,
+    nullif(data->>'motor_stator_width_mm', '')::numeric,
+    nullif(data->>'motor_stator_height_mm', '')::numeric,
+    nullif(data->>'motor_kv', '')::integer,
+    nullif(data->>'min_battery_cells', '')::smallint,
+    nullif(data->>'max_battery_cells', '')::smallint,
+    nullif(data->>'connector', ''),
+    nullif(data->>'esc_input', ''),
+    nullif(data->>'thrust_grams', '')::numeric,
+    nullif(data->>'peak_current_amps', '')::numeric,
+    nullif(data->>'esc_amps', '')::numeric,
+    nullif(data->>'battery_cells', '')::smallint,
+    nullif(data->>'battery_capacity_mah', '')::integer,
+    nullif(data->>'battery_discharge_c', '')::numeric,
+    nullif(data->>'video_system', ''),
+    nullif(data->>'camera_video_interface', ''),
+    nullif(data->>'camera_min_voltage_v', '')::numeric,
+    nullif(data->>'camera_max_voltage_v', '')::numeric,
+    nullif(data->>'camera_width_mm', '')::numeric,
+    nullif(data->>'camera_height_mm', '')::numeric,
+    nullif(data->>'camera_depth_mm', '')::numeric,
+    case
+      when jsonb_typeof(data->'fc_camera_video_interfaces') = 'array'
+      then array(
+        select jsonb_array_elements_text(data->'fc_camera_video_interfaces')
+      )
+      else null
+    end,
+    case
+      when jsonb_typeof(data->'fc_camera_power_voltages_v') = 'array'
+      then array(
+        select value::numeric
+        from jsonb_array_elements_text(data->'fc_camera_power_voltages_v') value
+      )
+      else null
+    end,
+    nullif(data->>'receiver_protocol', ''),
+    nullif(data->>'receiver_frequency_min_mhz', '')::numeric,
+    nullif(data->>'receiver_frequency_max_mhz', '')::numeric,
+    nullif(data->>'receiver_min_voltage_v', '')::numeric,
+    nullif(data->>'receiver_max_voltage_v', '')::numeric,
+    nullif(data->>'receiver_signal_interface', ''),
+    nullif(data->>'receiver_width_mm', '')::numeric,
+    nullif(data->>'receiver_height_mm', '')::numeric,
+    nullif(data->>'receiver_depth_mm', '')::numeric,
+    case
+      when jsonb_typeof(data->'fc_receiver_signal_interfaces') = 'array'
+      then array(
+        select jsonb_array_elements_text(data->'fc_receiver_signal_interfaces')
+      )
+      else null
+    end,
+    case
+      when jsonb_typeof(data->'fc_receiver_power_voltages_v') = 'array'
+      then array(
+        select value::numeric
+        from jsonb_array_elements_text(data->'fc_receiver_power_voltages_v') value
+      )
+      else null
+    end,
+    '{}'::jsonb
+  );
+
+  insert into public.catalogue_product_quality_reviews (
+    product_id,
+    identity_quality_status,
+    technical_quality_status,
+    product_kind,
+    manufacturer_label,
+    exact_model_label,
+    variant_label,
+    price_status,
+    illustrative_price_amount,
+    illustrative_price_currency,
+    human_review_required,
+    issues,
+    remediation,
+    review_dataset,
+    reviewed_at
+  ) values (
+    product_id,
+    'unverified',
+    'unverified',
+    'unknown',
+    manufacturer_name,
+    nullif(trim(data->>'model'), ''),
+    nullif(trim(data->>'variant'), ''),
+    'missing',
+    null,
+    null,
+    true,
+    jsonb_build_array(
+      'New product candidate requires identity, technical, image, and offer review.'
+    ),
+    jsonb_build_array(
+      'Attach exact-model identity evidence and field-level technical evidence before promotion.'
+    ),
+    'staged-product-import',
+    now()
+  );
+
+  if nullif(trim(data->>'image_url'), '') is not null then
+    insert into public.catalogue_product_images (
+      product_id,
+      image_url,
+      source_url,
+      alt_text,
+      exact_model_verified,
+      verification_status,
+      provenance,
+      primary_image,
+      license_name,
+      license_url
+    ) values (
+      product_id,
+      data->>'image_url',
+      nullif(trim(data->>'image_source_url'), ''),
+      coalesce(nullif(data->>'image_alt', ''), data->>'display_name'),
+      false,
+      'pending_review',
+      coalesce(
+        nullif(data->>'image_provenance', ''),
+        'Staged product candidate image'
+      ),
+      false,
+      nullif(data->>'image_license_name', ''),
+      nullif(data->>'image_license_url', '')
+    );
+  end if;
+
+  update public.catalogue_import_rows
+  set
+    status = 'imported',
+    reviewed_at = now()
+  where id = p_import_row_id;
+
+  insert into public.catalogue_promotion_events (
+    product_id,
+    action,
+    reviewer,
+    notes,
+    blockers_snapshot
+  ) values (
+    product_id,
+    'candidate_created',
+    trim(p_reviewer),
+    p_notes,
+    '[]'::jsonb
+  );
+
+  return jsonb_build_object(
+    'productId', product_id,
+    'recordClass', 'candidate',
+    'identityStatus', 'pending_review',
+    'selectable', false
+  );
+end;
+$;
 
 create or replace function public.catalogue_promote_identity(
   p_product_id text,
@@ -571,6 +913,8 @@ grant select on public.catalogue_promotion_readiness to service_role;
 
 revoke all on function public.enforce_catalogue_product_promotion_gate()
   from public, anon, authenticated;
+revoke all on function public.catalogue_create_candidate_from_import(bigint, text, text)
+  from public, anon, authenticated;
 revoke all on function public.catalogue_identity_promotion_blockers(text)
   from public, anon, authenticated;
 revoke all on function public.catalogue_publication_blockers(text)
@@ -582,6 +926,8 @@ revoke all on function public.catalogue_publish_product(text, text, text)
 revoke all on function public.catalogue_unpublish_product(text, text, text)
   from public, anon, authenticated;
 
+grant execute on function public.catalogue_create_candidate_from_import(bigint, text, text)
+  to service_role;
 grant execute on function public.catalogue_identity_promotion_blockers(text)
   to service_role;
 grant execute on function public.catalogue_publication_blockers(text)
