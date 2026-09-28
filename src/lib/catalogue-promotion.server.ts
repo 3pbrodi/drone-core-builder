@@ -39,9 +39,9 @@ type PromotionReadinessRow = {
 
 export type CataloguePromotionResult = {
   productId: string;
-  recordClass?: "canonical";
-  identityStatus?: "verified";
-  verificationStatus?: "verified";
+  recordClass?: "candidate" | "canonical";
+  identityStatus?: "pending_review" | "verified";
+  verificationStatus?: "pending_review" | "verified";
   selectable: boolean;
 };
 
