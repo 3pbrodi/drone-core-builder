@@ -1,4 +1,6 @@
-import {allCategoryIds,type Category,type Product} from "./build-data";\nimport {droneMountedCategoryIds} from "./component-categories";\nimport {requiredCategoriesForSelection,selectionPriceSummary} from "./configurator-selection";
+import {allCategoryIds,type Category,type Product} from "./build-data";
+import {droneMountedCategoryIds} from "./component-categories";
+import {requiredCategoriesForSelection,selectionPriceSummary} from "./configurator-selection";
 
 export type CompatibilityRuleStatus = "pass" | "fail" | "unknown";
 export type CompatibilityEvidenceLevel = "verified" | "unverified" | "heuristic";

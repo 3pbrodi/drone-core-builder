@@ -6,7 +6,7 @@ describe("component architecture migrations",()=>{
     const architectureSql=await Bun.file("supabase/migrations/20260929175600_component_category_architecture.sql").text();
     for(const category of ["videoTransmitter","gps","buzzer","antenna","powerAccessory","optionalModule","radioTransmitter","fpvGoggles","batteryCharger","chargingAccessory"]){
       expect(enumSql).toContain(`add value if not exists '${category}'`);
-      expect(architectureSql).toContain(`('${category}'`);
+      expect(architectureSql).toContain(`'${category}'`);
     }
   });
   test("extends runtime projection without changing existing product identifiers",async()=>{

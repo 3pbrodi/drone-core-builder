@@ -436,7 +436,7 @@ where p.record_class = 'canonical'
   and p.lifecycle_status <> 'discontinued';
 
 revoke all on public.catalogue_runtime_products from anon, authenticated;
-grant select on public.catalogue_runtime_products to service_role;;
+grant select on public.catalogue_runtime_products to service_role;
 
 delete from public.catalogue_public_runtime_products where true;
 insert into public.catalogue_public_runtime_products
