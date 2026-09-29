@@ -1123,9 +1123,9 @@ begin
   update public.catalogue_import_batches b
   set
     dedupe_completed_at=now(),
-    total_rows=(select count(*) from public.catalogue_import_rows r where r.batch_id=b.id),
-    valid_rows=(select count(*) from public.catalogue_import_rows r where r.batch_id=b.id and r.status in ('validated','imported')),
-    invalid_rows=(select count(*) from public.catalogue_import_rows r where r.batch_id=b.id and r.status in ('needs_review','rejected')),
+    total_rows=(select count(*) from public.catalogue_import_rows ir where ir.batch_id=b.id),
+    valid_rows=(select count(*) from public.catalogue_import_rows ir where ir.batch_id=b.id and ir.status in ('validated','imported')),
+    invalid_rows=(select count(*) from public.catalogue_import_rows ir where ir.batch_id=b.id and ir.status in ('needs_review','rejected')),
     status=case
       when v_conflict>0 or v_probable>0
         then 'needs_review'::public.catalogue_import_batch_status
