@@ -108,6 +108,115 @@ select public.catalogue_get_or_create_import_run(
 );
 reset role;
 
+
+-- Canonical identity includes category, so identical manufacturer/model/variant
+-- labels in different component categories do not collide.
+insert into public.catalogue_products(
+  id,manufacturer_id,model,variant,display_name,category,
+  record_class,identity_status,verification_status,selectable
+) values
+(
+  'p0-cross-category-motor',
+  '10000000-0000-0000-0000-000000000003',
+  'Shared Label','V1','Shared Label V1 Motor','motors',
+  'canonical','verified','pending_review',false
+),
+(
+  'p0-cross-category-receiver',
+  '10000000-0000-0000-0000-000000000003',
+  'Shared Label','V1','Shared Label V1 Receiver','receiver',
+  'canonical','verified','pending_review',false
+);
+select pg_temp.assert_true(
+  (select count(*)=2 from public.catalogue_products
+   where id in ('p0-cross-category-motor','p0-cross-category-receiver')),
+  'category-aware canonical identity must allow the same model/variant label in different categories'
+);
+
+-- Two Shopify variants from one parent product remain independent durable items
+-- and independent staging rows.
+do $shopify$
+declare
+  v_run_id uuid;
+begin
+  v_run_id := (
+    public.catalogue_get_or_create_import_run(
+      '10000000-0000-0000-0000-000000000002',
+      '10000000-0000-0000-0000-000000000001',
+      'integration-shopify-variants',1
+    )->>'runId'
+  )::uuid;
+
+  perform public.catalogue_upsert_import_manifest_items(
+    v_run_id,
+    jsonb_build_array(
+      jsonb_build_object(
+        'upstreamItemId','shopify:variant:1001',
+        'upstreamParentProductId','shopify:product:100',
+        'upstreamVariantId','1001',
+        'sourceUrl','https://integration.invalid/products/motor',
+        'itemKind','variant','discoveryStatus','ready',
+        'normalizedData',jsonb_build_object(
+          'id','shopify-motor-1855','category','motors',
+          'manufacturer','P0 Integration Manufacturer','model','Shopify Motor',
+          'variant','1855KV','display_name','Shopify Motor — 1855KV',
+          'manufacturer_sku','SHOP-1855',
+          'source_external_product_id','shopify:variant:1001',
+          'source_external_parent_product_id','shopify:product:100',
+          'source_external_variant_id','1001',
+          'source_url','https://integration.invalid/products/motor'
+        )
+      ),
+      jsonb_build_object(
+        'upstreamItemId','shopify:variant:1002',
+        'upstreamParentProductId','shopify:product:100',
+        'upstreamVariantId','1002',
+        'sourceUrl','https://integration.invalid/products/motor',
+        'itemKind','variant','discoveryStatus','ready',
+        'normalizedData',jsonb_build_object(
+          'id','shopify-motor-1960','category','motors',
+          'manufacturer','P0 Integration Manufacturer','model','Shopify Motor',
+          'variant','1960KV','display_name','Shopify Motor — 1960KV',
+          'manufacturer_sku','SHOP-1960',
+          'source_external_product_id','shopify:variant:1002',
+          'source_external_parent_product_id','shopify:product:100',
+          'source_external_variant_id','1002',
+          'source_url','https://integration.invalid/products/motor'
+        )
+      )
+    ),
+    1,null,jsonb_build_object('pass',1,'insertedInPass',2),true
+  );
+
+  perform public.catalogue_stage_import_run_chunk(
+    v_run_id,'shopify-variants',
+    jsonb_build_array(
+      jsonb_build_object(
+        'upstreamItemId','shopify:variant:1001','outcome','ready',
+        'sourceUrl','https://integration.invalid/products/motor',
+        'normalizedData',(select normalized_data from public.catalogue_import_run_items where run_id=v_run_id and upstream_item_id='shopify:variant:1001'),
+        'errors','[]'::jsonb
+      ),
+      jsonb_build_object(
+        'upstreamItemId','shopify:variant:1002','outcome','ready',
+        'sourceUrl','https://integration.invalid/products/motor',
+        'normalizedData',(select normalized_data from public.catalogue_import_run_items where run_id=v_run_id and upstream_item_id='shopify:variant:1002'),
+        'errors','[]'::jsonb
+      )
+    )
+  );
+
+  perform pg_temp.assert_true(
+    (select count(*)=2 from public.catalogue_import_rows where import_run_id=v_run_id),
+    'two Shopify variants must produce two staging rows'
+  );
+  perform pg_temp.assert_true(
+    (select count(distinct upstream_item_id)=2 from public.catalogue_import_rows where import_run_id=v_run_id),
+    'Shopify upstream variant identity must remain distinct through staging'
+  );
+end
+$shopify$;
+
 -- Source changes between discovery pages/passes. Pass 1 sees A/B, pass 2 sees
 -- B/C, pass 3 confirms B/C. A must become a durable excluded manifest item.
 select public.catalogue_get_or_create_import_run(
