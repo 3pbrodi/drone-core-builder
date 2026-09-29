@@ -74,11 +74,11 @@ insert into public.catalogue_product_identity_keys(
 ) values
 (
   'p0-conflict-a','manufacturer_sku',
-  'motors|p0 integration manufacturer|shared-conflict',1
+  'motors|p0integrationmanufacturer|sharedconflict',1
 ),
 (
   'p0-conflict-b','manufacturer_sku',
-  'motors|p0 integration manufacturer|shared-conflict',1
+  'motors|p0integrationmanufacturer|sharedconflict',1
 );
 
 -- Stable logical run ID: repeating the same logical run cannot create a second run.
