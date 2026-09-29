@@ -1,0 +1,1006 @@
+const JSON_HEADERS = { "Content-Type": "application/json; charset=utf-8" };
+const EXPECTED_TOKEN_SHA256 = "6b20b13426ac46cfbe69f75cb30378a87d535e94c4b4514dc7d821482fa758c0";
+
+type AdapterRow = {
+  id: string;
+  source_id: string;
+  adapter_key: string;
+  adapter_type: string;
+  version: number;
+  active: boolean;
+  max_batch_size: number;
+  config: Record<string, unknown>;
+};
+
+type SourceRow = {
+  id: string;
+  name: string;
+  base_url: string | null;
+  verification_status: string;
+};
+
+type Category =
+  | "frame"
+  | "motors"
+  | "flightController"
+  | "esc"
+  | "propellers"
+  | "battery"
+  | "camera"
+  | "receiver";
+
+type ParsedItem = {
+  url: string;
+  normalized: Record<string, unknown> | null;
+  errors: string[];
+};
+
+const VALID_CATEGORIES = new Set<Category>([
+  "frame", "motors", "flightController", "esc", "propellers", "battery", "camera", "receiver",
+]);
+
+function adminApiKey() {
+  const modern = Deno.env.get("SUPABASE_SECRET_KEYS");
+  if (modern) {
+    const parsed = JSON.parse(modern) as Record<string, string>;
+    if (parsed.default) return parsed.default;
+  }
+  const legacy = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (legacy) return legacy;
+  throw new Error("Supabase admin key unavailable.");
+}
+
+async function adminRest<T>(path: string, init: RequestInit = {}, prefer?: string): Promise<T> {
+  const baseUrl = Deno.env.get("SUPABASE_URL");
+  if (!baseUrl) throw new Error("SUPABASE_URL unavailable.");
+  const key = adminApiKey();
+  const headers = new Headers(init.headers);
+  headers.set("apikey", key);
+  headers.set("accept", "application/json");
+  if (!key.startsWith("sb_secret_")) headers.set("authorization", "Bearer " + key);
+  if (init.body && !headers.has("content-type")) headers.set("content-type", "application/json");
+  if (prefer) headers.set("prefer", prefer);
+
+  const response = await fetch(baseUrl + "/rest/v1/" + path.replace(/^\//, ""), {
+    ...init,
+    headers,
+  });
+  const body = await response.text();
+  if (!response.ok) {
+    throw new Error("Supabase admin request failed (" + response.status + "): " + body.slice(0, 700));
+  }
+  return body ? JSON.parse(body) as T : undefined as T;
+}
+
+async function sha256Hex(value: string) {
+  const bytes = new TextEncoder().encode(value);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+async function authorized(req: Request) {
+  const token = req.headers.get("x-catalogue-import-token");
+  if (!token || token.length < 32) return false;
+  return (await sha256Hex(token)) === EXPECTED_TOKEN_SHA256;
+}
+
+function normalizeText(value: unknown) {
+  return String(value ?? "")
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function slugify(value: unknown) {
+  return normalizeText(value).replace(/\s+/g, "-").replace(/^-+|-+$/g, "").slice(0, 120);
+}
+
+function stripHtml(value: unknown) {
+  return String(value ?? "")
+    .replace(/<script\b[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style\b[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;|&#160;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function matchesPattern(text: string, pattern: string) {
+  try { return new RegExp(pattern, "i").test(text); } catch { return false; }
+}
+
+function matchesAnyPattern(text: string, patterns: string[]) {
+  if (!patterns.length) return true;
+  return patterns.some((pattern) => matchesPattern(text, pattern));
+}
+
+function xmlLocs(xml: string) {
+  return [...xml.matchAll(/<loc>([\s\S]*?)<\/loc>/gi)]
+    .map((match) => match[1]?.replace(/&amp;/g, "&").trim())
+    .filter(Boolean) as string[];
+}
+
+function htmlLinks(html: string, baseUrl: string) {
+  const out = new Set<string>();
+  for (const match of html.matchAll(/href=["']([^"']+)["']/gi)) {
+    const href = match[1]?.trim();
+    if (!href || href.startsWith("#") || href.startsWith("javascript:")) continue;
+    try { out.add(new URL(href, baseUrl).toString()); } catch {}
+  }
+  return [...out];
+}
+
+async function fetchText(
+  url: string,
+  accept: string,
+  options: { retryAttempts?: number; retryBaseDelayMs?: number } = {},
+) {
+  const attempts = Math.max(1, Math.min(Number(options.retryAttempts ?? 3), 5));
+  const baseDelay = Math.max(250, Number(options.retryBaseDelayMs ?? 1000));
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20000);
+    try {
+      const response = await fetch(url, {
+        redirect: "follow",
+        signal: controller.signal,
+        headers: {
+          "accept": accept,
+          "accept-language": "en-US,en;q=0.8",
+          "user-agent": "Mozilla/5.0 (compatible; DroneCoresCatalogueImporter/2.0; +https://dronecores.com)",
+        },
+      });
+      if (response.ok) return await response.text();
+
+      if ((response.status === 429 || response.status >= 500) && attempt < attempts) {
+        const retryAfter = Number(response.headers.get("retry-after") ?? "0");
+        const waitMs = retryAfter > 0 ? retryAfter * 1000 : baseDelay * Math.pow(2, attempt - 1);
+        await sleep(Math.min(waitMs, 15000));
+        continue;
+      }
+      throw new Error(url + " returned HTTP " + response.status);
+    } catch (error) {
+      if (attempt >= attempts) throw error;
+      await sleep(Math.min(baseDelay * Math.pow(2, attempt - 1), 15000));
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+  throw new Error(url + " could not be fetched after retries");
+}
+
+function categoryRules(config: Record<string, unknown>) {
+  const raw = Array.isArray(config.categoryRules) ? config.categoryRules : [];
+  return raw.flatMap((rule) => {
+    if (!rule || typeof rule !== "object") return [];
+    const obj = rule as Record<string, unknown>;
+    const category = String(obj.category ?? "") as Category;
+    const pattern = String(obj.pattern ?? "");
+    return VALID_CATEGORIES.has(category) && pattern ? [{ category, pattern }] : [];
+  });
+}
+
+function categoryFromRules(text: string, rules: Array<{ category: Category; pattern: string }>) {
+  for (const rule of rules) {
+    if (matchesPattern(text, rule.pattern)) return rule.category;
+  }
+  return null;
+}
+
+function firstNumber(value: string | null | undefined) {
+  if (!value) return null;
+  const match = value.replace(",", ".").match(/-?\d+(?:\.\d+)?/);
+  return match ? Number(match[0]) : null;
+}
+
+function applyRegexMappings(text: string, config: Record<string, unknown>) {
+  const raw =
+    config.regexMappings && typeof config.regexMappings === "object"
+      ? config.regexMappings as Record<string, { pattern?: string; group?: number; type?: string }>
+      : {};
+  const mapped: Record<string, unknown> = {};
+
+  for (const [field, spec] of Object.entries(raw)) {
+    if (!spec?.pattern) continue;
+    try {
+      const match = new RegExp(spec.pattern, "i").exec(text);
+      if (!match) continue;
+      const group = Math.max(0, Number(spec.group ?? 1));
+      const rawValue = match[group];
+      if (rawValue === undefined) continue;
+      if (spec.type === "string") {
+        mapped[field] = rawValue.trim();
+      } else {
+        const number = firstNumber(rawValue);
+        if (number === null || !Number.isFinite(number)) continue;
+        mapped[field] = spec.type === "integer" ? Math.round(number) : number;
+      }
+    } catch {}
+  }
+  return mapped;
+}
+
+function collectObjects(value: unknown, out: Record<string, unknown>[] = []) {
+  if (Array.isArray(value)) {
+    for (const item of value) collectObjects(item, out);
+  } else if (value && typeof value === "object") {
+    const object = value as Record<string, unknown>;
+    out.push(object);
+    for (const child of Object.values(object)) collectObjects(child, out);
+  }
+  return out;
+}
+
+function parseJsonLd(html: string) {
+  const out: unknown[] = [];
+  const regex = /<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+  for (const match of html.matchAll(regex)) {
+    const raw = match[1]?.trim();
+    if (!raw) continue;
+    try { out.push(JSON.parse(raw)); } catch {}
+  }
+  return out;
+}
+
+function isType(object: Record<string, unknown>, expected: string) {
+  const raw = object["@type"];
+  const values = Array.isArray(raw) ? raw : [raw];
+  return values.some((value) => normalizeText(value) === normalizeText(expected));
+}
+
+function brandName(value: unknown) {
+  if (typeof value === "string") return value;
+  if (value && typeof value === "object") return String((value as Record<string, unknown>).name ?? "");
+  return "";
+}
+
+function normalizeImageUrl(value: unknown, baseUrl: string) {
+  const raw = Array.isArray(value) ? value[0] : value;
+  if (raw && typeof raw === "object") {
+    const object = raw as Record<string, unknown>;
+    return normalizeImageUrl(object.url ?? object.contentUrl ?? object.src, baseUrl);
+  }
+  if (!raw) return null;
+  try { return new URL(String(raw), baseUrl).toString(); } catch { return null; }
+}
+
+function firstHtmlMatch(html: string, patterns: RegExp[]) {
+  for (const pattern of patterns) {
+    const match = pattern.exec(html);
+    const value = match?.[1] ? stripHtml(match[1]).trim() : "";
+    if (value) return value;
+  }
+  return "";
+}
+
+function sourcePathId(url: string) {
+  try {
+    const parsed = new URL(url);
+    return parsed.pathname.replace(/\/$/, "").split("/").pop() || url;
+  } catch {
+    return url;
+  }
+}
+
+function buildNormalizedBase(input: {
+  url: string;
+  name: string;
+  manufacturer: string;
+  source: SourceRow;
+  config: Record<string, unknown>;
+  identityText: string;
+  evidenceText: string;
+  description: string | null;
+  imageUrl: string | null;
+  sku?: string | null;
+  mpn?: string | null;
+  externalId: string;
+  variant?: string | null;
+}) {
+  const rules = categoryRules(input.config);
+  const category = categoryFromRules(input.identityText, rules);
+  const eligibilityPatterns = Array.isArray(input.config.eligibilityPatternsAny)
+    ? input.config.eligibilityPatternsAny.map(String)
+    : [];
+  const eligible = matchesAnyPattern(input.identityText, eligibilityPatterns);
+  const excludeContentPatterns = Array.isArray(input.config.excludeContentPatterns)
+    ? input.config.excludeContentPatterns.map(String)
+    : [];
+  const contentExcluded = excludeContentPatterns.some((pattern) => matchesPattern(input.identityText, pattern));
+  const mapped = applyRegexMappings(input.evidenceText, input.config);
+  const idBase = [
+    "import",
+    slugify(input.manufacturer || input.source.name),
+    slugify(input.name || input.externalId),
+    input.variant ? slugify(input.variant) : "",
+  ].filter(Boolean).join("-").slice(0, 180);
+
+  const normalized: Record<string, unknown> = {
+    id: idBase,
+    category,
+    manufacturer: input.manufacturer,
+    model: input.name || input.externalId,
+    variant: input.variant ?? null,
+    display_name: input.name || input.externalId,
+    mpn: input.mpn ?? null,
+    manufacturer_sku: input.sku ?? null,
+    spec_summary: input.description,
+    image_url: input.imageUrl,
+    image_source_url: input.url,
+    image_alt: input.name || input.externalId,
+    image_exact_model_verified: false,
+    image_provenance: "Official manufacturer product-page image; exact-model association requires review.",
+    source_external_product_id: input.externalId,
+    source_url: input.url,
+    source_product_url: input.url,
+    source_name: input.source.name,
+    ...mapped,
+  };
+
+  const errors: string[] = [];
+  if (!eligible || contentExcluded) errors.push("Product did not match this adapter's drone/FPV eligibility rules.");
+  if (!input.name) errors.push("Missing exact product name.");
+  if (!input.manufacturer) errors.push("Missing manufacturer.");
+  if (!category) errors.push("Category could not be classified.");
+  if (!input.sku && !input.mpn) errors.push("No SKU/MPN available; dedupe will fall back to source/model identity.");
+  if (!input.imageUrl) errors.push("No manufacturer image discovered.");
+
+  return { normalized, errors };
+}
+
+function normalizeProductPage(
+  url: string,
+  html: string,
+  source: SourceRow,
+  config: Record<string, unknown>,
+) {
+  const objects = parseJsonLd(html).flatMap((value) => collectObjects(value));
+  const product = objects.find((object) => isType(object, "Product"));
+
+  if (product) {
+    const name = String(product.name ?? "").trim();
+    const manufacturer = brandName(product.brand) || String(config.manufacturer ?? source.name).trim();
+    const sku = String(product.sku ?? "").trim() || null;
+    const mpn = String(product.mpn ?? product.productID ?? "").trim() || null;
+    const variant = String(product.color ?? product.size ?? "").trim() || null;
+    const rawDescription = String(product.description ?? "");
+    let decodedDescription = rawDescription;
+    if (/%[0-9a-f]{2}/i.test(rawDescription)) {
+      try { decodedDescription = decodeURIComponent(rawDescription); } catch {}
+    }
+    const description = stripHtml(decodedDescription).slice(0, 700) || null;
+    const imageUrl = normalizeImageUrl(product.image, url);
+    const identityText = [url, name, product.category].join(" ");
+    const evidenceText = [name, description].filter(Boolean).join(" ");
+
+    return buildNormalizedBase({
+      url,
+      name,
+      manufacturer,
+      source,
+      config,
+      identityText,
+      evidenceText,
+      description,
+      imageUrl,
+      sku,
+      mpn,
+      externalId: sourcePathId(url),
+      variant,
+    });
+  }
+
+  let name = firstHtmlMatch(html, [
+    /<meta\b[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["'][^>]*>/i,
+    /<title\b[^>]*>([\s\S]*?)<\/title>/i,
+    /<h1\b[^>]*>([\s\S]*?)<\/h1>/i,
+  ]);
+  if (config.preferUrlNameFallback === true || !name || /^(?:my[ ]+)?cart$/i.test(name) || /^home$/i.test(name) || /world fpv drone leading company/i.test(name)) {
+    name = sourcePathId(url)
+      .replace(/-g-[0-9]+$/i, "")
+      .replace(/-p[0-9]+(?:[.]html)?$/i, "")
+      .replace(/[-_]+/g, " ")
+      .replace(/\b\w/g, (value) => value.toUpperCase())
+      .trim();
+  }
+  const description = firstHtmlMatch(html, [
+    /<meta\b[^>]*name=["']description["'][^>]*content=["']([^"']+)["'][^>]*>/i,
+    /<meta\b[^>]*property=["']og:description["'][^>]*content=["']([^"']+)["'][^>]*>/i,
+  ]).slice(0, 700) || null;
+  const imageCandidate = firstHtmlMatch(html, [
+    /<meta\b[^>]*property=["']og:image(?::secure_url)?["'][^>]*content=["']([^"']+)["'][^>]*>/i,
+  ]);
+  const imageUrl = normalizeImageUrl(imageCandidate || null, url);
+  const manufacturer = String(config.manufacturer ?? source.name).trim();
+  const externalId = sourcePathId(url);
+  const identityText = [url, name].join(" ");
+  const evidenceText = [name, description].filter(Boolean).join(" ");
+  return buildNormalizedBase({
+    url,
+    name,
+    manufacturer,
+    source,
+    config,
+    identityText,
+    evidenceText,
+    description,
+    imageUrl,
+    sku: null,
+    mpn: null,
+    externalId,
+    variant: null,
+  });
+}
+
+type ShopifyProduct = {
+  id?: string | number;
+  title?: string;
+  handle?: string;
+  body_html?: string;
+  vendor?: string;
+  product_type?: string;
+  tags?: string | string[];
+  variants?: Array<Record<string, unknown>>;
+  images?: Array<Record<string, unknown>>;
+};
+
+function normalizeShopifyProduct(
+  product: ShopifyProduct,
+  source: SourceRow,
+  config: Record<string, unknown>,
+) {
+  const name = String(product.title ?? "").trim();
+  const manufacturer = String(config.manufacturer ?? product.vendor ?? source.name).trim();
+  const firstVariant = Array.isArray(product.variants) ? product.variants[0] : undefined;
+  const sku = String(firstVariant?.sku ?? "").trim() || null;
+  const description = stripHtml(product.body_html).slice(0, 700) || null;
+  const handle = String(product.handle ?? "").trim();
+  const url = handle && source.base_url ? new URL("/products/" + handle, source.base_url).toString() : String(source.base_url ?? "");
+  const imageRaw = Array.isArray(product.images) ? product.images[0]?.src : null;
+  const imageUrl = normalizeImageUrl(imageRaw, url);
+  const tags = Array.isArray(product.tags) ? product.tags.join(" ") : String(product.tags ?? "");
+  const identityText = [url, name, product.product_type, tags].join(" ");
+  const evidenceText = [name, description, stripHtml(product.body_html)].filter(Boolean).join(" ");
+  const externalId = product.id != null ? "shopify:" + String(product.id) : handle;
+
+  const result = buildNormalizedBase({
+    url,
+    name,
+    manufacturer,
+    source,
+    config,
+    identityText,
+    evidenceText,
+    description,
+    imageUrl,
+    sku,
+    mpn: null,
+    externalId,
+    variant: null,
+  });
+  return { url, ...result };
+}
+
+async function discoverSitemapProductUrls(config: Record<string, unknown>) {
+  const sitemapUrl = String(config.sitemapUrl ?? "").trim();
+  if (!sitemapUrl) throw new Error("Adapter config.sitemapUrl is required.");
+
+  const includePatterns = Array.isArray(config.includePatterns) ? config.includePatterns.map(String) : [];
+  const excludePatterns = Array.isArray(config.excludePatterns) ? config.excludePatterns.map(String) : [];
+  const productSitemapPatterns = Array.isArray(config.productSitemapPatterns)
+    ? config.productSitemapPatterns.map(String)
+    : [];
+  const productUrlPatterns = Array.isArray(config.productUrlPatterns)
+    ? config.productUrlPatterns.map(String)
+    : [];
+  const maxSitemapDocuments = Math.max(1, Math.min(Number(config.maxSitemapDocuments ?? 50), 200));
+  const maxDiscoveredProducts = Math.max(100, Math.min(Number(config.maxDiscoveredProducts ?? 10000), 50000));
+  const queue = [sitemapUrl];
+  const visited = new Set<string>();
+  const products = new Set<string>();
+
+  while (queue.length && visited.size < maxSitemapDocuments && products.size < maxDiscoveredProducts) {
+    const current = queue.shift()!;
+    if (visited.has(current)) continue;
+    visited.add(current);
+    const xml = await fetchText(current, "application/xml,text/xml;q=0.9,*/*;q=0.5", {
+      retryAttempts: Number(config.retryAttempts ?? 3),
+      retryBaseDelayMs: Number(config.retryBaseDelayMs ?? 1000),
+    });
+    const locs = xmlLocs(xml);
+
+    if (/<sitemapindex\b/i.test(xml)) {
+      const children = productSitemapPatterns.length
+        ? locs.filter((loc) => matchesAnyPattern(loc, productSitemapPatterns))
+        : locs.filter((loc) => /sitemap/i.test(loc));
+      for (const child of children) if (!visited.has(child)) queue.push(child);
+      continue;
+    }
+
+    for (const loc of locs) {
+      const productMatch = productUrlPatterns.length
+        ? matchesAnyPattern(loc, productUrlPatterns)
+        : includePatterns.length
+          ? matchesAnyPattern(loc, includePatterns)
+          : true;
+      const excluded = excludePatterns.some((pattern) => matchesPattern(loc, pattern));
+      if (productMatch && !excluded) products.add(loc);
+      if (products.size >= maxDiscoveredProducts) break;
+    }
+  }
+  return [...products].sort();
+}
+
+async function discoverCategoryProductUrls(config: Record<string, unknown>) {
+  const listingUrls = Array.isArray(config.listingUrls) ? config.listingUrls.map(String) : [];
+  if (!listingUrls.length) throw new Error("Adapter config.listingUrls is required for category_html.");
+  const productUrlPatterns = Array.isArray(config.productUrlPatterns) ? config.productUrlPatterns.map(String) : [];
+  const excludePatterns = Array.isArray(config.excludePatterns) ? config.excludePatterns.map(String) : [];
+  const products = new Set<string>();
+
+  for (const listingUrl of listingUrls) {
+    const html = await fetchText(listingUrl, "text/html,application/xhtml+xml", {
+      retryAttempts: Number(config.retryAttempts ?? 3),
+      retryBaseDelayMs: Number(config.retryBaseDelayMs ?? 1000),
+    });
+    for (const url of htmlLinks(html, listingUrl)) {
+      const productMatch = productUrlPatterns.length ? matchesAnyPattern(url, productUrlPatterns) : true;
+      const excluded = excludePatterns.some((pattern) => matchesPattern(url, pattern));
+      if (productMatch && !excluded) products.add(url);
+    }
+  }
+  return [...products].sort();
+}
+
+async function fetchShopifyProducts(config: Record<string, unknown>, page: number, pageSize: number) {
+  const endpoint = String(config.productsEndpoint ?? "").trim();
+  if (!endpoint) throw new Error("Adapter config.productsEndpoint is required for shopify_products_json.");
+  const url = new URL(endpoint);
+  url.searchParams.set("page", String(page));
+  url.searchParams.set("limit", String(Math.min(pageSize, 250)));
+  const body = await fetchText(url.toString(), "application/json", {
+    retryAttempts: Number(config.retryAttempts ?? 3),
+    retryBaseDelayMs: Number(config.retryBaseDelayMs ?? 1000),
+  });
+  const parsed = JSON.parse(body) as { products?: ShopifyProduct[] };
+  return Array.isArray(parsed.products) ? parsed.products : [];
+}
+
+async function mapConcurrent<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T, index: number) => Promise<R>,
+) {
+  const results = new Array<R>(items.length);
+  let next = 0;
+  async function worker() {
+    while (true) {
+      const index = next++;
+      if (index >= items.length) return;
+      results[index] = await fn(items[index], index);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, Math.max(1, items.length)) }, worker));
+  return results;
+}
+
+async function discoverAdapterBatch(
+  config: Record<string, unknown>,
+  source: SourceRow,
+  cursor: number,
+  limit: number,
+) {
+  const mode = String(config.discoveryMode ?? "sitemap").trim();
+
+  if (mode === "shopify_products_json") {
+    const page = Math.max(1, cursor || 1);
+    const pageSize = Math.min(limit, 250);
+    const products = await fetchShopifyProducts(config, page, pageSize);
+    const parsed = products.map((product) => normalizeShopifyProduct(product, source, config));
+    const hasMore = products.length === pageSize;
+    return {
+      parsed,
+      selectedUrls: parsed.map((item) => item.url),
+      totalAvailable: null as number | null,
+      nextCursor: hasMore ? String(page + 1) : null,
+      hasMore,
+    };
+  }
+
+  const allUrls = mode === "category_html"
+    ? await discoverCategoryProductUrls(config)
+    : await discoverSitemapProductUrls(config);
+  const offset = Math.max(0, cursor);
+  const selectedUrls = allUrls.slice(offset, offset + limit);
+  const hasMore = offset + selectedUrls.length < allUrls.length;
+  const nextCursor = hasMore ? String(offset + selectedUrls.length) : null;
+
+  const concurrency = Math.max(1, Math.min(Number(config.concurrency ?? 3), 8));
+  const requestDelayMs = Math.max(0, Math.min(Number(config.requestDelayMs ?? 150), 5000));
+  const retryAttempts = Math.max(1, Math.min(Number(config.retryAttempts ?? 3), 5));
+  const retryBaseDelayMs = Math.max(250, Number(config.retryBaseDelayMs ?? 1000));
+
+  const parsed = await mapConcurrent(selectedUrls, concurrency, async (url): Promise<ParsedItem> => {
+    try {
+      const html = await fetchText(url, "text/html,application/xhtml+xml", {
+        retryAttempts,
+        retryBaseDelayMs,
+      });
+      if (requestDelayMs) await sleep(requestDelayMs);
+      return { url, ...normalizeProductPage(url, html, source, config) };
+    } catch (error) {
+      return {
+        url,
+        normalized: null,
+        errors: [error instanceof Error ? error.message : "Product fetch failed."],
+      };
+    }
+  });
+
+  return {
+    parsed,
+    selectedUrls,
+    totalAvailable: allUrls.length,
+    nextCursor,
+    hasMore,
+  };
+}
+
+function isEligibleParsedItem(item: ParsedItem) {
+  return Boolean(
+    item.normalized &&
+    item.normalized.category &&
+    !item.errors.some((message) => message.includes("eligibility rules")),
+  );
+}
+
+async function updateAdapterStatus(adapterId: string, values: Record<string, unknown>) {
+  await adminRest(
+    "catalogue_source_adapters?id=eq." + encodeURIComponent(adapterId),
+    { method: "PATCH", body: JSON.stringify(values) },
+  );
+}
+
+async function createCandidatesFromBatch(batchId: string, source: SourceRow, adapter: AdapterRow) {
+  let candidatesCreated = 0;
+  const candidateFailures: Array<{ importRowId: number; error: string }> = [];
+  const evidenceSeedFailures: Array<{ importRowId: number; error: string }> = [];
+
+  const newRows = await adminRest<Array<{ id: number; normalized_data: Record<string, unknown> }>>(
+    "catalogue_import_rows?select=id,normalized_data&batch_id=eq." +
+      encodeURIComponent(batchId) +
+      "&dedupe_status=eq.new&status=eq.validated&order=row_number.asc",
+  );
+
+  for (const row of newRows) {
+    let created = false;
+    try {
+      await adminRest(
+        "rpc/catalogue_create_candidate_from_deduped_import",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            p_import_row_id: row.id,
+            p_reviewer: "DroneCores automated manufacturer importer",
+            p_notes: "Candidate only. Publication still requires verified identity, technical evidence, technical review, verified EU/EUR offer, and the publication gate.",
+          }),
+        },
+      );
+      candidatesCreated += 1;
+      created = true;
+    } catch (error) {
+      candidateFailures.push({
+        importRowId: row.id,
+        error: error instanceof Error ? error.message.slice(0, 500) : "Candidate creation failed",
+      });
+    }
+
+    if (!created) continue;
+    try {
+      const normalized = row.normalized_data ?? {};
+      const productId = String(normalized.id ?? "");
+      const sourceUrl = String(normalized.source_url ?? "");
+      const manufacturer = String(normalized.manufacturer ?? "");
+      const model = String(normalized.model ?? normalized.display_name ?? "");
+      const variant = normalized.variant ? String(normalized.variant) : null;
+      if (!(productId && sourceUrl && manufacturer && model)) {
+        throw new Error("Candidate evidence seed data is incomplete.");
+      }
+
+      await adminRest(
+        "catalogue_identity_evidence",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            product_id: productId,
+            source_id: source.id,
+            source_url: sourceUrl,
+            authority: "manufacturer",
+            manufacturer_label: manufacturer,
+            model_label: model,
+            variant_label: variant,
+            exact_model_association: true,
+            verification_status: "pending_review",
+            retrieved_at: new Date().toISOString(),
+            caveats: "Automatically staged from an official manufacturer adapter; human verification is required before canonical promotion.",
+          }),
+        },
+      );
+
+      const fieldMap: Record<string, string> = {
+        frameInches: "frame_size_inches",
+        mount: "motor_mount_pattern",
+        propInches: "propeller_diameter_inches",
+        motorSize: "motor_size_code",
+        minVoltage: "min_battery_cells",
+        maxVoltage: "max_battery_cells",
+        connector: "connector",
+        escInput: "esc_input",
+        escAmps: "esc_amps",
+        voltage: "battery_cells",
+        batteryMah: "battery_capacity_mah",
+        cameraVideoInterface: "camera_video_interface",
+        cameraMinVoltageV: "camera_min_voltage_v",
+        cameraMaxVoltageV: "camera_max_voltage_v",
+        fcCameraVideoInterfaces: "fc_camera_video_interfaces",
+        fcCameraPowerVoltagesV: "fc_camera_power_voltages_v",
+        receiverProtocol: "receiver_protocol",
+        receiverFrequencyMinMhz: "receiver_frequency_min_mhz",
+        receiverFrequencyMaxMhz: "receiver_frequency_max_mhz",
+        receiverMinVoltageV: "receiver_min_voltage_v",
+        receiverMaxVoltageV: "receiver_max_voltage_v",
+        receiverSignalInterface: "receiver_signal_interface",
+        fcReceiverSignalInterfaces: "fc_receiver_signal_interfaces",
+        fcReceiverPowerVoltagesV: "fc_receiver_power_voltages_v",
+      };
+
+      const requirements = await adminRest<Array<{ field_key: string }>>(
+        "catalogue_category_field_requirements?select=field_key&category=eq." +
+          encodeURIComponent(String(normalized.category ?? "")),
+      );
+      const evidenceRows = requirements.flatMap(({ field_key }) => {
+        const normalizedKey = fieldMap[field_key] ?? field_key;
+        const value = normalized[normalizedKey];
+        if (value === null || value === undefined || value === "") return [];
+        return [{
+          product_id: productId,
+          field_key,
+          value,
+          source_id: source.id,
+          source_url: sourceUrl,
+          authority: "manufacturer",
+          exact_model_association: true,
+          verification_status: "pending_review",
+          retrieved_at: new Date().toISOString(),
+          conditions: {
+            importAdapterKey: adapter.adapter_key,
+            importAdapterVersion: adapter.version,
+            extraction: "structured_or_configured_regex",
+          },
+          caveats: "Automatically extracted from the exact manufacturer product page; verification is required before technical promotion.",
+        }];
+      });
+      if (evidenceRows.length) {
+        await adminRest("catalogue_spec_evidence", {
+          method: "POST",
+          body: JSON.stringify(evidenceRows),
+        });
+      }
+    } catch (error) {
+      evidenceSeedFailures.push({
+        importRowId: row.id,
+        error: error instanceof Error ? error.message.slice(0, 500) : "Evidence seeding failed",
+      });
+    }
+  }
+
+  return { candidatesCreated, candidateFailures, evidenceSeedFailures };
+}
+
+Deno.serve(async (req: Request) => {
+  if (req.method !== "POST") {
+    return new Response(JSON.stringify({ error: "Method not allowed" }), {
+      status: 405,
+      headers: JSON_HEADERS,
+    });
+  }
+  if (!(await authorized(req))) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: JSON_HEADERS,
+    });
+  }
+
+  let body: Record<string, unknown> = {};
+  try { body = await req.json(); } catch {}
+
+  const adapterKey = String(body.adapterKey ?? "").trim();
+  const dryRun = body.dryRun !== false;
+  const createCandidates = body.createCandidates === true;
+  const requestedLimit = Math.max(1, Math.min(Number(body.limit ?? 100), 1000));
+  const rawCursor = String(body.cursor ?? "").trim();
+  const requestedCursor = Math.max(0, Number.parseInt(rawCursor || "0", 10) || 0);
+  const requestedSourceRunId = String(body.sourceRunId ?? "").trim();
+
+  if (!adapterKey) {
+    return new Response(JSON.stringify({ error: "adapterKey is required" }), {
+      status: 400,
+      headers: JSON_HEADERS,
+    });
+  }
+
+  let adapterForStatus: AdapterRow | null = null;
+
+  try {
+    const adapters = await adminRest<AdapterRow[]>(
+      "catalogue_source_adapters?select=*&adapter_key=eq." +
+        encodeURIComponent(adapterKey) +
+        "&limit=1",
+    );
+    const adapter = adapters[0];
+    adapterForStatus = adapter ?? null;
+    if (!adapter || !adapter.active) throw new Error("Adapter is missing or inactive.");
+
+    const sources = await adminRest<SourceRow[]>(
+      "catalogue_sources?select=id,name,base_url,verification_status&id=eq." +
+        encodeURIComponent(adapter.source_id) +
+        "&limit=1",
+    );
+    const source = sources[0];
+    if (!source || source.verification_status !== "verified") {
+      throw new Error("Adapter source is not verified.");
+    }
+
+    await updateAdapterStatus(adapter.id, {
+      last_started_at: new Date().toISOString(),
+      last_status: "running",
+    });
+
+    const limit = Math.min(requestedLimit, adapter.max_batch_size || 500);
+    const discovery = await discoverAdapterBatch(adapter.config ?? {}, source, requestedCursor, limit);
+    const parsed = discovery.parsed as ParsedItem[];
+    const eligible = parsed.filter(isEligibleParsedItem);
+    const skipped = parsed.length - eligible.length;
+    const failures = parsed.filter((item) => !item.normalized);
+
+    if (dryRun) {
+      await updateAdapterStatus(adapter.id, {
+        last_completed_at: new Date().toISOString(),
+        last_status: "dry_run_completed",
+      });
+      return new Response(JSON.stringify({
+        dryRun: true,
+        adapterKey,
+        cursor: rawCursor || null,
+        discovered: discovery.selectedUrls.length,
+        totalAvailable: discovery.totalAvailable,
+        stageable: eligible.length,
+        skipped,
+        failed: failures.length,
+        nextCursor: discovery.nextCursor,
+        hasMore: discovery.hasMore,
+        sample: eligible.slice(0, 10),
+        skippedSample: parsed.filter((item) => !isEligibleParsedItem(item)).slice(0, 10),
+        failures: failures.slice(0, 20),
+      }), { headers: JSON_HEADERS });
+    }
+
+    const runId = requestedSourceRunId || crypto.randomUUID();
+    const batchRows = await adminRest<Array<{ id: string }>>(
+      "catalogue_import_batches",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          source_id: source.id,
+          adapter_id: adapter.id,
+          file_name: adapter.adapter_key + "-" + new Date().toISOString(),
+          import_kind: "products",
+          status: "staged",
+          total_rows: eligible.length,
+          valid_rows: eligible.length,
+          invalid_rows: 0,
+          notes: "Automated official-manufacturer adapter run " + runId,
+          source_run_id: runId,
+          source_cursor: rawCursor || null,
+        }),
+      },
+      "return=representation",
+    );
+    const batchId = batchRows[0]?.id;
+    if (!batchId) throw new Error("Import batch could not be created.");
+
+    const rows = eligible.map((item, index) => {
+      const advisoryOnly = item.errors.every((message) =>
+        message.includes("No SKU/MPN") || message.includes("No manufacturer image")
+      );
+      return {
+        batch_id: batchId,
+        row_number: index + 1,
+        proposed_product_id: item.normalized?.id ?? null,
+        raw_data: {
+          sourceProductUrl: item.url,
+          adapterKey,
+          adapterVersion: adapter.version,
+          discoveryCursor: rawCursor || null,
+        },
+        normalized_data: item.normalized,
+        status: item.errors.length === 0 || advisoryOnly ? "validated" : "needs_review",
+        validation_errors: item.errors,
+      };
+    });
+
+    const insertChunkSize = Math.min(adapter.max_batch_size || 500, 500);
+    for (let index = 0; index < rows.length; index += insertChunkSize) {
+      await adminRest("catalogue_import_rows", {
+        method: "POST",
+        body: JSON.stringify(rows.slice(index, index + insertChunkSize)),
+      });
+    }
+
+    const dedupe = await adminRest<Record<string, unknown>>(
+      "rpc/catalogue_run_import_dedupe",
+      { method: "POST", body: JSON.stringify({ p_batch_id: batchId }) },
+    );
+
+    const linked = await adminRest<{ linkedRows?: number }>(
+      "rpc/catalogue_link_exact_import_matches",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          p_batch_id: batchId,
+          p_reviewer: "DroneCores official-manufacturer importer",
+          p_notes: "Exact identity matches attach this official source to the existing canonical product. Verified canonical specifications are not overwritten.",
+        }),
+      },
+    ).catch(() => ({ linkedRows: 0 }));
+
+    const candidateResult = createCandidates
+      ? await createCandidatesFromBatch(batchId, source, adapter)
+      : { candidatesCreated: 0, candidateFailures: [], evidenceSeedFailures: [] };
+
+    await updateAdapterStatus(adapter.id, {
+      last_completed_at: new Date().toISOString(),
+      last_status: "completed",
+    });
+
+    return new Response(JSON.stringify({
+      dryRun: false,
+      adapterKey,
+      batchId,
+      sourceRunId: runId,
+      cursor: rawCursor || null,
+      discovered: discovery.selectedUrls.length,
+      totalAvailable: discovery.totalAvailable,
+      staged: rows.length,
+      skipped,
+      nextCursor: discovery.nextCursor,
+      hasMore: discovery.hasMore,
+      dedupe,
+      linkedExactMatches: Number(linked?.linkedRows ?? 0),
+      ...candidateResult,
+    }), { headers: JSON_HEADERS });
+  } catch (error) {
+    if (adapterForStatus?.id) {
+      await updateAdapterStatus(adapterForStatus.id, {
+        last_completed_at: new Date().toISOString(),
+        last_status: "failed",
+      }).catch(() => undefined);
+    }
+    return new Response(JSON.stringify({
+      error: error instanceof Error ? error.message : "Import runner failed",
+    }), { status: 500, headers: JSON_HEADERS });
+  }
+});

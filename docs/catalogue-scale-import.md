@@ -48,3 +48,33 @@ unverified products selectable.
 Curated product-image rows require an exact-model association and retain the
 source product page. Current catalogue images are external references to real
 manufacturer or exact-product retailer imagery; generated imagery is not used.
+
+## Official manufacturer full-catalogue adapters
+
+The import runner supports resumable manufacturer crawls instead of repeatedly
+processing only the first N products. Every run is bounded by the adapter's
+`max_batch_size` and returns `nextCursor` plus `hasMore`.
+
+Discovery modes currently used:
+
+- `shopify_products_json`: RadioMaster and CNHL. The cursor is the Shopify page.
+- `sitemap`: iFlight, RunCam, GEPRC, SpeedyBee, HQProp, Foxeer, and Tattu.
+  The cursor is a stable offset into the sorted, de-duplicated product URL set.
+- `category_html`: Team BlackSheep. Relevant official shop categories are
+  crawled, product links are de-duplicated, and the cursor is an offset.
+
+Active official manufacturer adapters cover iFlight, RadioMaster, RunCam, CNHL,
+GEPRC, SpeedyBee, HQProp, Foxeer, Tattu, and Team BlackSheep. Adapter-specific
+category and exclusion rules keep obvious accessories, chargers, replacement
+parts, complete drones, and unrelated catalogue entries out of product staging.
+
+The runner is dry-run by default. A non-dry run stages only category-eligible
+products, runs exact/probable/conflict/new dedupe, and links exact identity
+matches back to the existing canonical product as an additional source. It does
+not overwrite verified canonical specifications. New rows become candidates
+only when `createCandidates=true`; candidates remain behind the normal identity,
+technical-evidence, offer, and publication gates.
+
+Official manufacturer images may be captured as evidence references, but the
+runner records them with `image_exact_model_verified=false` until the image is
+reviewed. Automatically extracted technical evidence remains review-gated.
