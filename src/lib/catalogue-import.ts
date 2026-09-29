@@ -150,6 +150,9 @@ export const catalogueProductCsvColumns = [
   "image_license_name",
   "image_license_url",
   "source_external_product_id",
+  "source_external_parent_product_id",
+  "source_external_variant_id",
+  "identity_conflicts",
   "source_url",
 ] as const;
 
@@ -239,6 +242,9 @@ export const productImportSchema = z
     image_license_name: optionalText,
     image_license_url: optionalUrl,
     source_external_product_id: optionalText,
+    source_external_parent_product_id: optionalText,
+    source_external_variant_id: optionalText,
+    identity_conflicts: optionalTextList,
     source_url: optionalUrl,
   })
   .superRefine((row, context) => {
