@@ -64,6 +64,7 @@ create table if not exists public.catalogue_import_runs (
 
 alter table public.catalogue_import_runs enable row level security;
 revoke all on public.catalogue_import_runs from public,anon,authenticated;
+grant select,insert,update,delete on public.catalogue_import_runs to service_role;
 
 alter table public.catalogue_import_batches
   add column if not exists import_run_id uuid
@@ -113,6 +114,8 @@ create table if not exists public.catalogue_import_run_items (
 
 alter table public.catalogue_import_run_items enable row level security;
 revoke all on public.catalogue_import_run_items from public,anon,authenticated;
+grant select,insert,update,delete on public.catalogue_import_run_items to service_role;
+grant usage,select on sequence public.catalogue_import_run_items_id_seq to service_role;
 
 alter table public.catalogue_import_rows
   add column if not exists updated_at timestamptz not null default now(),
