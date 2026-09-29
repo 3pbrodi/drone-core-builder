@@ -1,3 +1,10 @@
+import {
+  enumerateJsonLdProductVariants,
+  enumerateShopifyProductVariants,
+  stableImportFingerprint,
+  type UpstreamVariantDescriptor,
+} from "../_shared/catalogue-import-core.ts";
+
 const JSON_HEADERS = { "Content-Type": "application/json; charset=utf-8" };
 const EXPECTED_TOKEN_SHA256 = "6b20b13426ac46cfbe69f75cb30378a87d535e94c4b4514dc7d821482fa758c0";
 
@@ -308,6 +315,11 @@ function buildNormalizedBase(input: {
   sku?: string | null;
   mpn?: string | null;
   externalId: string;
+  parentExternalId?: string | null;
+  upstreamVariantId?: string | null;
+  identityConflicts?: readonly string[];
+  model?: string | null;
+  displayName?: string | null;
   variant?: string | null;
 }) {
   const rules = categoryRules(input.config);
@@ -321,20 +333,21 @@ function buildNormalizedBase(input: {
     : [];
   const contentExcluded = excludeContentPatterns.some((pattern) => matchesPattern(input.identityText, pattern));
   const mapped = applyRegexMappings(input.evidenceText, input.config);
-  const idBase = [
+  const idPrefix = [
     "import",
     slugify(input.manufacturer || input.source.name),
-    slugify(input.name || input.externalId),
+    slugify(input.model || input.name || input.externalId),
     input.variant ? slugify(input.variant) : "",
-  ].filter(Boolean).join("-").slice(0, 180);
+  ].filter(Boolean).join("-").slice(0, 116);
+  const idBase = (idPrefix + "-" + stableImportFingerprint(input.externalId)).slice(0, 128);
 
   const normalized: Record<string, unknown> = {
     id: idBase,
     category,
     manufacturer: input.manufacturer,
-    model: input.name || input.externalId,
+    model: input.model || input.name || input.externalId,
     variant: input.variant ?? null,
-    display_name: input.name || input.externalId,
+    display_name: input.displayName || input.name || input.externalId,
     mpn: input.mpn ?? null,
     manufacturer_sku: input.sku ?? null,
     spec_summary: input.description,
@@ -344,6 +357,9 @@ function buildNormalizedBase(input: {
     image_exact_model_verified: false,
     image_provenance: "Official manufacturer product-page image; exact-model association requires review.",
     source_external_product_id: input.externalId,
+    source_external_parent_product_id: input.parentExternalId ?? null,
+    source_external_variant_id: input.upstreamVariantId ?? null,
+    identity_conflicts: [...(input.identityConflicts ?? [])],
     source_url: input.url,
     source_product_url: input.url,
     source_name: input.source.name,
@@ -361,45 +377,70 @@ function buildNormalizedBase(input: {
   return { normalized, errors };
 }
 
-function normalizeProductPage(
-  url: string,
-  html: string,
+function normalizeVariantDescriptor(
+  descriptor: UpstreamVariantDescriptor,
   source: SourceRow,
   config: Record<string, unknown>,
+  manufacturer: string,
+  extraIdentityText = "",
 ) {
-  const objects = parseJsonLd(html).flatMap((value) => collectObjects(value));
-  const product = objects.find((object) => isType(object, "Product"));
+  const identityText = [
+    descriptor.sourceUrl,
+    descriptor.model,
+    descriptor.variant,
+    descriptor.displayName,
+    extraIdentityText,
+  ].filter(Boolean).join(" ");
+  const evidenceText = [
+    descriptor.model,
+    descriptor.variant,
+    descriptor.displayName,
+    descriptor.description,
+  ].filter(Boolean).join(" ");
 
-  if (product) {
-    const name = String(product.name ?? "").trim();
-    const manufacturer = brandName(product.brand) || String(config.manufacturer ?? source.name).trim();
-    const sku = String(product.sku ?? "").trim() || null;
-    const mpn = String(product.mpn ?? product.productID ?? "").trim() || null;
-    const variant = String(product.color ?? product.size ?? "").trim() || null;
-    const rawDescription = String(product.description ?? "");
-    let decodedDescription = rawDescription;
-    if (/%[0-9a-f]{2}/i.test(rawDescription)) {
-      try { decodedDescription = decodeURIComponent(rawDescription); } catch {}
-    }
-    const description = stripHtml(decodedDescription).slice(0, 700) || null;
-    const imageUrl = normalizeImageUrl(product.image, url);
-    const identityText = [url, name, product.category].join(" ");
-    const evidenceText = [name, description].filter(Boolean).join(" ");
-
-    return buildNormalizedBase({
-      url,
-      name,
+  return {
+    url: descriptor.sourceUrl,
+    ...buildNormalizedBase({
+      url: descriptor.sourceUrl,
+      name: descriptor.displayName,
+      model: descriptor.model,
+      displayName: descriptor.displayName,
       manufacturer,
       source,
       config,
       identityText,
       evidenceText,
-      description,
-      imageUrl,
-      sku,
-      mpn,
-      externalId: sourcePathId(url),
-      variant,
+      description: descriptor.description,
+      imageUrl: descriptor.imageUrl,
+      sku: descriptor.manufacturerSku,
+      mpn: descriptor.mpn,
+      externalId: descriptor.upstreamItemId,
+      parentExternalId: descriptor.upstreamParentProductId,
+      upstreamVariantId: descriptor.upstreamVariantId,
+      identityConflicts: descriptor.identityConflicts,
+      variant: descriptor.variant,
+    }),
+  };
+}
+
+function normalizeProductPageVariants(
+  url: string,
+  html: string,
+  source: SourceRow,
+  config: Record<string, unknown>,
+): ParsedItem[] {
+  const descriptors = enumerateJsonLdProductVariants(html, url);
+  if (descriptors.length) {
+    return descriptors.map((descriptor) => {
+      const rawProduct =
+        descriptor.rawPayload.product &&
+        typeof descriptor.rawPayload.product === "object"
+          ? descriptor.rawPayload.product as Record<string, unknown>
+          : {};
+      const manufacturer =
+        brandName(rawProduct.brand) ||
+        String(config.manufacturer ?? source.name).trim();
+      return normalizeVariantDescriptor(descriptor, source, config, manufacturer);
     });
   }
 
@@ -408,7 +449,13 @@ function normalizeProductPage(
     /<title\b[^>]*>([\s\S]*?)<\/title>/i,
     /<h1\b[^>]*>([\s\S]*?)<\/h1>/i,
   ]);
-  if (config.preferUrlNameFallback === true || !name || /^(?:my[ ]+)?cart$/i.test(name) || /^home$/i.test(name) || /world fpv drone leading company/i.test(name)) {
+  if (
+    config.preferUrlNameFallback === true ||
+    !name ||
+    /^(?:my[ ]+)?cart$/i.test(name) ||
+    /^home$/i.test(name) ||
+    /world fpv drone leading company/i.test(name)
+  ) {
     name = sourcePathId(url)
       .replace(/-g-[0-9]+$/i, "")
       .replace(/-p[0-9]+(?:[.]html)?$/i, "")
@@ -425,24 +472,32 @@ function normalizeProductPage(
   ]);
   const imageUrl = normalizeImageUrl(imageCandidate || null, url);
   const manufacturer = String(config.manufacturer ?? source.name).trim();
-  const externalId = sourcePathId(url);
+  const externalId = "page:" + sourcePathId(url);
   const identityText = [url, name].join(" ");
   const evidenceText = [name, description].filter(Boolean).join(" ");
-  return buildNormalizedBase({
+  return [{
     url,
-    name,
-    manufacturer,
-    source,
-    config,
-    identityText,
-    evidenceText,
-    description,
-    imageUrl,
-    sku: null,
-    mpn: null,
-    externalId,
-    variant: null,
-  });
+    ...buildNormalizedBase({
+      url,
+      name,
+      model: name,
+      displayName: name,
+      manufacturer,
+      source,
+      config,
+      identityText,
+      evidenceText,
+      description,
+      imageUrl,
+      sku: null,
+      mpn: null,
+      externalId,
+      parentExternalId: externalId,
+      upstreamVariantId: null,
+      identityConflicts: [],
+      variant: null,
+    }),
+  }];
 }
 
 type ShopifyProduct = {
@@ -457,41 +512,25 @@ type ShopifyProduct = {
   images?: Array<Record<string, unknown>>;
 };
 
-function normalizeShopifyProduct(
+function normalizeShopifyProductVariants(
   product: ShopifyProduct,
   source: SourceRow,
   config: Record<string, unknown>,
-) {
-  const name = String(product.title ?? "").trim();
+): ParsedItem[] {
   const manufacturer = String(config.manufacturer ?? product.vendor ?? source.name).trim();
-  const firstVariant = Array.isArray(product.variants) ? product.variants[0] : undefined;
-  const sku = String(firstVariant?.sku ?? "").trim() || null;
-  const description = stripHtml(product.body_html).slice(0, 700) || null;
-  const handle = String(product.handle ?? "").trim();
-  const url = handle && source.base_url ? new URL("/products/" + handle, source.base_url).toString() : String(source.base_url ?? "");
-  const imageRaw = Array.isArray(product.images) ? product.images[0]?.src : null;
-  const imageUrl = normalizeImageUrl(imageRaw, url);
   const tags = Array.isArray(product.tags) ? product.tags.join(" ") : String(product.tags ?? "");
-  const identityText = [url, name, product.product_type, tags].join(" ");
-  const evidenceText = [name, description, stripHtml(product.body_html)].filter(Boolean).join(" ");
-  const externalId = product.id != null ? "shopify:" + String(product.id) : handle;
+  const extraIdentityText = [product.product_type, tags].filter(Boolean).join(" ");
 
-  const result = buildNormalizedBase({
-    url,
-    name,
-    manufacturer,
-    source,
-    config,
-    identityText,
-    evidenceText,
-    description,
-    imageUrl,
-    sku,
-    mpn: null,
-    externalId,
-    variant: null,
-  });
-  return { url, ...result };
+  return enumerateShopifyProductVariants(product, source.base_url ?? "")
+    .map((descriptor) =>
+      normalizeVariantDescriptor(
+        descriptor,
+        source,
+        config,
+        manufacturer,
+        extraIdentityText,
+      )
+    );
 }
 
 async function discoverSitemapProductUrls(config: Record<string, unknown>) {
@@ -609,11 +648,13 @@ async function discoverAdapterBatch(
     const page = Math.max(1, cursor || 1);
     const pageSize = Math.min(limit, 250);
     const products = await fetchShopifyProducts(config, page, pageSize);
-    const parsed = products.map((product) => normalizeShopifyProduct(product, source, config));
+    const parsed = products.flatMap((product) =>
+      normalizeShopifyProductVariants(product, source, config)
+    );
     const hasMore = products.length === pageSize;
     return {
       parsed,
-      selectedUrls: parsed.map((item) => item.url),
+      selectedUrls: [...new Set(parsed.map((item) => item.url))],
       totalAvailable: null as number | null,
       nextCursor: hasMore ? String(page + 1) : null,
       hasMore,
@@ -640,18 +681,18 @@ async function discoverAdapterBatch(
         retryBaseDelayMs,
       });
       if (requestDelayMs) await sleep(requestDelayMs);
-      return { url, ...normalizeProductPage(url, html, source, config) };
+      return normalizeProductPageVariants(url, html, source, config);
     } catch (error) {
-      return {
+      return [{
         url,
         normalized: null,
         errors: [error instanceof Error ? error.message : "Product fetch failed."],
-      };
+      }];
     }
   });
 
   return {
-    parsed,
+    parsed: parsed.flat(),
     selectedUrls,
     totalAvailable: allUrls.length,
     nextCursor,
