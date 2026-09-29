@@ -29,6 +29,17 @@ jobs:
       - name: Run tests
         run: bun test
 
+      - name: Lint P0 importer core
+        run: bunx eslint supabase/functions/_shared/catalogue-import-core.ts tests/catalogue-import-variants.test.ts
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.7
+
+      - name: Type-check Edge importer
+        run: deno check supabase/functions/catalogue-import-runner/index.ts
+
       - name: TypeScript
         run: bunx tsc --noEmit
 
