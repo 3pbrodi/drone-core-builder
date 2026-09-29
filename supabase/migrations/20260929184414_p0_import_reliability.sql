@@ -46,6 +46,8 @@ create table if not exists public.catalogue_import_runs (
   manifest_hash text,
   manifest_complete boolean not null default false,
   next_cursor text,
+  discovery_state jsonb not null default '{}'::jsonb
+    check (jsonb_typeof(discovery_state)='object'),
   has_more boolean not null default true,
   discovered_count integer not null default 0 check (discovered_count >= 0),
   staged_count integer not null default 0 check (staged_count >= 0),
@@ -89,7 +91,7 @@ create table if not exists public.catalogue_import_run_items (
     )),
   processing_status text not null default 'pending'
     check (processing_status in (
-      'pending','staged','deduped','linked','candidate_created','evidence_seeded',
+      'pending','processing','staged','deduped','linked','candidate_created','evidence_seeded',
       'needs_review','failed','done'
     )),
   raw_payload jsonb not null default '{}'::jsonb
@@ -99,6 +101,7 @@ create table if not exists public.catalogue_import_run_items (
   errors jsonb not null default '[]'::jsonb
     check (jsonb_typeof(errors)='array'),
   attempt_count integer not null default 0 check (attempt_count >= 0),
+  last_seen_discovery_pass integer check (last_seen_discovery_pass is null or last_seen_discovery_pass > 0),
   last_error text,
   batch_id uuid references public.catalogue_import_batches(id) on delete set null,
   import_row_id bigint references public.catalogue_import_rows(id) on delete set null,
@@ -112,6 +115,7 @@ alter table public.catalogue_import_run_items enable row level security;
 revoke all on public.catalogue_import_run_items from public,anon,authenticated;
 
 alter table public.catalogue_import_rows
+  add column if not exists updated_at timestamptz not null default now(),
   add column if not exists import_run_id uuid
     references public.catalogue_import_runs(id) on delete set null,
   add column if not exists run_item_id bigint
@@ -179,6 +183,7 @@ begin
     'manifestComplete',v_run.manifest_complete,
     'manifestHash',v_run.manifest_hash,
     'nextCursor',v_run.next_cursor,
+    'discoveryState',v_run.discovery_state,
     'hasMore',v_run.has_more
   );
 end
@@ -292,6 +297,326 @@ $fn$;
 revoke all on function public.catalogue_commit_import_manifest(uuid,text,jsonb)
   from public,anon,authenticated;
 grant execute on function public.catalogue_commit_import_manifest(uuid,text,jsonb)
+  to service_role;
+
+
+-- Incremental discovery is deliberately separate from processing. A source may
+-- take several invocations to enumerate. Items are keyed by stable upstream
+-- identity; a verification pass must observe the same set before the manifest
+-- is frozen.
+create or replace function public.catalogue_upsert_import_manifest_items(
+  p_run_id uuid,
+  p_items jsonb,
+  p_discovery_pass integer,
+  p_next_cursor text,
+  p_discovery_state jsonb,
+  p_discovery_complete boolean default false
+)
+returns jsonb
+language plpgsql
+security invoker
+set search_path=''
+as $fn$
+declare
+  v_run public.catalogue_import_runs%rowtype;
+  v_item jsonb;
+  v_upstream_item_id text;
+  v_source_url text;
+  v_status text;
+  v_ordinal integer;
+  v_existing_id bigint;
+  v_inserted integer:=0;
+  v_total integer;
+  v_manifest_hash text;
+begin
+  if p_discovery_pass is null or p_discovery_pass < 1 then
+    raise exception 'Positive discovery pass is required.';
+  end if;
+  if jsonb_typeof(p_items) <> 'array' then
+    raise exception 'Manifest items must be a JSON array.';
+  end if;
+  if p_discovery_state is null or jsonb_typeof(p_discovery_state) <> 'object' then
+    raise exception 'Discovery state must be a JSON object.';
+  end if;
+
+  select * into v_run
+  from public.catalogue_import_runs
+  where id=p_run_id
+  for update;
+  if not found then raise exception 'Import run does not exist.'; end if;
+  if v_run.status in ('completed','completed_with_errors','failed') then
+    raise exception 'Import run is terminal and cannot accept discovery items.';
+  end if;
+  if v_run.manifest_complete then
+    raise exception 'Import manifest is already frozen.';
+  end if;
+
+  for v_item in select value from jsonb_array_elements(p_items)
+  loop
+    v_upstream_item_id:=nullif(trim(v_item->>'upstreamItemId'),'');
+    v_source_url:=nullif(trim(v_item->>'sourceUrl'),'');
+    v_status:=coalesce(nullif(trim(v_item->>'discoveryStatus'),''),'discovered');
+
+    if v_upstream_item_id is null or v_source_url is null then
+      raise exception 'Each manifest item requires upstreamItemId and sourceUrl.';
+    end if;
+    if v_status not in ('discovered','ready','excluded') then
+      raise exception 'Unsupported manifest discovery status %.',v_status;
+    end if;
+
+    select id into v_existing_id
+    from public.catalogue_import_run_items
+    where run_id=p_run_id and upstream_item_id=v_upstream_item_id
+    for update;
+
+    if v_existing_id is null then
+      select coalesce(max(discovery_ordinal),0)+1 into v_ordinal
+      from public.catalogue_import_run_items
+      where run_id=p_run_id;
+
+      insert into public.catalogue_import_run_items(
+        run_id,upstream_item_id,parent_upstream_item_id,
+        upstream_parent_product_id,upstream_variant_id,item_kind,
+        source_url,discovery_ordinal,discovery_status,processing_status,
+        raw_payload,normalized_data,errors,last_seen_discovery_pass
+      ) values (
+        p_run_id,
+        v_upstream_item_id,
+        nullif(trim(v_item->>'parentUpstreamItemId'),''),
+        nullif(trim(v_item->>'upstreamParentProductId'),''),
+        nullif(trim(v_item->>'upstreamVariantId'),''),
+        coalesce(nullif(trim(v_item->>'itemKind'),''),'product'),
+        v_source_url,
+        v_ordinal,
+        v_status,
+        case when v_status='excluded' then 'done' else 'pending' end,
+        case when jsonb_typeof(v_item->'rawPayload')='object' then v_item->'rawPayload' else '{}'::jsonb end,
+        case when jsonb_typeof(v_item->'normalizedData')='object' then v_item->'normalizedData' else null end,
+        case when jsonb_typeof(v_item->'errors')='array' then v_item->'errors' else '[]'::jsonb end,
+        p_discovery_pass
+      );
+      v_inserted:=v_inserted+1;
+    else
+      update public.catalogue_import_run_items
+      set
+        source_url=v_source_url,
+        upstream_parent_product_id=coalesce(nullif(trim(v_item->>'upstreamParentProductId'),''),upstream_parent_product_id),
+        upstream_variant_id=coalesce(nullif(trim(v_item->>'upstreamVariantId'),''),upstream_variant_id),
+        raw_payload=case when jsonb_typeof(v_item->'rawPayload')='object' then v_item->'rawPayload' else raw_payload end,
+        normalized_data=case when jsonb_typeof(v_item->'normalizedData')='object' then v_item->'normalizedData' else normalized_data end,
+        errors=case when jsonb_typeof(v_item->'errors')='array' then v_item->'errors' else errors end,
+        discovery_status=v_status,
+        processing_status=case
+          when v_status='excluded' then 'done'
+          when processing_status='done' then processing_status
+          else 'pending'
+        end,
+        last_seen_discovery_pass=p_discovery_pass,
+        last_error=null,
+        updated_at=now()
+      where id=v_existing_id;
+    end if;
+
+    v_existing_id:=null;
+  end loop;
+
+  if p_discovery_complete then
+    update public.catalogue_import_run_items
+    set
+      discovery_status='excluded',
+      processing_status='done',
+      errors=errors || jsonb_build_array(
+        'Source item was not present in the stable discovery verification pass.'
+      ),
+      last_error=null,
+      updated_at=now()
+    where run_id=p_run_id
+      and coalesce(last_seen_discovery_pass,0) < p_discovery_pass
+      and processing_status in ('pending','processing','failed');
+
+    select md5(coalesce(string_agg(
+      upstream_item_id||'|'||source_url||'|'||md5(raw_payload::text),
+      E'\n' order by upstream_item_id
+    ),'')) into v_manifest_hash
+    from public.catalogue_import_run_items
+    where run_id=p_run_id;
+
+    update public.catalogue_import_runs
+    set
+      manifest_hash=v_manifest_hash,
+      manifest_complete=true,
+      next_cursor=null,
+      discovery_state=p_discovery_state,
+      status='resumable',
+      has_more=exists(
+        select 1 from public.catalogue_import_run_items
+        where run_id=p_run_id and processing_status='pending'
+      ),
+      last_error=null,
+      updated_at=now()
+    where id=p_run_id;
+  else
+    update public.catalogue_import_runs
+    set
+      next_cursor=p_next_cursor,
+      discovery_state=p_discovery_state,
+      status='discovering',
+      has_more=true,
+      last_error=null,
+      updated_at=now()
+    where id=p_run_id;
+  end if;
+
+  select count(*) into v_total
+  from public.catalogue_import_run_items where run_id=p_run_id;
+
+  update public.catalogue_import_runs
+  set discovered_count=v_total,updated_at=now()
+  where id=p_run_id;
+
+  return jsonb_build_object(
+    'runId',p_run_id,
+    'insertedCount',v_inserted,
+    'discoveredCount',v_total,
+    'manifestComplete',p_discovery_complete,
+    'manifestHash',case when p_discovery_complete then v_manifest_hash else null end,
+    'nextCursor',case when p_discovery_complete then null else p_next_cursor end,
+    'discoveryState',p_discovery_state
+  );
+end
+$fn$;
+
+revoke all on function public.catalogue_upsert_import_manifest_items(
+  uuid,jsonb,integer,text,jsonb,boolean
+) from public,anon,authenticated;
+grant execute on function public.catalogue_upsert_import_manifest_items(
+  uuid,jsonb,integer,text,jsonb,boolean
+) to service_role;
+
+create or replace function public.catalogue_claim_import_run_items(
+  p_run_id uuid,
+  p_limit integer default 100,
+  p_max_attempts integer default 3,
+  p_retry_exhausted boolean default false
+)
+returns jsonb
+language plpgsql
+security invoker
+set search_path=''
+as $fn$
+declare
+  v_items jsonb;
+begin
+  if p_limit is null or p_limit < 1 or p_limit > 500 then
+    raise exception 'Claim limit must be between 1 and 500.';
+  end if;
+  if p_max_attempts is null or p_max_attempts < 1 then
+    raise exception 'max_attempts must be positive.';
+  end if;
+  if not exists (
+    select 1 from public.catalogue_import_runs
+    where id=p_run_id and manifest_complete=true
+      and status not in ('completed','completed_with_errors','failed')
+  ) then
+    raise exception 'Import run is missing, terminal, or discovery is incomplete.';
+  end if;
+
+  with candidates as (
+    select id
+    from public.catalogue_import_run_items
+    where run_id=p_run_id
+      and discovery_status in ('discovered','ready')
+      and (
+        processing_status='pending'
+        or (
+          processing_status='failed'
+          and (attempt_count < p_max_attempts or p_retry_exhausted)
+        )
+        or (
+          processing_status='processing'
+          and updated_at < now()-interval '15 minutes'
+        )
+      )
+    order by discovery_ordinal,id
+    for update skip locked
+    limit p_limit
+  ), claimed as (
+    update public.catalogue_import_run_items i
+    set processing_status='processing',last_error=null,updated_at=now()
+    from candidates c
+    where i.id=c.id
+    returning i.*
+  )
+  select coalesce(jsonb_agg(
+    jsonb_build_object(
+      'id',id,
+      'upstreamItemId',upstream_item_id,
+      'parentUpstreamItemId',parent_upstream_item_id,
+      'upstreamParentProductId',upstream_parent_product_id,
+      'upstreamVariantId',upstream_variant_id,
+      'itemKind',item_kind,
+      'sourceUrl',source_url,
+      'discoveryOrdinal',discovery_ordinal,
+      'discoveryStatus',discovery_status,
+      'processingStatus',processing_status,
+      'rawPayload',raw_payload,
+      'normalizedData',normalized_data,
+      'errors',errors,
+      'attemptCount',attempt_count
+    ) order by discovery_ordinal,id
+  ),'[]'::jsonb)
+  into v_items
+  from claimed;
+
+  update public.catalogue_import_runs
+  set status='processing',updated_at=now()
+  where id=p_run_id;
+
+  return jsonb_build_object('runId',p_run_id,'items',v_items);
+end
+$fn$;
+
+revoke all on function public.catalogue_claim_import_run_items(uuid,integer,integer,boolean)
+  from public,anon,authenticated;
+grant execute on function public.catalogue_claim_import_run_items(uuid,integer,integer,boolean)
+  to service_role;
+
+create or replace function public.catalogue_mark_import_run_error(
+  p_run_id uuid,
+  p_error text,
+  p_terminal boolean default false
+)
+returns jsonb
+language plpgsql
+security invoker
+set search_path=''
+as $fn$
+begin
+  if p_error is null or length(trim(p_error))=0 then
+    raise exception 'Import run error text is required.';
+  end if;
+
+  update public.catalogue_import_runs
+  set
+    status=case when p_terminal then 'failed' else 'resumable' end,
+    last_error=left(trim(p_error),1000),
+    completed_at=case when p_terminal then now() else null end,
+    updated_at=now()
+  where id=p_run_id
+    and status not in ('completed','completed_with_errors');
+
+  if not found then raise exception 'Import run does not exist or is already completed.'; end if;
+
+  return jsonb_build_object(
+    'runId',p_run_id,
+    'status',case when p_terminal then 'failed' else 'resumable' end
+  );
+end
+$fn$;
+
+revoke all on function public.catalogue_mark_import_run_error(uuid,text,boolean)
+  from public,anon,authenticated;
+grant execute on function public.catalogue_mark_import_run_error(uuid,text,boolean)
   to service_role;
 
 create or replace function public.catalogue_stage_import_run_chunk(
@@ -794,12 +1119,12 @@ declare
 begin
   select
     count(*),
-    count(*) filter (where processing_status in ('staged','deduped','linked','candidate_created','evidence_seeded')),
+    count(*) filter (where import_row_id is not null),
     count(*) filter (where discovery_status='excluded'),
     count(*) filter (where processing_status='failed'),
     count(*) filter (where processing_status='needs_review'),
     count(*) filter (where processing_status='done'),
-    count(*) filter (where processing_status in ('pending','staged','deduped','linked','candidate_created','evidence_seeded'))
+    count(*) filter (where processing_status in ('pending','processing','staged','deduped','linked','candidate_created','evidence_seeded'))
   into v_discovered,v_staged,v_excluded,v_failed,v_review,v_completed,v_pending
   from public.catalogue_import_run_items
   where run_id=p_run_id;
@@ -935,7 +1260,12 @@ begin
       'Automatically staged from a durable official-manufacturer import; human verification is required.'
     )
     on conflict(product_id,source_id,source_url) do nothing;
-    get diagnostics v_identity_evidence=v_identity_evidence+row_count;
+    declare
+      v_row_count integer;
+    begin
+      get diagnostics v_row_count = row_count;
+      v_identity_evidence:=v_identity_evidence+v_row_count;
+    end;
 
     for v_requirement in
       select field_key
@@ -959,7 +1289,12 @@ begin
         'Automatically staged from exact manufacturer variant data; verification is required.'
       )
       on conflict do nothing;
-      get diagnostics v_spec_evidence=v_spec_evidence+row_count;
+      declare
+        v_row_count integer;
+      begin
+        get diagnostics v_row_count = row_count;
+        v_spec_evidence:=v_spec_evidence+v_row_count;
+      end;
     end loop;
 
     update public.catalogue_import_run_items
@@ -1011,16 +1346,6 @@ begin
     'specEvidenceSeeded',v_spec_evidence,
     'runState',v_run_state
   );
-exception when others then
-  if v_batch.import_run_id is not null then
-    update public.catalogue_import_runs
-    set
-      status='resumable',
-      last_error=left(sqlerrm,1000),
-      updated_at=now()
-    where id=v_batch.import_run_id;
-  end if;
-  raise;
 end
 $fn$;
 
