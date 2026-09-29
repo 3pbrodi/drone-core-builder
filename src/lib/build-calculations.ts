@@ -1177,7 +1177,7 @@ export function evaluateCompatibilityRules(
   verification: CompatibilityVerification = {},
   technicalEvidence: CompatibilityTechnicalEvidence = {},
 ): CompatibilityRuleResult[] {
-  return [
+  const rules: CompatibilityRuleResult[] = [
     frameMotorMountRule(selected, verification),
     framePropellerClearanceRule(selected, verification),
     motorPropellerGuidanceRule(selected, technicalEvidence),
@@ -1196,15 +1196,29 @@ export function evaluateCompatibilityRules(
     cameraFcPowerRule(selected, verification),
     receiverFcSignalRule(selected, verification),
     receiverFcPowerRule(selected, verification),
-    radioReceiverProtocolRule(selected, verification),
-    gogglesVideoSystemRule(selected, verification),
-    batteryChargerRule(selected, verification),
-    chargingAccessoryConnectorRule(selected, verification),
-    vtxCameraInterfaceRule(selected, verification),
-    vtxAntennaRule(selected, verification),
-    peripheralFcRule(selected, verification, "gps", "GPS_FC_INTEGRATION", "GPS / GNSS module"),
-    peripheralFcRule(selected, verification, "buzzer", "BUZZER_FC_INTEGRATION", "buzzer"),
   ];
+
+  // Preserve the legacy 12-rule surface for builds that use only the original
+  // eight categories. Optional/Pilot Gear rules enter evaluation only when the
+  // corresponding new category is actually selected.
+  if (selected.radioTransmitter) rules.push(radioReceiverProtocolRule(selected, verification));
+  if (selected.fpvGoggles) rules.push(gogglesVideoSystemRule(selected, verification));
+  if (selected.batteryCharger) rules.push(batteryChargerRule(selected, verification));
+  if (selected.chargingAccessory) rules.push(chargingAccessoryConnectorRule(selected, verification));
+  if (selected.videoTransmitter) rules.push(vtxCameraInterfaceRule(selected, verification));
+  if (selected.antenna) rules.push(vtxAntennaRule(selected, verification));
+  if (selected.gps) {
+    rules.push(
+      peripheralFcRule(selected, verification, "gps", "GPS_FC_INTEGRATION", "GPS / GNSS module"),
+    );
+  }
+  if (selected.buzzer) {
+    rules.push(
+      peripheralFcRule(selected, verification, "buzzer", "BUZZER_FC_INTEGRATION", "buzzer"),
+    );
+  }
+
+  return rules;
 }
 
 export function deriveCompatibilityStatus(
