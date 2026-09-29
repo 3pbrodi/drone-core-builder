@@ -1160,7 +1160,22 @@ declare
   v_completed integer;
   v_pending integer;
   v_status text;
+  v_manifest_complete boolean;
 begin
+  select manifest_complete into v_manifest_complete
+  from public.catalogue_import_runs
+  where id=p_run_id;
+  if not found then raise exception 'Import run does not exist.'; end if;
+
+  if not v_manifest_complete then
+    update public.catalogue_import_runs
+    set status='discovering',has_more=true,completed_at=null,updated_at=now()
+    where id=p_run_id;
+    return jsonb_build_object(
+      'runId',p_run_id,'status','discovering','manifestComplete',false
+    );
+  end if;
+
   select
     count(*),
     count(*) filter (where import_row_id is not null),
@@ -1172,10 +1187,6 @@ begin
   into v_discovered,v_staged,v_excluded,v_failed,v_review,v_completed,v_pending
   from public.catalogue_import_run_items
   where run_id=p_run_id;
-
-  if not exists (select 1 from public.catalogue_import_runs where id=p_run_id) then
-    raise exception 'Import run does not exist.';
-  end if;
 
   v_status:=case
     when v_failed>0 or v_pending>0 then 'resumable'
@@ -1412,6 +1423,10 @@ declare
   v_pending integer;
   v_failed integer;
 begin
+  if not coalesce((select manifest_complete from public.catalogue_import_runs where id=p_run_id),false) then
+    raise exception 'Import manifest is not complete and cannot be finalized.';
+  end if;
+
   v_state:=public.catalogue_refresh_import_run_state(p_run_id);
 
   select
