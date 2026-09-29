@@ -1433,7 +1433,7 @@ begin
   v_state:=public.catalogue_refresh_import_run_state(p_run_id);
 
   select
-    count(*) filter (where processing_status in ('pending','staged','deduped','linked','candidate_created','evidence_seeded')),
+    count(*) filter (where processing_status in ('pending','processing','staged','deduped','linked','candidate_created','evidence_seeded')),
     count(*) filter (where processing_status='failed')
   into v_pending,v_failed
   from public.catalogue_import_run_items
