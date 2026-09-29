@@ -619,6 +619,50 @@ revoke all on function public.catalogue_mark_import_run_error(uuid,text,boolean)
 grant execute on function public.catalogue_mark_import_run_error(uuid,text,boolean)
   to service_role;
 
+create or replace function public.catalogue_release_import_run_claims(
+  p_run_id uuid,
+  p_item_ids bigint[],
+  p_error text
+)
+returns jsonb
+language plpgsql
+security invoker
+set search_path=''
+as $fn$
+declare
+  v_released integer;
+begin
+  if p_item_ids is null or cardinality(p_item_ids)=0 then
+    return jsonb_build_object('runId',p_run_id,'releasedCount',0);
+  end if;
+  if p_error is null or length(trim(p_error))=0 then
+    raise exception 'Claim release error text is required.';
+  end if;
+
+  update public.catalogue_import_run_items
+  set processing_status='failed',
+      attempt_count=attempt_count+1,
+      last_error=left(trim(p_error),1000),
+      updated_at=now()
+  where run_id=p_run_id
+    and id=any(p_item_ids)
+    and processing_status='processing';
+  get diagnostics v_released = row_count;
+
+  update public.catalogue_import_runs
+  set status='resumable',last_error=left(trim(p_error),1000),updated_at=now()
+  where id=p_run_id
+    and status not in ('completed','completed_with_errors','failed');
+
+  return jsonb_build_object('runId',p_run_id,'releasedCount',v_released);
+end
+$fn$;
+
+revoke all on function public.catalogue_release_import_run_claims(uuid,bigint[],text)
+  from public,anon,authenticated;
+grant execute on function public.catalogue_release_import_run_claims(uuid,bigint[],text)
+  to service_role;
+
 create or replace function public.catalogue_stage_import_run_chunk(
   p_run_id uuid,
   p_chunk_key text,
