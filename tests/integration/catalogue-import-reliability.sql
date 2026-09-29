@@ -536,7 +536,7 @@ $$;
 
 
 -- Multiple distinct chunks within one run remain independently idempotent.
-do $
+do $p0$
 declare
   v_run_id uuid;
 begin
@@ -578,10 +578,10 @@ begin
     'multiple chunks must retain one staging row per manifest item'
   );
 end
-$;
+$p0$;
 
 -- Every non-success discovery/processing outcome remains durably visible.
-do $
+do $p0$
 declare
   v_run_id uuid;
 begin
@@ -621,10 +621,10 @@ begin
     'run accounting must derive failed and excluded counts from durable item state'
   );
 end
-$;
+$p0$;
 
 -- Claimed items can be released immediately after an uncertain staging failure.
-do $
+do $p0$
 declare
   v_run_id uuid;
   v_claim jsonb;
@@ -668,10 +668,10 @@ begin
     'failed claim below max attempts must be immediately reclaimable'
   );
 end
-$;
+$p0$;
 
 -- Finalization before discovery is frozen is forbidden.
-do $
+do $p0$
 declare
   v_run_id uuid;
   v_blocked boolean:=false;
@@ -693,7 +693,7 @@ begin
     'run cannot be finalized before its discovery manifest is complete'
   );
 end
-$;
+$p0$;
 
 -- Final accounting is derived from durable item states.
 select public.catalogue_refresh_import_run_state(
