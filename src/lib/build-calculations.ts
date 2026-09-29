@@ -1,6 +1,6 @@
-import {allCategoryIds,type Category,type Product} from "./build-data";
-import {droneMountedCategoryIds} from "./component-categories";
-import {requiredCategoriesForSelection,selectionPriceSummary} from "./configurator-selection";
+import { allCategoryIds, type Category, type Product } from "./build-data";
+import { droneMountedCategoryIds } from "./component-categories";
+import { requiredCategoriesForSelection, selectionPriceSummary } from "./configurator-selection";
 
 export type CompatibilityRuleStatus = "pass" | "fail" | "unknown";
 export type CompatibilityEvidenceLevel = "verified" | "unverified" | "heuristic";
@@ -1106,71 +1106,471 @@ function receiverFcPowerRule(
   };
 }
 
-
-function normalizedCompatibilityText(value:string){return value.trim().toLowerCase().replace(/[^a-z0-9]+/g,"")}
-function listSupports(values:readonly string[],value:string){const expected=normalizedCompatibilityText(value);return values.some((item)=>normalizedCompatibilityText(item)===expected)}
-function radioReceiverProtocolRule(selected:SelectedProducts,verification:CompatibilityVerification):CompatibilityRuleResult{
-  const receiver=selected.receiver,radio=selected.radioTransmitter,categories:Category[]=["receiver","radioTransmitter"];
-  if(!receiver||!radio)return nonApplicableRule("RADIO_RECEIVER_PROTOCOL",categories,"Select an onboard receiver and radio transmitter to verify their radio protocol.");
-  const missingFields=[...(receiver.receiverProtocol===undefined?["receiver.receiverProtocol"]:[]),...(radio.radioProtocols===undefined?["radioTransmitter.radioProtocols"]:[])];
-  const usedFields:Array<[Category,keyof Product]>=[["receiver","receiverProtocol"],["radioTransmitter","radioProtocols"]];
-  if(missingFields.length)return {code:"RADIO_RECEIVER_PROTOCOL",categories,applicable:true,status:"unknown",evidenceLevel:"unverified",explanation:"The receiver protocol or transmitter protocol support is not documented well enough to verify this link.",evidence:{},missingFields,unverifiedFields:unverifiedFields(verification,usedFields)};
-  const status:CompatibilityRuleStatus=listSupports(radio.radioProtocols!,receiver.receiverProtocol!)?"pass":"fail",evidenceLevel=deterministicEvidenceLevel(verification,usedFields);
-  return {code:"RADIO_RECEIVER_PROTOCOL",categories,applicable:true,status,evidenceLevel,explanation:status==="pass"?(evidenceLevel==="verified"?"The verified radio transmitter protocols include the selected receiver protocol.":"The listed radio protocols match, but the evidence is not fully verified."):(evidenceLevel==="verified"?"The verified radio transmitter protocols do not include the selected receiver protocol.":"The listed protocols do not match, but the evidence is not fully verified."),evidence:{},missingFields:[],unverifiedFields:unverifiedFields(verification,usedFields)};
+function normalizedCompatibilityText(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "");
 }
-function gogglesVideoSystemRule(selected:SelectedProducts,verification:CompatibilityVerification):CompatibilityRuleResult{
-  const goggles=selected.fpvGoggles,source=selected.videoTransmitter??selected.camera,categories:Category[]=source?[source.category,"fpvGoggles"]:["camera","videoTransmitter","fpvGoggles"];
-  if(!goggles||!source)return nonApplicableRule("GOGGLES_VIDEO_SYSTEM",categories,"Select a video source and FPV goggles to verify the video ecosystem.");
-  const sourceField:keyof Product=source.category==="videoTransmitter"?"videoTransmitterSystem":"video",system=source[sourceField] as string|undefined;
-  const missingFields=[...(system===undefined?[source.category+"."+String(sourceField)]:[]),...(goggles.supportedVideoSystems===undefined?["fpvGoggles.supportedVideoSystems"]:[])];
-  const usedFields:Array<[Category,keyof Product]>=[[source.category,sourceField],["fpvGoggles","supportedVideoSystems"]];
-  if(missingFields.length)return {code:"GOGGLES_VIDEO_SYSTEM",categories,applicable:true,status:"unknown",evidenceLevel:"unverified",explanation:"The selected video system or goggle ecosystem support is missing, so compatibility cannot be verified.",evidence:{},missingFields,unverifiedFields:unverifiedFields(verification,usedFields)};
-  const status:CompatibilityRuleStatus=listSupports(goggles.supportedVideoSystems!,system!)?"pass":"fail",evidenceLevel=deterministicEvidenceLevel(verification,usedFields);
-  return {code:"GOGGLES_VIDEO_SYSTEM",categories,applicable:true,status,evidenceLevel,explanation:status==="pass"?(evidenceLevel==="verified"?"The verified goggles support the selected verified video system.":"The listed goggles and video system appear to match, but evidence is incomplete."):(evidenceLevel==="verified"?"The verified goggles do not support the selected video system.":"The listed video systems do not match, but evidence is incomplete."),evidence:{},missingFields:[],unverifiedFields:unverifiedFields(verification,usedFields)};
+function listSupports(values: readonly string[], value: string) {
+  const expected = normalizedCompatibilityText(value);
+  return values.some((item) => normalizedCompatibilityText(item) === expected);
 }
-function batteryChargerRule(selected:SelectedProducts,verification:CompatibilityVerification):CompatibilityRuleResult{
-  const battery=selected.battery,charger=selected.batteryCharger,categories:Category[]=["battery","batteryCharger"];
-  if(!battery||!charger)return nonApplicableRule("BATTERY_CHARGER",categories,"Select a battery and charger to verify charging compatibility.");
-  const missingFields=[...(battery.batteryChemistry===undefined?["battery.batteryChemistry"]:[]),...(battery.voltage===undefined?["battery.voltage"]:[]),...(battery.batteryConnector===undefined?["battery.batteryConnector"]:[]),...(charger.chargerBatteryChemistries===undefined?["batteryCharger.chargerBatteryChemistries"]:[]),...(charger.chargerMinCells===undefined?["batteryCharger.chargerMinCells"]:[]),...(charger.chargerMaxCells===undefined?["batteryCharger.chargerMaxCells"]:[]),...(charger.chargerConnectors===undefined?["batteryCharger.chargerConnectors"]:[])];
-  const usedFields:Array<[Category,keyof Product]>=[["battery","batteryChemistry"],["battery","voltage"],["battery","batteryConnector"],["batteryCharger","chargerBatteryChemistries"],["batteryCharger","chargerMinCells"],["batteryCharger","chargerMaxCells"],["batteryCharger","chargerConnectors"]];
-  if(missingFields.length)return {code:"BATTERY_CHARGER",categories,applicable:true,status:"unknown",evidenceLevel:"unverified",explanation:"Battery chemistry, cell count, connector, or charger limits are incomplete, so charging compatibility cannot be verified.",evidence:{},missingFields,unverifiedFields:unverifiedFields(verification,usedFields)};
-  const status:CompatibilityRuleStatus=listSupports(charger.chargerBatteryChemistries!,battery.batteryChemistry!)&&battery.voltage!>=charger.chargerMinCells!&&battery.voltage!<=charger.chargerMaxCells!&&listSupports(charger.chargerConnectors!,battery.batteryConnector!)?"pass":"fail",evidenceLevel=deterministicEvidenceLevel(verification,usedFields);
-  return {code:"BATTERY_CHARGER",categories,applicable:true,status,evidenceLevel,explanation:status==="pass"?(evidenceLevel==="verified"?"The verified charger supports the battery chemistry, cell count, and connector.":"The listed charging requirements match, but some evidence is unverified."):(evidenceLevel==="verified"?"At least one verified battery charging requirement is not supported by the charger.":"At least one listed charging requirement does not match, but some evidence is unverified."),evidence:{},missingFields:[],unverifiedFields:unverifiedFields(verification,usedFields)};
+function radioReceiverProtocolRule(
+  selected: SelectedProducts,
+  verification: CompatibilityVerification,
+): CompatibilityRuleResult {
+  const receiver = selected.receiver,
+    radio = selected.radioTransmitter,
+    categories: Category[] = ["receiver", "radioTransmitter"];
+  if (!receiver || !radio)
+    return nonApplicableRule(
+      "RADIO_RECEIVER_PROTOCOL",
+      categories,
+      "Select an onboard receiver and radio transmitter to verify their radio protocol.",
+    );
+  const missingFields = [
+    ...(receiver.receiverProtocol === undefined ? ["receiver.receiverProtocol"] : []),
+    ...(radio.radioProtocols === undefined ? ["radioTransmitter.radioProtocols"] : []),
+  ];
+  const usedFields: Array<[Category, keyof Product]> = [
+    ["receiver", "receiverProtocol"],
+    ["radioTransmitter", "radioProtocols"],
+  ];
+  if (missingFields.length)
+    return {
+      code: "RADIO_RECEIVER_PROTOCOL",
+      categories,
+      applicable: true,
+      status: "unknown",
+      evidenceLevel: "unverified",
+      explanation:
+        "The receiver protocol or transmitter protocol support is not documented well enough to verify this link.",
+      evidence: {},
+      missingFields,
+      unverifiedFields: unverifiedFields(verification, usedFields),
+    };
+  const status: CompatibilityRuleStatus = listSupports(
+      radio.radioProtocols!,
+      receiver.receiverProtocol!,
+    )
+      ? "pass"
+      : "fail",
+    evidenceLevel = deterministicEvidenceLevel(verification, usedFields);
+  return {
+    code: "RADIO_RECEIVER_PROTOCOL",
+    categories,
+    applicable: true,
+    status,
+    evidenceLevel,
+    explanation:
+      status === "pass"
+        ? evidenceLevel === "verified"
+          ? "The verified radio transmitter protocols include the selected receiver protocol."
+          : "The listed radio protocols match, but the evidence is not fully verified."
+        : evidenceLevel === "verified"
+          ? "The verified radio transmitter protocols do not include the selected receiver protocol."
+          : "The listed protocols do not match, but the evidence is not fully verified.",
+    evidence: {},
+    missingFields: [],
+    unverifiedFields: unverifiedFields(verification, usedFields),
+  };
 }
-function chargingAccessoryConnectorRule(selected:SelectedProducts,verification:CompatibilityVerification):CompatibilityRuleResult{
-  const accessory=selected.chargingAccessory,battery=selected.battery,charger=selected.batteryCharger,categories:Category[]=["chargingAccessory","battery","batteryCharger"];
-  if(!accessory||!battery||!charger)return nonApplicableRule("CHARGING_ACCESSORY_CONNECTOR",categories,"Select a charging accessory, battery, and charger to verify connector compatibility.");
-  const missingFields=[...(accessory.chargingConnectors===undefined?["chargingAccessory.chargingConnectors"]:[]),...(battery.batteryConnector===undefined?["battery.batteryConnector"]:[]),...(charger.chargerConnectors===undefined?["batteryCharger.chargerConnectors"]:[])];
-  const usedFields:Array<[Category,keyof Product]>=[["chargingAccessory","chargingConnectors"],["battery","batteryConnector"],["batteryCharger","chargerConnectors"]];
-  if(missingFields.length)return {code:"CHARGING_ACCESSORY_CONNECTOR",categories,applicable:true,status:"unknown",evidenceLevel:"unverified",explanation:"Charging connector data are incomplete.",evidence:{},missingFields,unverifiedFields:unverifiedFields(verification,usedFields)};
-  const status:CompatibilityRuleStatus=listSupports(accessory.chargingConnectors!,battery.batteryConnector!)&&charger.chargerConnectors!.some((item)=>listSupports(accessory.chargingConnectors!,item))?"pass":"fail",evidenceLevel=deterministicEvidenceLevel(verification,usedFields);
-  return {code:"CHARGING_ACCESSORY_CONNECTOR",categories,applicable:true,status,evidenceLevel,explanation:status==="pass"?(evidenceLevel==="verified"?"The verified charging accessory exposes connectors compatible with both battery and charger.":"The listed charging connectors appear compatible, but evidence is incomplete."):(evidenceLevel==="verified"?"The verified charging accessory does not bridge the selected battery and charger connectors.":"The listed charging connectors do not line up, but evidence is incomplete."),evidence:{},missingFields:[],unverifiedFields:unverifiedFields(verification,usedFields)};
+function gogglesVideoSystemRule(
+  selected: SelectedProducts,
+  verification: CompatibilityVerification,
+): CompatibilityRuleResult {
+  const goggles = selected.fpvGoggles,
+    source = selected.videoTransmitter ?? selected.camera,
+    categories: Category[] = source
+      ? [source.category, "fpvGoggles"]
+      : ["camera", "videoTransmitter", "fpvGoggles"];
+  if (!goggles || !source)
+    return nonApplicableRule(
+      "GOGGLES_VIDEO_SYSTEM",
+      categories,
+      "Select a video source and FPV goggles to verify the video ecosystem.",
+    );
+  const sourceField: keyof Product =
+      source.category === "videoTransmitter" ? "videoTransmitterSystem" : "video",
+    system = source[sourceField] as string | undefined;
+  const missingFields = [
+    ...(system === undefined ? [source.category + "." + String(sourceField)] : []),
+    ...(goggles.supportedVideoSystems === undefined ? ["fpvGoggles.supportedVideoSystems"] : []),
+  ];
+  const usedFields: Array<[Category, keyof Product]> = [
+    [source.category, sourceField],
+    ["fpvGoggles", "supportedVideoSystems"],
+  ];
+  if (missingFields.length)
+    return {
+      code: "GOGGLES_VIDEO_SYSTEM",
+      categories,
+      applicable: true,
+      status: "unknown",
+      evidenceLevel: "unverified",
+      explanation:
+        "The selected video system or goggle ecosystem support is missing, so compatibility cannot be verified.",
+      evidence: {},
+      missingFields,
+      unverifiedFields: unverifiedFields(verification, usedFields),
+    };
+  const status: CompatibilityRuleStatus = listSupports(goggles.supportedVideoSystems!, system!)
+      ? "pass"
+      : "fail",
+    evidenceLevel = deterministicEvidenceLevel(verification, usedFields);
+  return {
+    code: "GOGGLES_VIDEO_SYSTEM",
+    categories,
+    applicable: true,
+    status,
+    evidenceLevel,
+    explanation:
+      status === "pass"
+        ? evidenceLevel === "verified"
+          ? "The verified goggles support the selected verified video system."
+          : "The listed goggles and video system appear to match, but evidence is incomplete."
+        : evidenceLevel === "verified"
+          ? "The verified goggles do not support the selected video system."
+          : "The listed video systems do not match, but evidence is incomplete.",
+    evidence: {},
+    missingFields: [],
+    unverifiedFields: unverifiedFields(verification, usedFields),
+  };
 }
-function vtxCameraInterfaceRule(selected:SelectedProducts,verification:CompatibilityVerification):CompatibilityRuleResult{
-  const vtx=selected.videoTransmitter,camera=selected.camera,categories:Category[]=["videoTransmitter","camera"];
-  if(!vtx||!camera)return nonApplicableRule("VTX_CAMERA_INTERFACE",categories,"Select a camera and standalone VTX to verify their video interface.");
-  const missingFields=[...(camera.cameraVideoInterface===undefined?["camera.cameraVideoInterface"]:[]),...(vtx.vtxCameraVideoInterfaces===undefined?["videoTransmitter.vtxCameraVideoInterfaces"]:[])],usedFields:Array<[Category,keyof Product]>=[["camera","cameraVideoInterface"],["videoTransmitter","vtxCameraVideoInterfaces"]];
-  if(missingFields.length)return {code:"VTX_CAMERA_INTERFACE",categories,applicable:true,status:"unknown",evidenceLevel:"unverified",explanation:"Camera/VTX interface data are incomplete.",evidence:{},missingFields,unverifiedFields:unverifiedFields(verification,usedFields)};
-  const status:CompatibilityRuleStatus=listSupports(vtx.vtxCameraVideoInterfaces!,camera.cameraVideoInterface!)?"pass":"fail",evidenceLevel=deterministicEvidenceLevel(verification,usedFields);
-  return {code:"VTX_CAMERA_INTERFACE",categories,applicable:true,status,evidenceLevel,explanation:status==="pass"?(evidenceLevel==="verified"?"The verified VTX accepts the selected camera video interface.":"The listed camera/VTX interfaces match, but evidence is incomplete."):(evidenceLevel==="verified"?"The verified VTX does not accept the selected camera video interface.":"The listed camera/VTX interfaces do not match, but evidence is incomplete."),evidence:{},missingFields:[],unverifiedFields:unverifiedFields(verification,usedFields)};
+function batteryChargerRule(
+  selected: SelectedProducts,
+  verification: CompatibilityVerification,
+): CompatibilityRuleResult {
+  const battery = selected.battery,
+    charger = selected.batteryCharger,
+    categories: Category[] = ["battery", "batteryCharger"];
+  if (!battery || !charger)
+    return nonApplicableRule(
+      "BATTERY_CHARGER",
+      categories,
+      "Select a battery and charger to verify charging compatibility.",
+    );
+  const missingFields = [
+    ...(battery.batteryChemistry === undefined ? ["battery.batteryChemistry"] : []),
+    ...(battery.voltage === undefined ? ["battery.voltage"] : []),
+    ...(battery.batteryConnector === undefined ? ["battery.batteryConnector"] : []),
+    ...(charger.chargerBatteryChemistries === undefined
+      ? ["batteryCharger.chargerBatteryChemistries"]
+      : []),
+    ...(charger.chargerMinCells === undefined ? ["batteryCharger.chargerMinCells"] : []),
+    ...(charger.chargerMaxCells === undefined ? ["batteryCharger.chargerMaxCells"] : []),
+    ...(charger.chargerConnectors === undefined ? ["batteryCharger.chargerConnectors"] : []),
+  ];
+  const usedFields: Array<[Category, keyof Product]> = [
+    ["battery", "batteryChemistry"],
+    ["battery", "voltage"],
+    ["battery", "batteryConnector"],
+    ["batteryCharger", "chargerBatteryChemistries"],
+    ["batteryCharger", "chargerMinCells"],
+    ["batteryCharger", "chargerMaxCells"],
+    ["batteryCharger", "chargerConnectors"],
+  ];
+  if (missingFields.length)
+    return {
+      code: "BATTERY_CHARGER",
+      categories,
+      applicable: true,
+      status: "unknown",
+      evidenceLevel: "unverified",
+      explanation:
+        "Battery chemistry, cell count, connector, or charger limits are incomplete, so charging compatibility cannot be verified.",
+      evidence: {},
+      missingFields,
+      unverifiedFields: unverifiedFields(verification, usedFields),
+    };
+  const status: CompatibilityRuleStatus =
+      listSupports(charger.chargerBatteryChemistries!, battery.batteryChemistry!) &&
+      battery.voltage! >= charger.chargerMinCells! &&
+      battery.voltage! <= charger.chargerMaxCells! &&
+      listSupports(charger.chargerConnectors!, battery.batteryConnector!)
+        ? "pass"
+        : "fail",
+    evidenceLevel = deterministicEvidenceLevel(verification, usedFields);
+  return {
+    code: "BATTERY_CHARGER",
+    categories,
+    applicable: true,
+    status,
+    evidenceLevel,
+    explanation:
+      status === "pass"
+        ? evidenceLevel === "verified"
+          ? "The verified charger supports the battery chemistry, cell count, and connector."
+          : "The listed charging requirements match, but some evidence is unverified."
+        : evidenceLevel === "verified"
+          ? "At least one verified battery charging requirement is not supported by the charger."
+          : "At least one listed charging requirement does not match, but some evidence is unverified.",
+    evidence: {},
+    missingFields: [],
+    unverifiedFields: unverifiedFields(verification, usedFields),
+  };
 }
-function vtxAntennaRule(selected:SelectedProducts,verification:CompatibilityVerification):CompatibilityRuleResult{
-  const vtx=selected.videoTransmitter,antenna=selected.antenna,categories:Category[]=["videoTransmitter","antenna"];
-  if(!vtx||!antenna)return nonApplicableRule("VTX_ANTENNA",categories,"Select a standalone VTX and antenna to verify connector and frequency coverage.");
-  const missingFields=[...(vtx.vtxAntennaConnector===undefined?["videoTransmitter.vtxAntennaConnector"]:[]),...(vtx.vtxFrequencyMinMhz===undefined?["videoTransmitter.vtxFrequencyMinMhz"]:[]),...(vtx.vtxFrequencyMaxMhz===undefined?["videoTransmitter.vtxFrequencyMaxMhz"]:[]),...(antenna.antennaConnector===undefined?["antenna.antennaConnector"]:[]),...(antenna.antennaFrequencyMinMhz===undefined?["antenna.antennaFrequencyMinMhz"]:[]),...(antenna.antennaFrequencyMaxMhz===undefined?["antenna.antennaFrequencyMaxMhz"]:[])];
-  const usedFields:Array<[Category,keyof Product]>=[["videoTransmitter","vtxAntennaConnector"],["videoTransmitter","vtxFrequencyMinMhz"],["videoTransmitter","vtxFrequencyMaxMhz"],["antenna","antennaConnector"],["antenna","antennaFrequencyMinMhz"],["antenna","antennaFrequencyMaxMhz"]];
-  if(missingFields.length)return {code:"VTX_ANTENNA",categories,applicable:true,status:"unknown",evidenceLevel:"unverified",explanation:"VTX/antenna connector or frequency data are incomplete.",evidence:{},missingFields,unverifiedFields:unverifiedFields(verification,usedFields)};
-  const status:CompatibilityRuleStatus=normalizedCompatibilityText(vtx.vtxAntennaConnector!)===normalizedCompatibilityText(antenna.antennaConnector!)&&antenna.antennaFrequencyMinMhz!<=vtx.vtxFrequencyMinMhz!&&antenna.antennaFrequencyMaxMhz!>=vtx.vtxFrequencyMaxMhz!?"pass":"fail",evidenceLevel=deterministicEvidenceLevel(verification,usedFields);
-  return {code:"VTX_ANTENNA",categories,applicable:true,status,evidenceLevel,explanation:status==="pass"?(evidenceLevel==="verified"?"The verified antenna connector and frequency range cover the selected VTX.":"The listed VTX/antenna data match, but evidence is incomplete."):(evidenceLevel==="verified"?"The verified antenna connector or frequency range is incompatible with the selected VTX.":"The listed VTX/antenna data do not match, but evidence is incomplete."),evidence:{},missingFields:[],unverifiedFields:unverifiedFields(verification,usedFields)};
+function chargingAccessoryConnectorRule(
+  selected: SelectedProducts,
+  verification: CompatibilityVerification,
+): CompatibilityRuleResult {
+  const accessory = selected.chargingAccessory,
+    battery = selected.battery,
+    charger = selected.batteryCharger,
+    categories: Category[] = ["chargingAccessory", "battery", "batteryCharger"];
+  if (!accessory || !battery || !charger)
+    return nonApplicableRule(
+      "CHARGING_ACCESSORY_CONNECTOR",
+      categories,
+      "Select a charging accessory, battery, and charger to verify connector compatibility.",
+    );
+  const missingFields = [
+    ...(accessory.chargingConnectors === undefined ? ["chargingAccessory.chargingConnectors"] : []),
+    ...(battery.batteryConnector === undefined ? ["battery.batteryConnector"] : []),
+    ...(charger.chargerConnectors === undefined ? ["batteryCharger.chargerConnectors"] : []),
+  ];
+  const usedFields: Array<[Category, keyof Product]> = [
+    ["chargingAccessory", "chargingConnectors"],
+    ["battery", "batteryConnector"],
+    ["batteryCharger", "chargerConnectors"],
+  ];
+  if (missingFields.length)
+    return {
+      code: "CHARGING_ACCESSORY_CONNECTOR",
+      categories,
+      applicable: true,
+      status: "unknown",
+      evidenceLevel: "unverified",
+      explanation: "Charging connector data are incomplete.",
+      evidence: {},
+      missingFields,
+      unverifiedFields: unverifiedFields(verification, usedFields),
+    };
+  const status: CompatibilityRuleStatus =
+      listSupports(accessory.chargingConnectors!, battery.batteryConnector!) &&
+      charger.chargerConnectors!.some((item) => listSupports(accessory.chargingConnectors!, item))
+        ? "pass"
+        : "fail",
+    evidenceLevel = deterministicEvidenceLevel(verification, usedFields);
+  return {
+    code: "CHARGING_ACCESSORY_CONNECTOR",
+    categories,
+    applicable: true,
+    status,
+    evidenceLevel,
+    explanation:
+      status === "pass"
+        ? evidenceLevel === "verified"
+          ? "The verified charging accessory exposes connectors compatible with both battery and charger."
+          : "The listed charging connectors appear compatible, but evidence is incomplete."
+        : evidenceLevel === "verified"
+          ? "The verified charging accessory does not bridge the selected battery and charger connectors."
+          : "The listed charging connectors do not line up, but evidence is incomplete.",
+    evidence: {},
+    missingFields: [],
+    unverifiedFields: unverifiedFields(verification, usedFields),
+  };
 }
-function peripheralFcRule(selected:SelectedProducts,verification:CompatibilityVerification,category:"gps"|"buzzer",code:"GPS_FC_INTEGRATION"|"BUZZER_FC_INTEGRATION",label:string):CompatibilityRuleResult{
-  const device=selected[category],fc=selected.flightController,categories:Category[]=[category,"flightController"];
-  if(!device||!fc)return nonApplicableRule(code,categories,`Select both a ${label} and flight controller to verify the interface and power rail.`);
-  const missingFields=[...(device.deviceSignalInterface===undefined?[`${category}.deviceSignalInterface`]:[]),...(device.deviceMinVoltageV===undefined?[`${category}.deviceMinVoltageV`]:[]),...(device.deviceMaxVoltageV===undefined?[`${category}.deviceMaxVoltageV`]:[]),...(fc.fcPeripheralInterfaces===undefined?["flightController.fcPeripheralInterfaces"]:[]),...(fc.fcPeripheralPowerVoltagesV===undefined?["flightController.fcPeripheralPowerVoltagesV"]:[])];
-  const usedFields:Array<[Category,keyof Product]>=[[category,"deviceSignalInterface"],[category,"deviceMinVoltageV"],[category,"deviceMaxVoltageV"],["flightController","fcPeripheralInterfaces"],["flightController","fcPeripheralPowerVoltagesV"]];
-  if(missingFields.length)return {code,categories,applicable:true,status:"unknown",evidenceLevel:"unverified",explanation:`${label} interface or power data are incomplete.`,evidence:{},missingFields,unverifiedFields:unverifiedFields(verification,usedFields)};
-  const status:CompatibilityRuleStatus=listSupports(fc.fcPeripheralInterfaces!,device.deviceSignalInterface!)&&fc.fcPeripheralPowerVoltagesV!.some((voltage)=>voltage>=device.deviceMinVoltageV!&&voltage<=device.deviceMaxVoltageV!)?"pass":"fail",evidenceLevel=deterministicEvidenceLevel(verification,usedFields);
-  return {code,categories,applicable:true,status,evidenceLevel,explanation:status==="pass"?(evidenceLevel==="verified"?`The verified flight-controller interface and power rail support the selected ${label}.`:`The listed ${label}/FC interface and power data match, but evidence is incomplete.`):(evidenceLevel==="verified"?`The verified flight-controller interface or power rail does not support the selected ${label}.`:`The listed ${label}/FC data do not match, but evidence is incomplete.`),evidence:{},missingFields:[],unverifiedFields:unverifiedFields(verification,usedFields)};
+function vtxCameraInterfaceRule(
+  selected: SelectedProducts,
+  verification: CompatibilityVerification,
+): CompatibilityRuleResult {
+  const vtx = selected.videoTransmitter,
+    camera = selected.camera,
+    categories: Category[] = ["videoTransmitter", "camera"];
+  if (!vtx || !camera)
+    return nonApplicableRule(
+      "VTX_CAMERA_INTERFACE",
+      categories,
+      "Select a camera and standalone VTX to verify their video interface.",
+    );
+  const missingFields = [
+      ...(camera.cameraVideoInterface === undefined ? ["camera.cameraVideoInterface"] : []),
+      ...(vtx.vtxCameraVideoInterfaces === undefined
+        ? ["videoTransmitter.vtxCameraVideoInterfaces"]
+        : []),
+    ],
+    usedFields: Array<[Category, keyof Product]> = [
+      ["camera", "cameraVideoInterface"],
+      ["videoTransmitter", "vtxCameraVideoInterfaces"],
+    ];
+  if (missingFields.length)
+    return {
+      code: "VTX_CAMERA_INTERFACE",
+      categories,
+      applicable: true,
+      status: "unknown",
+      evidenceLevel: "unverified",
+      explanation: "Camera/VTX interface data are incomplete.",
+      evidence: {},
+      missingFields,
+      unverifiedFields: unverifiedFields(verification, usedFields),
+    };
+  const status: CompatibilityRuleStatus = listSupports(
+      vtx.vtxCameraVideoInterfaces!,
+      camera.cameraVideoInterface!,
+    )
+      ? "pass"
+      : "fail",
+    evidenceLevel = deterministicEvidenceLevel(verification, usedFields);
+  return {
+    code: "VTX_CAMERA_INTERFACE",
+    categories,
+    applicable: true,
+    status,
+    evidenceLevel,
+    explanation:
+      status === "pass"
+        ? evidenceLevel === "verified"
+          ? "The verified VTX accepts the selected camera video interface."
+          : "The listed camera/VTX interfaces match, but evidence is incomplete."
+        : evidenceLevel === "verified"
+          ? "The verified VTX does not accept the selected camera video interface."
+          : "The listed camera/VTX interfaces do not match, but evidence is incomplete.",
+    evidence: {},
+    missingFields: [],
+    unverifiedFields: unverifiedFields(verification, usedFields),
+  };
+}
+function vtxAntennaRule(
+  selected: SelectedProducts,
+  verification: CompatibilityVerification,
+): CompatibilityRuleResult {
+  const vtx = selected.videoTransmitter,
+    antenna = selected.antenna,
+    categories: Category[] = ["videoTransmitter", "antenna"];
+  if (!vtx || !antenna)
+    return nonApplicableRule(
+      "VTX_ANTENNA",
+      categories,
+      "Select a standalone VTX and antenna to verify connector and frequency coverage.",
+    );
+  const missingFields = [
+    ...(vtx.vtxAntennaConnector === undefined ? ["videoTransmitter.vtxAntennaConnector"] : []),
+    ...(vtx.vtxFrequencyMinMhz === undefined ? ["videoTransmitter.vtxFrequencyMinMhz"] : []),
+    ...(vtx.vtxFrequencyMaxMhz === undefined ? ["videoTransmitter.vtxFrequencyMaxMhz"] : []),
+    ...(antenna.antennaConnector === undefined ? ["antenna.antennaConnector"] : []),
+    ...(antenna.antennaFrequencyMinMhz === undefined ? ["antenna.antennaFrequencyMinMhz"] : []),
+    ...(antenna.antennaFrequencyMaxMhz === undefined ? ["antenna.antennaFrequencyMaxMhz"] : []),
+  ];
+  const usedFields: Array<[Category, keyof Product]> = [
+    ["videoTransmitter", "vtxAntennaConnector"],
+    ["videoTransmitter", "vtxFrequencyMinMhz"],
+    ["videoTransmitter", "vtxFrequencyMaxMhz"],
+    ["antenna", "antennaConnector"],
+    ["antenna", "antennaFrequencyMinMhz"],
+    ["antenna", "antennaFrequencyMaxMhz"],
+  ];
+  if (missingFields.length)
+    return {
+      code: "VTX_ANTENNA",
+      categories,
+      applicable: true,
+      status: "unknown",
+      evidenceLevel: "unverified",
+      explanation: "VTX/antenna connector or frequency data are incomplete.",
+      evidence: {},
+      missingFields,
+      unverifiedFields: unverifiedFields(verification, usedFields),
+    };
+  const status: CompatibilityRuleStatus =
+      normalizedCompatibilityText(vtx.vtxAntennaConnector!) ===
+        normalizedCompatibilityText(antenna.antennaConnector!) &&
+      antenna.antennaFrequencyMinMhz! <= vtx.vtxFrequencyMinMhz! &&
+      antenna.antennaFrequencyMaxMhz! >= vtx.vtxFrequencyMaxMhz!
+        ? "pass"
+        : "fail",
+    evidenceLevel = deterministicEvidenceLevel(verification, usedFields);
+  return {
+    code: "VTX_ANTENNA",
+    categories,
+    applicable: true,
+    status,
+    evidenceLevel,
+    explanation:
+      status === "pass"
+        ? evidenceLevel === "verified"
+          ? "The verified antenna connector and frequency range cover the selected VTX."
+          : "The listed VTX/antenna data match, but evidence is incomplete."
+        : evidenceLevel === "verified"
+          ? "The verified antenna connector or frequency range is incompatible with the selected VTX."
+          : "The listed VTX/antenna data do not match, but evidence is incomplete.",
+    evidence: {},
+    missingFields: [],
+    unverifiedFields: unverifiedFields(verification, usedFields),
+  };
+}
+function peripheralFcRule(
+  selected: SelectedProducts,
+  verification: CompatibilityVerification,
+  category: "gps" | "buzzer",
+  code: "GPS_FC_INTEGRATION" | "BUZZER_FC_INTEGRATION",
+  label: string,
+): CompatibilityRuleResult {
+  const device = selected[category],
+    fc = selected.flightController,
+    categories: Category[] = [category, "flightController"];
+  if (!device || !fc)
+    return nonApplicableRule(
+      code,
+      categories,
+      `Select both a ${label} and flight controller to verify the interface and power rail.`,
+    );
+  const missingFields = [
+    ...(device.deviceSignalInterface === undefined ? [`${category}.deviceSignalInterface`] : []),
+    ...(device.deviceMinVoltageV === undefined ? [`${category}.deviceMinVoltageV`] : []),
+    ...(device.deviceMaxVoltageV === undefined ? [`${category}.deviceMaxVoltageV`] : []),
+    ...(fc.fcPeripheralInterfaces === undefined ? ["flightController.fcPeripheralInterfaces"] : []),
+    ...(fc.fcPeripheralPowerVoltagesV === undefined
+      ? ["flightController.fcPeripheralPowerVoltagesV"]
+      : []),
+  ];
+  const usedFields: Array<[Category, keyof Product]> = [
+    [category, "deviceSignalInterface"],
+    [category, "deviceMinVoltageV"],
+    [category, "deviceMaxVoltageV"],
+    ["flightController", "fcPeripheralInterfaces"],
+    ["flightController", "fcPeripheralPowerVoltagesV"],
+  ];
+  if (missingFields.length)
+    return {
+      code,
+      categories,
+      applicable: true,
+      status: "unknown",
+      evidenceLevel: "unverified",
+      explanation: `${label} interface or power data are incomplete.`,
+      evidence: {},
+      missingFields,
+      unverifiedFields: unverifiedFields(verification, usedFields),
+    };
+  const status: CompatibilityRuleStatus =
+      listSupports(fc.fcPeripheralInterfaces!, device.deviceSignalInterface!) &&
+      fc.fcPeripheralPowerVoltagesV!.some(
+        (voltage) => voltage >= device.deviceMinVoltageV! && voltage <= device.deviceMaxVoltageV!,
+      )
+        ? "pass"
+        : "fail",
+    evidenceLevel = deterministicEvidenceLevel(verification, usedFields);
+  return {
+    code,
+    categories,
+    applicable: true,
+    status,
+    evidenceLevel,
+    explanation:
+      status === "pass"
+        ? evidenceLevel === "verified"
+          ? `The verified flight-controller interface and power rail support the selected ${label}.`
+          : `The listed ${label}/FC interface and power data match, but evidence is incomplete.`
+        : evidenceLevel === "verified"
+          ? `The verified flight-controller interface or power rail does not support the selected ${label}.`
+          : `The listed ${label}/FC data do not match, but evidence is incomplete.`,
+    evidence: {},
+    missingFields: [],
+    unverifiedFields: unverifiedFields(verification, usedFields),
+  };
 }
 export function evaluateCompatibilityRules(
   selected: SelectedProducts,
@@ -1204,7 +1604,8 @@ export function evaluateCompatibilityRules(
   if (selected.radioTransmitter) rules.push(radioReceiverProtocolRule(selected, verification));
   if (selected.fpvGoggles) rules.push(gogglesVideoSystemRule(selected, verification));
   if (selected.batteryCharger) rules.push(batteryChargerRule(selected, verification));
-  if (selected.chargingAccessory) rules.push(chargingAccessoryConnectorRule(selected, verification));
+  if (selected.chargingAccessory)
+    rules.push(chargingAccessoryConnectorRule(selected, verification));
   if (selected.videoTransmitter) rules.push(vtxCameraInterfaceRule(selected, verification));
   if (selected.antenna) rules.push(vtxAntennaRule(selected, verification));
   if (selected.gps) {
@@ -1286,7 +1687,10 @@ export function evaluate(
   const enoughPerformance = !!(frame && motors && props && battery && esc);
   const weight = enoughPerformance
     ? Math.round(
-        droneMountedCategoryIds.reduce((sum, category) => sum + (selected[category]?.weight ?? 0), 0) + 80,
+        droneMountedCategoryIds.reduce(
+          (sum, category) => sum + (selected[category]?.weight ?? 0),
+          0,
+        ) + 80,
       )
     : null;
   const speed =
@@ -1371,9 +1775,7 @@ export function candidateCheck(
     status = "incompatible";
   } else if (
     applicableRules.length > 0 &&
-    applicableRules.every(
-      (rule) => rule.status === "pass" && rule.evidenceLevel === "verified",
-    )
+    applicableRules.every((rule) => rule.status === "pass" && rule.evidenceLevel === "verified")
   ) {
     status = "verified-compatible";
   }

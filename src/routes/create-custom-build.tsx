@@ -1,10 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { BuildInterface } from "@/components/BuildInterface";
 import { aiPreset, presets, type BuildSelection, type Priority } from "@/lib/build-data";
-import {
-  createProductCatalogue,
-  rebaseBuildSelectionToCatalogue,
-} from "@/lib/catalogue-service";
+import { createProductCatalogue, rebaseBuildSelectionToCatalogue } from "@/lib/catalogue-service";
 import { getConfiguratorCatalogue } from "@/lib/configurator-catalogue.server-fn";
 
 type BuildSearch = {
@@ -110,7 +107,9 @@ function CreateCustomBuildPage() {
     ":" +
     catalogueSnapshot.products.map((product) => product.id).join(",") +
     ":" +
-    Object.values(initial).join("|") + ":" + JSON.stringify(preferences ?? {});
+    Object.values(initial).join("|") +
+    ":" +
+    JSON.stringify(preferences ?? {});
 
   return (
     <BuildInterface

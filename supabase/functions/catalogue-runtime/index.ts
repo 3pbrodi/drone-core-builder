@@ -1,4 +1,3 @@
-
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "content-type",
@@ -12,8 +11,14 @@ const jsonHeaders = {
 };
 
 const categories = [
-  "frame", "motors", "flightController", "esc",
-  "propellers", "battery", "camera", "receiver",
+  "frame",
+  "motors",
+  "flightController",
+  "esc",
+  "propellers",
+  "battery",
+  "camera",
+  "receiver",
 ];
 
 async function rest(path: string) {
@@ -25,7 +30,9 @@ async function rest(path: string) {
     headers: { apikey: anonKey, Accept: "application/json" },
   });
   if (!response.ok) {
-    throw new Error(`Public catalogue request failed (${response.status}): ${await response.text()}`);
+    throw new Error(
+      `Public catalogue request failed (${response.status}): ${await response.text()}`,
+    );
   }
   return response.json();
 }
@@ -41,7 +48,8 @@ function toProduct(row: Record<string, any>) {
     row.weight_grams === null ||
     row.currency !== "EUR" ||
     row.offer_region !== "EU"
-  ) return null;
+  )
+    return null;
 
   const product: Record<string, unknown> = {
     id: row.id,
@@ -102,7 +110,8 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "GET") {
     return new Response(JSON.stringify({ error: "Method not allowed" }), {
-      status: 405, headers: jsonHeaders,
+      status: 405,
+      headers: jsonHeaders,
     });
   }
 
@@ -187,30 +196,41 @@ Deno.serve(async (req: Request) => {
       })),
     };
 
-    return new Response(JSON.stringify({
-      source: validation.ok ? "database" : "unavailable",
-      status: validation.ok ? "ready" : "coverage_failed",
-      products: validation.ok ? products : [],
-      evidence: validation.ok ? evidence : {
-        fields: [], motorPropeller: [], motorEscCurrent: [], fcEscConnection: [],
-      },
-      validation,
-      ...(validation.ok ? {} : { error: "Verified catalogue coverage check failed." }),
-    }), { headers: jsonHeaders });
+    return new Response(
+      JSON.stringify({
+        source: validation.ok ? "database" : "unavailable",
+        status: validation.ok ? "ready" : "coverage_failed",
+        products: validation.ok ? products : [],
+        evidence: validation.ok
+          ? evidence
+          : {
+              fields: [],
+              motorPropeller: [],
+              motorEscCurrent: [],
+              fcEscConnection: [],
+            },
+        validation,
+        ...(validation.ok ? {} : { error: "Verified catalogue coverage check failed." }),
+      }),
+      { headers: jsonHeaders },
+    );
   } catch (error) {
-    return new Response(JSON.stringify({
-      source: "unavailable",
-      status: "database_unavailable",
-      products: [],
-      evidence: { fields: [], motorPropeller: [], motorEscCurrent: [], fcEscConnection: [] },
-      validation: {
-        ok: false,
-        missingCategories: categories,
-        duplicateProductIds: [],
-        rejectedProductIds: [],
-        invalidProductIds: [],
-      },
-      error: error instanceof Error ? error.message : "Unknown catalogue error",
-    }), { status: 500, headers: jsonHeaders });
+    return new Response(
+      JSON.stringify({
+        source: "unavailable",
+        status: "database_unavailable",
+        products: [],
+        evidence: { fields: [], motorPropeller: [], motorEscCurrent: [], fcEscConnection: [] },
+        validation: {
+          ok: false,
+          missingCategories: categories,
+          duplicateProductIds: [],
+          rejectedProductIds: [],
+          invalidProductIds: [],
+        },
+        error: error instanceof Error ? error.message : "Unknown catalogue error",
+      }),
+      { status: 500, headers: jsonHeaders },
+    );
   }
 });

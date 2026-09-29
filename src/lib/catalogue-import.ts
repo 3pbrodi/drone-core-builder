@@ -53,7 +53,10 @@ const optionalCategoryList = z.preprocess(
   (value) => {
     if (Array.isArray(value)) return value;
     if (typeof value !== "string" || value.trim() === "") return undefined;
-    return value.split("|").map((item) => item.trim()).filter(Boolean);
+    return value
+      .split("|")
+      .map((item) => item.trim())
+      .filter(Boolean);
   },
   z.array(z.enum(allCategoryIds)).min(1).optional(),
 );
@@ -524,7 +527,6 @@ export function validateCatalogueProductCsv(csvText: string): CatalogueCsvValida
 
   return { headers, validRows, invalidRows };
 }
-
 
 export type CatalogueObjectValidationResult = {
   validRows: ValidatedCatalogueImportRow[];

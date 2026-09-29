@@ -94,9 +94,7 @@ function AiBuildPage() {
       search: {
         source: "ai",
         budget,
-        ...(selectedPriorities.length
-          ? { priorities: selectedPriorities.join(",") }
-          : {}),
+        ...(selectedPriorities.length ? { priorities: selectedPriorities.join(",") } : {}),
       },
     });
   };
@@ -230,8 +228,8 @@ function AiBuildPage() {
                 Pick what you want your drone to specialize in
               </p>
               <p className="mt-2 text-xs font-medium text-muted-foreground">
-                Select one or two options. Once two are selected, the remaining
-                options stay disabled until you deselect one.
+                Select one or two options. Once two are selected, the remaining options stay
+                disabled until you deselect one.
               </p>
               <div
                 className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2"
@@ -312,9 +310,7 @@ function AiBuildPage() {
                         style={{ backgroundColor: option.hex }}
                         aria-hidden
                       />
-                      <span className="text-xs font-medium text-foreground">
-                        {option.name}
-                      </span>
+                      <span className="text-xs font-medium text-foreground">{option.name}</span>
                     </button>
                   );
                 })}

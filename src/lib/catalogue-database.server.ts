@@ -1,19 +1,12 @@
 import "@tanstack/react-start/server-only";
 
-import {
-  type Category,
-  type Product,
-  type StockStatus,
-} from "./build-data";
+import { type Category, type Product, type StockStatus } from "./build-data";
 import {
   emptyCatalogueEvidenceSnapshot,
   type CatalogueEvidenceSnapshot,
 } from "./catalogue-evidence";
 import { fetchCatalogueEvidenceSnapshotForProductIds } from "./catalogue-evidence.server";
-import {
-  validateRuntimeCatalogue,
-  type RuntimeCatalogueValidation,
-} from "./catalogue-runtime";
+import { validateRuntimeCatalogue, type RuntimeCatalogueValidation } from "./catalogue-runtime";
 import { isDatabaseCatalogueEnabled, supabaseRestRequest } from "./supabase-rest.server";
 
 type RuntimeProductRow = {
@@ -213,10 +206,7 @@ export async function loadServerCatalogueSnapshot(): Promise<ServerCatalogueSnap
 
   try {
     const database = await fetchDatabaseRuntimeProducts();
-    const validation = validateRuntimeCatalogue(
-      database.products,
-      database.rejectedProductIds,
-    );
+    const validation = validateRuntimeCatalogue(database.products, database.rejectedProductIds);
 
     if (!validation.ok) {
       const parts = [
