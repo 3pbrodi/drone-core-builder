@@ -16,20 +16,25 @@ rows and are inserted in bounded chunks.
 
 Each staged row is classified before candidate creation:
 
-- `exact_match`: stable product ID, source external ID, manufacturer SKU, or
-  MPN identifies exactly one existing product.
-- `probable_match`: normalized manufacturer + category + model + variant
-  matches one product. Human review is required.
-- `conflict`: more than one canonical product matches. Human review is
-  mandatory; the importer does not silently choose one.
-- `new`: no existing identity matches. Only these rows may create a candidate.
+- `exact_match`: a stable product ID, exact source external ID, exact
+  manufacturer + SKU, exact manufacturer + MPN, or exact manufacturer +
+  category + model + variant identifies exactly one existing product.
+- `probable_match`: no exact identity key matched, but manufacturer + category
+  + model belongs to one or more existing variants. This is only a human-review
+  hint and is never auto-merged.
+- `conflict`: more than one existing product matches an exact identity key.
+  Human review is mandatory; the importer does not silently choose one.
+- `new`: no exact identity or model-family review hint matches. Only these rows
+  may create a candidate.
 
 The identity-key table intentionally allows the same key to point to multiple
 products so bad legacy duplicates surface as conflicts rather than being hidden
 by a uniqueness constraint.
 
-Exact matches may be linked to an existing canonical product as an additional
-source, but they never overwrite verified canonical specs automatically.
+Exact matches may be linked to the existing canonical product as an additional
+source. Verified canonical specs are never overwritten automatically. Technical
+evidence and offers continue through their dedicated evidence/review and
+verified-offer workflows against the matched product ID.
 
 ## Publication safety
 
