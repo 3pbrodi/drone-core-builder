@@ -88,23 +88,23 @@ export type ServerCatalogueSnapshot = {
 
 function withOptionalNumber<K extends keyof Product>(
   key: K,
-  value: number | null,
+  value: number | null | undefined,
 ): Partial<Product> {
-  return value === null ? {} : ({ [key]: value } as Partial<Product>);
+  return value == null ? {} : ({ [key]: value } as Partial<Product>);
 }
 
 function withOptionalString<K extends keyof Product>(
   key: K,
-  value: string | null,
+  value: string | null | undefined,
 ): Partial<Product> {
   return value === null || value === "" ? {} : ({ [key]: value } as Partial<Product>);
 }
 
 function withOptionalArray<K extends keyof Product>(
   key: K,
-  value: string[] | number[] | null,
+  value: string[] | number[] | Category[] | null | undefined,
 ): Partial<Product> {
-  return value === null || value.length === 0 ? {} : ({ [key]: value } as Partial<Product>);
+  return value == null || value.length === 0 ? {} : ({ [key]: value } as Partial<Product>);
 }
 
 function runtimeRowToProduct(row: RuntimeProductRow): Product | null {

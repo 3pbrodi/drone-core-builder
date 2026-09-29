@@ -1,79 +1,22 @@
-export const categories = [
-  "frame",
-  "motors",
-  "flightController",
-  "esc",
-  "propellers",
-  "battery",
-  "camera",
-  "receiver",
-] as const;
-export type Category = (typeof categories)[number];
-export type ProductImage = {
-  src: string;
-  alt: string;
-  sourceUrl: string;
+import {allCategoryIds,categoryNames,coreRequiredCategoryIds,type Category} from "./component-categories";
+export {allCategoryIds,categoryNames,coreRequiredCategoryIds,type Category} from "./component-categories";
+export const categories=coreRequiredCategoryIds;
+export type ProductImage={src:string;alt:string;sourceUrl:string};
+export type StockStatus="unknown"|"in_stock"|"out_of_stock"|"preorder"|"backorder";
+export type Product={
+  id:string;category:Category;name:string;spec:string;price:number;weight:number;stockStatus?:StockStatus;image?:ProductImage;
+  integratedCategories?:Category[];includedCategories?:Category[];
+  frameInches?:number;mount?:string;propInches?:number;motorSize?:number;voltage?:number;minVoltage?:number;maxVoltage?:number;connector?:string;escInput?:string;thrust?:number;current?:number;escAmps?:number;batteryMah?:number;
+  batteryChemistry?:string;batteryConnector?:string;video?:string;cameraVideoInterface?:string;cameraMinVoltageV?:number;cameraMaxVoltageV?:number;cameraWidthMm?:number;cameraHeightMm?:number;cameraDepthMm?:number;fcCameraVideoInterfaces?:string[];fcCameraPowerVoltagesV?:number[];
+  receiverProtocol?:string;receiverSignalInterface?:string;receiverFrequencyMinMhz?:number;receiverFrequencyMaxMhz?:number;receiverMinVoltageV?:number;receiverMaxVoltageV?:number;receiverWidthMm?:number;receiverHeightMm?:number;receiverDepthMm?:number;fcReceiverSignalInterfaces?:string[];fcReceiverPowerVoltagesV?:number[];
+  fcPeripheralInterfaces?:string[];fcPeripheralPowerVoltagesV?:number[];
+  videoTransmitterSystem?:string;vtxCameraVideoInterfaces?:string[];vtxAntennaConnector?:string;vtxFrequencyMinMhz?:number;vtxFrequencyMaxMhz?:number;
+  antennaConnector?:string;antennaFrequencyMinMhz?:number;antennaFrequencyMaxMhz?:number;
+  radioProtocols?:string[];supportedVideoSystems?:string[];
+  chargerBatteryChemistries?:string[];chargerMinCells?:number;chargerMaxCells?:number;chargerConnectors?:string[];chargingConnectors?:string[];
+  deviceSignalInterface?:string;deviceMinVoltageV?:number;deviceMaxVoltageV?:number;
 };
-export type StockStatus =
-  | "unknown"
-  | "in_stock"
-  | "out_of_stock"
-  | "preorder"
-  | "backorder";
-export type Product = {
-  id: string;
-  category: Category;
-  name: string;
-  spec: string;
-  price: number;
-  weight: number;
-  stockStatus?: StockStatus;
-  image?: ProductImage;
-  frameInches?: number;
-  mount?: string;
-  propInches?: number;
-  motorSize?: number;
-  voltage?: number;
-  minVoltage?: number;
-  maxVoltage?: number;
-  connector?: string;
-  escInput?: string;
-  thrust?: number;
-  current?: number;
-  escAmps?: number;
-  batteryMah?: number;
-  video?: string;
-  cameraVideoInterface?: string;
-  cameraMinVoltageV?: number;
-  cameraMaxVoltageV?: number;
-  cameraWidthMm?: number;
-  cameraHeightMm?: number;
-  cameraDepthMm?: number;
-  fcCameraVideoInterfaces?: string[];
-  fcCameraPowerVoltagesV?: number[];
-  receiverProtocol?: string;
-  receiverSignalInterface?: string;
-  receiverFrequencyMinMhz?: number;
-  receiverFrequencyMaxMhz?: number;
-  receiverMinVoltageV?: number;
-  receiverMaxVoltageV?: number;
-  receiverWidthMm?: number;
-  receiverHeightMm?: number;
-  receiverDepthMm?: number;
-  fcReceiverSignalInterfaces?: string[];
-  fcReceiverPowerVoltagesV?: number[];
-};
-export type BuildSelection = Partial<Record<Category, string>>;
-export const categoryNames: Record<Category, string> = {
-  frame: "Frame",
-  motors: "Motors",
-  flightController: "Flight Controller",
-  esc: "ESC",
-  propellers: "Propellers",
-  battery: "Battery",
-  camera: "Camera",
-  receiver: "Receiver",
-};
+export type BuildSelection=Partial<Record<Category,string>>;
 // Static Phase 1 catalogue source. Access products through catalogue-service outside this module.
 // Demo specifications and prices are illustrative, not verified manufacturer listings or live offers.
 export const products: Product[] = [

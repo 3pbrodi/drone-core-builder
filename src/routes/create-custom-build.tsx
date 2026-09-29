@@ -110,7 +110,7 @@ function CreateCustomBuildPage() {
     ":" +
     catalogueSnapshot.products.map((product) => product.id).join(",") +
     ":" +
-    Object.values(initial).join("|");
+    Object.values(initial).join("|") + ":" + JSON.stringify(preferences ?? {});
 
   return (
     <BuildInterface

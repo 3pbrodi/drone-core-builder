@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { categories, type Category } from "./build-data";
+import { allCategoryIds, type Category } from "./build-data";
 
 const optionalText = z.preprocess(
   (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
@@ -125,7 +125,7 @@ export const productImportSchema = z
       .min(1)
       .max(128)
       .regex(/^[A-Za-z0-9][A-Za-z0-9._:-]*$/, "Use a stable ID with letters, numbers, . _ : or -."),
-    category: z.enum(categories),
+    category: z.enum(allCategoryIds),
     display_name: z.string().trim().min(1),
     manufacturer: optionalText,
     model: optionalText,
