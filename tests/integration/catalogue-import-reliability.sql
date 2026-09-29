@@ -524,6 +524,167 @@ begin
 end
 $$;
 
+
+-- Multiple distinct chunks within one run remain independently idempotent.
+do $
+declare
+  v_run_id uuid;
+begin
+  v_run_id := (
+    public.catalogue_get_or_create_import_run(
+      '10000000-0000-0000-0000-000000000002',
+      '10000000-0000-0000-0000-000000000001',
+      'integration-multi-chunk',1
+    )->>'runId'
+  )::uuid;
+  perform public.catalogue_upsert_import_manifest_items(
+    v_run_id,
+    jsonb_build_array(
+      jsonb_build_object('upstreamItemId','variant:chunk-a','sourceUrl','https://integration.invalid/chunk-a','itemKind','variant','discoveryStatus','ready','normalizedData',jsonb_build_object('id','chunk-a','category','motors','manufacturer','P0 Integration Manufacturer','model','Chunk A','variant','A','display_name','Chunk A','manufacturer_sku','CHUNK-A','source_external_product_id','variant:chunk-a','source_url','https://integration.invalid/chunk-a')),
+      jsonb_build_object('upstreamItemId','variant:chunk-b','sourceUrl','https://integration.invalid/chunk-b','itemKind','variant','discoveryStatus','ready','normalizedData',jsonb_build_object('id','chunk-b','category','motors','manufacturer','P0 Integration Manufacturer','model','Chunk B','variant','B','display_name','Chunk B','manufacturer_sku','CHUNK-B','source_external_product_id','variant:chunk-b','source_url','https://integration.invalid/chunk-b'))
+    ),
+    1,null,jsonb_build_object('pass',1,'insertedInPass',2),true
+  );
+
+  perform public.catalogue_stage_import_run_chunk(
+    v_run_id,'chunk-a',
+    jsonb_build_array(
+      jsonb_build_object('upstreamItemId','variant:chunk-a','outcome','ready','sourceUrl','https://integration.invalid/chunk-a','normalizedData',(select normalized_data from public.catalogue_import_run_items where run_id=v_run_id and upstream_item_id='variant:chunk-a'),'errors','[]'::jsonb)
+    )
+  );
+  perform public.catalogue_stage_import_run_chunk(
+    v_run_id,'chunk-b',
+    jsonb_build_array(
+      jsonb_build_object('upstreamItemId','variant:chunk-b','outcome','ready','sourceUrl','https://integration.invalid/chunk-b','normalizedData',(select normalized_data from public.catalogue_import_run_items where run_id=v_run_id and upstream_item_id='variant:chunk-b'),'errors','[]'::jsonb)
+    )
+  );
+
+  perform pg_temp.assert_true(
+    (select count(*)=2 from public.catalogue_import_batches where import_run_id=v_run_id),
+    'one logical run must support multiple durable chunks'
+  );
+  perform pg_temp.assert_true(
+    (select count(*)=2 from public.catalogue_import_rows where import_run_id=v_run_id),
+    'multiple chunks must retain one staging row per manifest item'
+  );
+end
+$;
+
+-- Every non-success discovery/processing outcome remains durably visible.
+do $
+declare
+  v_run_id uuid;
+begin
+  v_run_id := (
+    public.catalogue_get_or_create_import_run(
+      '10000000-0000-0000-0000-000000000002',
+      '10000000-0000-0000-0000-000000000001',
+      'integration-error-manifest',1
+    )->>'runId'
+  )::uuid;
+  perform public.catalogue_upsert_import_manifest_items(
+    v_run_id,
+    jsonb_build_array(
+      jsonb_build_object('upstreamItemId','page:fetch','sourceUrl','https://integration.invalid/fetch','itemKind','product_page','discoveryStatus','discovered'),
+      jsonb_build_object('upstreamItemId','page:parse','sourceUrl','https://integration.invalid/parse','itemKind','product_page','discoveryStatus','discovered'),
+      jsonb_build_object('upstreamItemId','page:excluded','sourceUrl','https://integration.invalid/excluded','itemKind','product_page','discoveryStatus','excluded','errors',jsonb_build_array('Excluded by adapter rule.'))
+    ),
+    1,null,jsonb_build_object('pass',1,'insertedInPass',3),true
+  );
+  perform public.catalogue_stage_import_run_chunk(
+    v_run_id,'errors',
+    jsonb_build_array(
+      jsonb_build_object('upstreamItemId','page:fetch','outcome','fetch_failed','sourceUrl','https://integration.invalid/fetch','errors',jsonb_build_array('simulated fetch failure'),'lastError','simulated fetch failure'),
+      jsonb_build_object('upstreamItemId','page:parse','outcome','parse_failed','sourceUrl','https://integration.invalid/parse','errors',jsonb_build_array('simulated parse failure'),'lastError','simulated parse failure'),
+      jsonb_build_object('upstreamItemId','page:excluded','outcome','excluded','sourceUrl','https://integration.invalid/excluded','errors',jsonb_build_array('Excluded by adapter rule.'))
+    )
+  );
+  perform public.catalogue_refresh_import_run_state(v_run_id);
+
+  perform pg_temp.assert_true(
+    (select count(*)=3 from public.catalogue_import_run_items where run_id=v_run_id),
+    'failed, parse-error and excluded discoveries must all remain in the manifest'
+  );
+  perform pg_temp.assert_true(
+    (select failed_count=2 and excluded_count=1 and status='resumable'
+     from public.catalogue_import_runs where id=v_run_id),
+    'run accounting must derive failed and excluded counts from durable item state'
+  );
+end
+$;
+
+-- Claimed items can be released immediately after an uncertain staging failure.
+do $
+declare
+  v_run_id uuid;
+  v_claim jsonb;
+  v_item_id bigint;
+  v_released jsonb;
+begin
+  v_run_id := (
+    public.catalogue_get_or_create_import_run(
+      '10000000-0000-0000-0000-000000000002',
+      '10000000-0000-0000-0000-000000000001',
+      'integration-claim-release',1
+    )->>'runId'
+  )::uuid;
+  perform public.catalogue_upsert_import_manifest_items(
+    v_run_id,
+    jsonb_build_array(
+      jsonb_build_object('upstreamItemId','variant:claim','sourceUrl','https://integration.invalid/claim','itemKind','variant','discoveryStatus','ready','normalizedData',jsonb_build_object('id','claim-item','category','motors','manufacturer','P0 Integration Manufacturer','model','Claim Item','variant','A','display_name','Claim Item','manufacturer_sku','CLAIM-1','source_external_product_id','variant:claim','source_url','https://integration.invalid/claim'))
+    ),
+    1,null,jsonb_build_object('pass',1,'insertedInPass',1),true
+  );
+  v_claim := public.catalogue_claim_import_run_items(v_run_id,1,3,false);
+  v_item_id := ((v_claim->'items'->0->>'id')::bigint);
+  perform pg_temp.assert_true(v_item_id is not null,'claim must return a durable item id');
+
+  v_released := public.catalogue_release_import_run_claims(
+    v_run_id,array[v_item_id],'simulated staging transport failure'
+  );
+  perform pg_temp.assert_true(
+    (v_released->>'releasedCount')::integer=1,
+    'uncertain staging failure must release an uncommitted processing claim'
+  );
+  perform pg_temp.assert_true(
+    (select processing_status='failed' and attempt_count=1
+     from public.catalogue_import_run_items where id=v_item_id),
+    'released claim must be retryable and count the failed attempt'
+  );
+
+  v_claim := public.catalogue_claim_import_run_items(v_run_id,1,3,false);
+  perform pg_temp.assert_true(
+    jsonb_array_length(v_claim->'items')=1,
+    'failed claim below max attempts must be immediately reclaimable'
+  );
+end
+$;
+
+-- Finalization before discovery is frozen is forbidden.
+do $
+declare
+  v_run_id uuid;
+  v_blocked boolean:=false;
+begin
+  v_run_id := (
+    public.catalogue_get_or_create_import_run(
+      '10000000-0000-0000-0000-000000000002',
+      '10000000-0000-0000-0000-000000000001',
+      'integration-incomplete-finalize',1
+    )->>'runId'
+  )::uuid;
+  begin
+    perform public.catalogue_finalize_import_run(v_run_id,false);
+  exception when others then
+    v_blocked:=true;
+  end;
+  perform pg_temp.assert_true(
+    v_blocked,
+    'run cannot be finalized before its discovery manifest is complete'
+  );
+end
+$;
+
 -- Final accounting is derived from durable item states.
 select public.catalogue_refresh_import_run_state(
   (select id from public.catalogue_import_runs where logical_run_id='integration-changing-source')
