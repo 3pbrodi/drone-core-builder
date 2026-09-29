@@ -1,0 +1,35 @@
+name: Format component architecture changes
+
+on:
+  push:
+    branches:
+      - feature/shared-drone-configurator
+    paths:
+      - ".github/workflows/format-component-architecture.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/shared-drone-configurator
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - name: Format changed TypeScript
+        run: |
+          bunx prettier --write             src/components/BuildInterface.tsx             src/lib/build-calculations.ts             src/lib/build-data.ts             src/lib/catalogue-database.server.ts             src/lib/catalogue-import.ts             src/lib/catalogue-service.ts             src/lib/component-categories.ts             src/lib/configurator-selection.ts             src/routes/ai-build.tsx             src/routes/create-custom-build.tsx             supabase/functions/catalogue-runtime/index.ts             tests/catalogue-runtime-transition.test.ts             tests/component-architecture.test.ts             tests/component-migration.test.ts             tests/extended-compatibility.test.ts
+      - name: Commit formatter result
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add             src/components/BuildInterface.tsx             src/lib/build-calculations.ts             src/lib/build-data.ts             src/lib/catalogue-database.server.ts             src/lib/catalogue-import.ts             src/lib/catalogue-service.ts             src/lib/component-categories.ts             src/lib/configurator-selection.ts             src/routes/ai-build.tsx             src/routes/create-custom-build.tsx             supabase/functions/catalogue-runtime/index.ts             tests/catalogue-runtime-transition.test.ts             tests/component-architecture.test.ts             tests/component-migration.test.ts             tests/extended-compatibility.test.ts
+          if ! git diff --cached --quiet; then
+            git commit -m "Format component architecture changes"
+            git push origin HEAD:feature/shared-drone-configurator
+          fi
