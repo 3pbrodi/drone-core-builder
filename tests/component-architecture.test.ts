@@ -9,6 +9,7 @@ import {
 } from "../src/lib/component-categories";
 import {
   integratedRequiredFulfillments,
+  physicalDroneProducts,
   requiredCategoriesForSelection,
   sectionCategoriesForSelection,
   selectionPriceSummary,
@@ -80,6 +81,17 @@ describe("shared component architecture", () => {
     });
     expect(sectionCategoriesForSelection("optional", { camera })).not.toContain("videoTransmitter");
   });
+  test("keeps Pilot Gear out of the physical drone parts list", () => {
+    const selected = {
+      frame: product({ id: "frame", category: "frame" }),
+      radioTransmitter: product({
+        id: "radio",
+        category: "radioTransmitter",
+      }),
+    };
+    expect(physicalDroneProducts(selected).map((item) => item.id)).toEqual(["frame"]);
+  });
+
   test("keeps Pilot Gear out of drone subtotal", () => {
     expect(
       selectionPriceSummary({
@@ -88,5 +100,19 @@ describe("shared component architecture", () => {
         radioTransmitter: product({ id: "radio", category: "radioTransmitter", price: 300 }),
       }),
     ).toEqual({ drone: 120, pilotGear: 300, overall: 420 });
+  });
+
+  test("does not double-count an integrated function as a second product", () => {
+    const camera = product({
+      id: "air-unit",
+      category: "camera",
+      price: 210,
+      integratedCategories: ["videoTransmitter", "antenna"],
+    });
+    expect(selectionPriceSummary({ camera })).toEqual({
+      drone: 210,
+      pilotGear: 0,
+      overall: 210,
+    });
   });
 });

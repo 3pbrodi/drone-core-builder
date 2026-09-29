@@ -56,6 +56,13 @@ export function integratedRequiredFulfillments(selected: SelectedProductMap) {
     return product ? [{ category, product }] : [];
   });
 }
+export function physicalDroneProducts(selected: SelectedProductMap): Product[] {
+  return Object.values(selected).filter(
+    (product): product is Product =>
+      Boolean(product) && categoryMetadata[product.category].installationRole === "drone",
+  );
+}
+
 export function selectionPriceSummary(selected: SelectedProductMap) {
   let drone = 0,
     pilotGear = 0;
