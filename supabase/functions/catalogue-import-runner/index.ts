@@ -1435,20 +1435,41 @@ async function advanceDurableProcessing(input: {
   const chunkKey = "items-" + stableImportFingerprint(
     claimed.items.map((item) => item.upstreamItemId).sort(),
   );
-  const staged = await adminRest<{
+  let staged: {
     runId: string;
     batchId: string;
     totalRows: number;
     validRows: number;
     invalidRows: number;
-  }>("rpc/catalogue_stage_import_run_chunk", {
-    method: "POST",
-    body: JSON.stringify({
-      p_run_id: input.run.runId,
-      p_chunk_key: chunkKey,
-      p_results: results,
-    }),
-  });
+  };
+  try {
+    staged = await adminRest<{
+      runId: string;
+      batchId: string;
+      totalRows: number;
+      validRows: number;
+      invalidRows: number;
+    }>("rpc/catalogue_stage_import_run_chunk", {
+      method: "POST",
+      body: JSON.stringify({
+        p_run_id: input.run.runId,
+        p_chunk_key: chunkKey,
+        p_results: results,
+      }),
+    });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Import chunk staging failed.";
+    await adminRest("rpc/catalogue_release_import_run_claims", {
+      method: "POST",
+      body: JSON.stringify({
+        p_run_id: input.run.runId,
+        p_item_ids: claimed.items.map((item) => item.id),
+        p_error: message.slice(0, 1000),
+      }),
+    }).catch(() => undefined);
+    throw error;
+  }
 
   let processed: Record<string, unknown> | null = null;
   if (Number(staged.totalRows ?? 0) > 0) {
