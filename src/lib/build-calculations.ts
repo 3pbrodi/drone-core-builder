@@ -1196,6 +1196,14 @@ export function evaluateCompatibilityRules(
     cameraFcPowerRule(selected, verification),
     receiverFcSignalRule(selected, verification),
     receiverFcPowerRule(selected, verification),
+    radioReceiverProtocolRule(selected, verification),
+    gogglesVideoSystemRule(selected, verification),
+    batteryChargerRule(selected, verification),
+    chargingAccessoryConnectorRule(selected, verification),
+    vtxCameraInterfaceRule(selected, verification),
+    vtxAntennaRule(selected, verification),
+    peripheralFcRule(selected, verification, "gps", "GPS_FC_INTEGRATION", "GPS / GNSS module"),
+    peripheralFcRule(selected, verification, "buzzer", "BUZZER_FC_INTEGRATION", "buzzer"),
   ];
 }
 
@@ -1245,9 +1253,11 @@ export function evaluate(
   const esc = selected.esc;
 
   const rules = evaluateCompatibilityRules(selected, verification, technicalEvidence);
-  const complete = categories.every((category) => !!selected[category]);
-  const count = categories.filter((category) => !!selected[category]).length;
-  const price = categories.reduce((sum, category) => sum + (selected[category]?.price ?? 0), 0);
+  const requiredCategories = requiredCategoriesForSelection(selected);
+  const complete = requiredCategories.every((category) => !!selected[category]);
+  const count = allCategoryIds.filter((category) => !!selected[category]).length;
+  const pricing = selectionPriceSummary(selected);
+  const price = pricing.overall;
 
   const warnings = rules
     .filter(
@@ -1315,6 +1325,9 @@ export function evaluate(
     selected,
     count,
     price,
+    dronePrice: pricing.drone,
+    pilotGearPrice: pricing.pilotGear,
+    totalPrice: pricing.overall,
     weight,
     speed,
     score,
@@ -1343,9 +1356,9 @@ export function candidateCheck(
   if (applicableRules.some((rule) => rule.status === "fail" && rule.evidenceLevel === "verified")) {
     status = "incompatible";
   } else if (
-    relevantRules.length > 0 &&
-    relevantRules.every(
-      (rule) => rule.applicable && rule.status === "pass" && rule.evidenceLevel === "verified",
+    applicableRules.length > 0 &&
+    applicableRules.every(
+      (rule) => rule.status === "pass" && rule.evidenceLevel === "verified",
     )
   ) {
     status = "verified-compatible";
