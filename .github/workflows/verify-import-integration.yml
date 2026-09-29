@@ -28,7 +28,7 @@ jobs:
           version: 2.118.0
 
       - name: Start disposable local Supabase
-        run: supabase start -x studio,imgproxy
+        run: supabase db start
 
       - name: Replay repository migrations from zero
         run: supabase db reset --local --yes
