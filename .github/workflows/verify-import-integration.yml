@@ -10,15 +10,6 @@ on:
       - "supabase/functions/_shared/catalogue-import-core.ts"
       - "tests/integration/**"
       - ".github/workflows/verify-import-integration.yml"
-  pull_request:
-    branches:
-      - main
-    paths:
-      - "supabase/migrations/**"
-      - "supabase/functions/catalogue-import-runner/**"
-      - "supabase/functions/_shared/catalogue-import-core.ts"
-      - "tests/integration/**"
-      - ".github/workflows/verify-import-integration.yml"
 
 permissions:
   contents: read
@@ -37,7 +28,7 @@ jobs:
           version: 2.118.0
 
       - name: Start disposable local Supabase
-        run: supabase start
+        run: supabase start -x studio,imgproxy
 
       - name: Replay repository migrations from zero
         run: supabase db reset --local --yes
