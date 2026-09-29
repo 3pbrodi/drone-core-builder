@@ -94,6 +94,30 @@ function toProduct(row: Record<string, any>) {
   optional(product, "receiverDepthMm", row.receiver_depth_mm);
   optional(product, "fcReceiverSignalInterfaces", row.fc_receiver_signal_interfaces);
   optional(product, "fcReceiverPowerVoltagesV", row.fc_receiver_power_voltages_v);
+  optional(product, "integratedCategories", row.integrated_categories);
+  optional(product, "includedCategories", row.included_categories);
+  optional(product, "batteryChemistry", row.battery_chemistry);
+  optional(product, "batteryConnector", row.battery_connector);
+  optional(product, "fcPeripheralInterfaces", row.fc_peripheral_interfaces);
+  optional(product, "fcPeripheralPowerVoltagesV", row.fc_peripheral_power_voltages_v);
+  optional(product, "videoTransmitterSystem", row.video_transmitter_system);
+  optional(product, "vtxCameraVideoInterfaces", row.vtx_camera_video_interfaces);
+  optional(product, "vtxAntennaConnector", row.vtx_antenna_connector);
+  optional(product, "vtxFrequencyMinMhz", row.vtx_frequency_min_mhz);
+  optional(product, "vtxFrequencyMaxMhz", row.vtx_frequency_max_mhz);
+  optional(product, "antennaConnector", row.antenna_connector);
+  optional(product, "antennaFrequencyMinMhz", row.antenna_frequency_min_mhz);
+  optional(product, "antennaFrequencyMaxMhz", row.antenna_frequency_max_mhz);
+  optional(product, "radioProtocols", row.radio_protocols);
+  optional(product, "supportedVideoSystems", row.supported_video_systems);
+  optional(product, "chargerBatteryChemistries", row.charger_battery_chemistries);
+  optional(product, "chargerMinCells", row.charger_min_cells);
+  optional(product, "chargerMaxCells", row.charger_max_cells);
+  optional(product, "chargerConnectors", row.charger_connectors);
+  optional(product, "chargingConnectors", row.charging_connectors);
+  optional(product, "deviceSignalInterface", row.device_signal_interface);
+  optional(product, "deviceMinVoltageV", row.device_min_voltage_v);
+  optional(product, "deviceMaxVoltageV", row.device_max_voltage_v);
 
   if (row.image_url) {
     product.image = {

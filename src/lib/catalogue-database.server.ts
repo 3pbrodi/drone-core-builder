@@ -63,6 +63,30 @@ type RuntimeProductRow = {
   last_checked_at: string | null;
   offer_region: string | null;
   record_class: "demo_seed" | "canonical";
+  integrated_categories?: Category[] | null;
+  included_categories?: Category[] | null;
+  battery_chemistry?: string | null;
+  battery_connector?: string | null;
+  fc_peripheral_interfaces?: string[] | null;
+  fc_peripheral_power_voltages_v?: number[] | null;
+  video_transmitter_system?: string | null;
+  vtx_camera_video_interfaces?: string[] | null;
+  vtx_antenna_connector?: string | null;
+  vtx_frequency_min_mhz?: number | null;
+  vtx_frequency_max_mhz?: number | null;
+  antenna_connector?: string | null;
+  antenna_frequency_min_mhz?: number | null;
+  antenna_frequency_max_mhz?: number | null;
+  radio_protocols?: string[] | null;
+  supported_video_systems?: string[] | null;
+  charger_battery_chemistries?: string[] | null;
+  charger_min_cells?: number | null;
+  charger_max_cells?: number | null;
+  charger_connectors?: string[] | null;
+  charging_connectors?: string[] | null;
+  device_signal_interface?: string | null;
+  device_min_voltage_v?: number | null;
+  device_max_voltage_v?: number | null;
 };
 
 export type DatabaseCatalogueLoadResult = {
@@ -90,7 +114,7 @@ function withOptionalString<K extends keyof Product>(
   key: K,
   value: string | null | undefined,
 ): Partial<Product> {
-  return value === null || value === "" ? {} : ({ [key]: value } as Partial<Product>);
+  return value == null || value === "" ? {} : ({ [key]: value } as Partial<Product>);
 }
 
 function withOptionalArray<K extends keyof Product>(
@@ -161,6 +185,30 @@ function runtimeRowToProduct(row: RuntimeProductRow): Product | null {
     ...withOptionalNumber("receiverDepthMm", row.receiver_depth_mm),
     ...withOptionalArray("fcReceiverSignalInterfaces", row.fc_receiver_signal_interfaces),
     ...withOptionalArray("fcReceiverPowerVoltagesV", row.fc_receiver_power_voltages_v),
+    ...withOptionalArray("integratedCategories", row.integrated_categories),
+    ...withOptionalArray("includedCategories", row.included_categories),
+    ...withOptionalString("batteryChemistry", row.battery_chemistry),
+    ...withOptionalString("batteryConnector", row.battery_connector),
+    ...withOptionalArray("fcPeripheralInterfaces", row.fc_peripheral_interfaces),
+    ...withOptionalArray("fcPeripheralPowerVoltagesV", row.fc_peripheral_power_voltages_v),
+    ...withOptionalString("videoTransmitterSystem", row.video_transmitter_system),
+    ...withOptionalArray("vtxCameraVideoInterfaces", row.vtx_camera_video_interfaces),
+    ...withOptionalString("vtxAntennaConnector", row.vtx_antenna_connector),
+    ...withOptionalNumber("vtxFrequencyMinMhz", row.vtx_frequency_min_mhz),
+    ...withOptionalNumber("vtxFrequencyMaxMhz", row.vtx_frequency_max_mhz),
+    ...withOptionalString("antennaConnector", row.antenna_connector),
+    ...withOptionalNumber("antennaFrequencyMinMhz", row.antenna_frequency_min_mhz),
+    ...withOptionalNumber("antennaFrequencyMaxMhz", row.antenna_frequency_max_mhz),
+    ...withOptionalArray("radioProtocols", row.radio_protocols),
+    ...withOptionalArray("supportedVideoSystems", row.supported_video_systems),
+    ...withOptionalArray("chargerBatteryChemistries", row.charger_battery_chemistries),
+    ...withOptionalNumber("chargerMinCells", row.charger_min_cells),
+    ...withOptionalNumber("chargerMaxCells", row.charger_max_cells),
+    ...withOptionalArray("chargerConnectors", row.charger_connectors),
+    ...withOptionalArray("chargingConnectors", row.charging_connectors),
+    ...withOptionalString("deviceSignalInterface", row.device_signal_interface),
+    ...withOptionalNumber("deviceMinVoltageV", row.device_min_voltage_v),
+    ...withOptionalNumber("deviceMaxVoltageV", row.device_max_voltage_v),
   };
 }
 
