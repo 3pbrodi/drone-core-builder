@@ -49,6 +49,15 @@ const optionalTextList = z.preprocess(
   z.array(z.string().min(1)).min(1).optional(),
 );
 
+const optionalCategoryList = z.preprocess(
+  (value) => {
+    if (Array.isArray(value)) return value;
+    if (typeof value !== "string" || value.trim() === "") return undefined;
+    return value.split("|").map((item) => item.trim()).filter(Boolean);
+  },
+  z.array(z.enum(allCategoryIds)).min(1).optional(),
+);
+
 const optionalPositiveNumberList = z.preprocess((value) => {
   if (Array.isArray(value)) return value;
   if (typeof value !== "string" || value.trim() === "") return undefined;
@@ -106,6 +115,30 @@ export const catalogueProductCsvColumns = [
   "receiver_depth_mm",
   "fc_receiver_signal_interfaces",
   "fc_receiver_power_voltages_v",
+  "integrated_categories",
+  "included_categories",
+  "battery_chemistry",
+  "battery_connector",
+  "fc_peripheral_interfaces",
+  "fc_peripheral_power_voltages_v",
+  "video_transmitter_system",
+  "vtx_camera_video_interfaces",
+  "vtx_antenna_connector",
+  "vtx_frequency_min_mhz",
+  "vtx_frequency_max_mhz",
+  "antenna_connector",
+  "antenna_frequency_min_mhz",
+  "antenna_frequency_max_mhz",
+  "radio_protocols",
+  "supported_video_systems",
+  "charger_battery_chemistries",
+  "charger_min_cells",
+  "charger_max_cells",
+  "charger_connectors",
+  "charging_connectors",
+  "device_signal_interface",
+  "device_min_voltage_v",
+  "device_max_voltage_v",
   "image_url",
   "image_source_url",
   "image_alt",
@@ -171,6 +204,30 @@ export const productImportSchema = z
     receiver_depth_mm: optionalPositiveNumber,
     fc_receiver_signal_interfaces: optionalTextList,
     fc_receiver_power_voltages_v: optionalPositiveNumberList,
+    integrated_categories: optionalCategoryList,
+    included_categories: optionalCategoryList,
+    battery_chemistry: optionalText,
+    battery_connector: optionalText,
+    fc_peripheral_interfaces: optionalTextList,
+    fc_peripheral_power_voltages_v: optionalPositiveNumberList,
+    video_transmitter_system: optionalText,
+    vtx_camera_video_interfaces: optionalTextList,
+    vtx_antenna_connector: optionalText,
+    vtx_frequency_min_mhz: optionalPositiveNumber,
+    vtx_frequency_max_mhz: optionalPositiveNumber,
+    antenna_connector: optionalText,
+    antenna_frequency_min_mhz: optionalPositiveNumber,
+    antenna_frequency_max_mhz: optionalPositiveNumber,
+    radio_protocols: optionalTextList,
+    supported_video_systems: optionalTextList,
+    charger_battery_chemistries: optionalTextList,
+    charger_min_cells: optionalPositiveInteger,
+    charger_max_cells: optionalPositiveInteger,
+    charger_connectors: optionalTextList,
+    charging_connectors: optionalTextList,
+    device_signal_interface: optionalText,
+    device_min_voltage_v: optionalPositiveNumber,
+    device_max_voltage_v: optionalPositiveNumber,
     image_url: optionalUrl,
     image_source_url: optionalUrl,
     image_alt: optionalText,
@@ -206,6 +263,10 @@ export const productImportSchema = z
       ["camera_min_voltage_v", "camera_max_voltage_v"],
       ["receiver_frequency_min_mhz", "receiver_frequency_max_mhz"],
       ["receiver_min_voltage_v", "receiver_max_voltage_v"],
+      ["vtx_frequency_min_mhz", "vtx_frequency_max_mhz"],
+      ["antenna_frequency_min_mhz", "antenna_frequency_max_mhz"],
+      ["device_min_voltage_v", "device_max_voltage_v"],
+      ["charger_min_cells", "charger_max_cells"],
     ] as const) {
       const minimum = row[minField];
       const maximum = row[maxField];
@@ -351,6 +412,25 @@ export function reviewIssuesForRow(row: CatalogueProductImportRow): string[] {
         "receiver_min_voltage_v",
         "receiver_max_voltage_v",
       ],
+      videoTransmitter: [
+        "video_transmitter_system",
+        "vtx_camera_video_interfaces",
+        "vtx_antenna_connector",
+        "vtx_frequency_min_mhz",
+        "vtx_frequency_max_mhz",
+      ],
+      gps: ["device_signal_interface", "device_min_voltage_v", "device_max_voltage_v"],
+      buzzer: ["device_signal_interface", "device_min_voltage_v", "device_max_voltage_v"],
+      antenna: ["antenna_connector", "antenna_frequency_min_mhz", "antenna_frequency_max_mhz"],
+      radioTransmitter: ["radio_protocols"],
+      fpvGoggles: ["supported_video_systems"],
+      batteryCharger: [
+        "charger_battery_chemistries",
+        "charger_min_cells",
+        "charger_max_cells",
+        "charger_connectors",
+      ],
+      chargingAccessory: ["charging_connectors"],
     };
 
   for (const field of compatibilityRequirements[row.category] ?? []) {
