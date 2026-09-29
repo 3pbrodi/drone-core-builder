@@ -1,1 +1,14 @@
 project_id = "krjwlyfxziqxdotdhjea"
+
+[functions.catalogue-runtime]
+verify_jwt = false
+
+[functions.catalogue-offer-refresh]
+verify_jwt = false
+
+[functions.catalogue-image-refresh]
+verify_jwt = false
+
+[functions.catalogue-import-runner]
+verify_jwt = false
+
