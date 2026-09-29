@@ -6,7 +6,9 @@ import {
 } from "../_shared/catalogue-import-core.ts";
 
 const JSON_HEADERS = { "Content-Type": "application/json; charset=utf-8" };
-const EXPECTED_TOKEN_SHA256 = "6b20b13426ac46cfbe69f75cb30378a87d535e94c4b4514dc7d821482fa758c0";
+const EXPECTED_TOKEN_SHA256 =
+  Deno.env.get("CATALOGUE_IMPORT_TOKEN_SHA256") ??
+  "6b20b13426ac46cfbe69f75cb30378a87d535e94c4b4514dc7d821482fa758c0";
 
 type AdapterRow = {
   id: string;
@@ -851,6 +853,623 @@ async function createCandidatesFromBatch(batchId: string, source: SourceRow, ada
   return { candidatesCreated, candidateFailures, evidenceSeedFailures };
 }
 
+
+type DurableRun = {
+  runId: string;
+  logicalRunId: string;
+  status: string;
+  manifestComplete: boolean;
+  manifestHash: string | null;
+  nextCursor: string | null;
+  discoveryState?: Record<string, unknown>;
+  hasMore: boolean;
+};
+
+type ClaimedRunItem = {
+  id: number;
+  upstreamItemId: string;
+  parentUpstreamItemId: string | null;
+  upstreamParentProductId: string | null;
+  upstreamVariantId: string | null;
+  itemKind: string;
+  sourceUrl: string;
+  discoveryOrdinal: number;
+  discoveryStatus: string;
+  processingStatus: string;
+  rawPayload: Record<string, unknown>;
+  normalizedData: Record<string, unknown> | null;
+  errors: string[];
+  attemptCount: number;
+};
+
+type ManifestItemInput = {
+  upstreamItemId: string;
+  sourceUrl: string;
+  itemKind: "product" | "product_page" | "variant";
+  discoveryStatus: "discovered" | "ready" | "excluded";
+  upstreamParentProductId?: string | null;
+  upstreamVariantId?: string | null;
+  rawPayload?: Record<string, unknown>;
+  normalizedData?: Record<string, unknown> | null;
+  errors?: string[];
+};
+
+type DiscoveryState = {
+  pass: number;
+  insertedInPass: number;
+};
+
+function discoveryState(value: Record<string, unknown> | undefined): DiscoveryState {
+  const pass = Math.max(1, Number(value?.pass ?? 1) || 1);
+  const insertedInPass = Math.max(0, Number(value?.insertedInPass ?? 0) || 0);
+  return { pass, insertedInPass };
+}
+
+function pageManifestId(url: string) {
+  return "page:url:" + url;
+}
+
+function parsedDiscoveryStatus(item: ParsedItem): "ready" | "excluded" | "discovered" {
+  if (!item.normalized) return "discovered";
+  if (item.errors.some((message) => message.includes("eligibility rules"))) return "excluded";
+  if (!item.normalized.category) return "discovered";
+  return "ready";
+}
+
+async function findActiveLogicalRunId(adapterId: string) {
+  const rows = await adminRest<Array<{ logical_run_id: string }>>(
+    "catalogue_import_runs?select=logical_run_id" +
+      "&adapter_id=eq." + encodeURIComponent(adapterId) +
+      "&status=in.(discovering,processing,resumable)" +
+      "&order=started_at.desc&limit=1",
+  ).catch(() => []);
+  return rows[0]?.logical_run_id ?? null;
+}
+
+async function getOrCreateDurableRun(
+  adapter: AdapterRow,
+  source: SourceRow,
+  requestedLogicalRunId: string,
+) {
+  let logicalRunId = requestedLogicalRunId.trim();
+  if (!logicalRunId) {
+    logicalRunId = await findActiveLogicalRunId(adapter.id) ?? "";
+  }
+  if (!logicalRunId) {
+    logicalRunId =
+      adapter.adapter_key + ":" + new Date().toISOString() + ":" + crypto.randomUUID().slice(0, 8);
+  }
+
+  return adminRest<DurableRun>("rpc/catalogue_get_or_create_import_run", {
+    method: "POST",
+    body: JSON.stringify({
+      p_adapter_id: adapter.id,
+      p_source_id: source.id,
+      p_logical_run_id: logicalRunId,
+      p_manifest_version: 1,
+    }),
+  });
+}
+
+async function readDurableRun(runId: string) {
+  const rows = await adminRest<Array<{
+    id: string;
+    logical_run_id: string;
+    status: string;
+    manifest_complete: boolean;
+    manifest_hash: string | null;
+    next_cursor: string | null;
+    discovery_state: Record<string, unknown> | null;
+    has_more: boolean;
+    discovered_count: number;
+    staged_count: number;
+    excluded_count: number;
+    failed_count: number;
+    review_count: number;
+    completed_count: number;
+    last_error: string | null;
+  }>>(
+    "catalogue_import_runs?select=*" +
+      "&id=eq." + encodeURIComponent(runId) +
+      "&limit=1",
+  );
+  return rows[0] ?? null;
+}
+
+async function upsertManifestItems(input: {
+  runId: string;
+  items: ManifestItemInput[];
+  pass: number;
+  nextCursor: string | null;
+  state: DiscoveryState;
+  complete: boolean;
+}) {
+  return adminRest<{
+    runId: string;
+    insertedCount: number;
+    discoveredCount: number;
+    manifestComplete: boolean;
+    manifestHash: string | null;
+    nextCursor: string | null;
+    discoveryState: DiscoveryState;
+  }>("rpc/catalogue_upsert_import_manifest_items", {
+    method: "POST",
+    body: JSON.stringify({
+      p_run_id: input.runId,
+      p_items: input.items,
+      p_discovery_pass: input.pass,
+      p_next_cursor: input.nextCursor,
+      p_discovery_state: input.state,
+      p_discovery_complete: input.complete,
+    }),
+  });
+}
+
+async function markRunError(runId: string, error: unknown, terminal = false) {
+  const message = error instanceof Error ? error.message : String(error ?? "Import run failed");
+  await adminRest("rpc/catalogue_mark_import_run_error", {
+    method: "POST",
+    body: JSON.stringify({
+      p_run_id: runId,
+      p_error: message.slice(0, 1000),
+      p_terminal: terminal,
+    }),
+  }).catch(() => undefined);
+}
+
+async function discoverSitemapManifestCandidates(config: Record<string, unknown>) {
+  const sitemapUrl = String(config.sitemapUrl ?? "").trim();
+  if (!sitemapUrl) throw new Error("Adapter config.sitemapUrl is required.");
+
+  const includePatterns = Array.isArray(config.includePatterns) ? config.includePatterns.map(String) : [];
+  const excludePatterns = Array.isArray(config.excludePatterns) ? config.excludePatterns.map(String) : [];
+  const productSitemapPatterns = Array.isArray(config.productSitemapPatterns)
+    ? config.productSitemapPatterns.map(String)
+    : [];
+  const productUrlPatterns = Array.isArray(config.productUrlPatterns)
+    ? config.productUrlPatterns.map(String)
+    : [];
+  const maxSitemapDocuments = Math.max(1, Math.min(Number(config.maxSitemapDocuments ?? 50), 200));
+  const maxDiscoveredProducts = Math.max(100, Math.min(Number(config.maxDiscoveredProducts ?? 10000), 50000));
+  const queue = [sitemapUrl];
+  const visited = new Set<string>();
+  const products = new Map<string, boolean>();
+
+  while (queue.length && visited.size < maxSitemapDocuments && products.size < maxDiscoveredProducts) {
+    const current = queue.shift()!;
+    if (visited.has(current)) continue;
+    visited.add(current);
+    const xml = await fetchText(current, "application/xml,text/xml;q=0.9,*/*;q=0.5", {
+      retryAttempts: Number(config.retryAttempts ?? 3),
+      retryBaseDelayMs: Number(config.retryBaseDelayMs ?? 1000),
+    });
+    const locs = xmlLocs(xml);
+    if (/<sitemapindex\b/i.test(xml)) {
+      const children = productSitemapPatterns.length
+        ? locs.filter((loc) => matchesAnyPattern(loc, productSitemapPatterns))
+        : locs.filter((loc) => /sitemap/i.test(loc));
+      for (const child of children) if (!visited.has(child)) queue.push(child);
+      continue;
+    }
+
+    for (const loc of locs) {
+      const productMatch = productUrlPatterns.length
+        ? matchesAnyPattern(loc, productUrlPatterns)
+        : includePatterns.length
+          ? matchesAnyPattern(loc, includePatterns)
+          : true;
+      if (!productMatch) continue;
+      const excluded = excludePatterns.some((pattern) => matchesPattern(loc, pattern));
+      products.set(loc, excluded);
+      if (products.size >= maxDiscoveredProducts) break;
+    }
+  }
+
+  return [...products.entries()]
+    .map(([url, excluded]) => ({ url, excluded }))
+    .sort((a, b) => a.url.localeCompare(b.url));
+}
+
+async function discoverCategoryManifestCandidates(config: Record<string, unknown>) {
+  const listingUrls = Array.isArray(config.listingUrls) ? config.listingUrls.map(String) : [];
+  if (!listingUrls.length) throw new Error("Adapter config.listingUrls is required for category_html.");
+  const productUrlPatterns = Array.isArray(config.productUrlPatterns) ? config.productUrlPatterns.map(String) : [];
+  const excludePatterns = Array.isArray(config.excludePatterns) ? config.excludePatterns.map(String) : [];
+  const products = new Map<string, boolean>();
+
+  for (const listingUrl of listingUrls) {
+    const html = await fetchText(listingUrl, "text/html,application/xhtml+xml", {
+      retryAttempts: Number(config.retryAttempts ?? 3),
+      retryBaseDelayMs: Number(config.retryBaseDelayMs ?? 1000),
+    });
+    for (const url of htmlLinks(html, listingUrl)) {
+      const productMatch = productUrlPatterns.length ? matchesAnyPattern(url, productUrlPatterns) : true;
+      if (!productMatch) continue;
+      const excluded = excludePatterns.some((pattern) => matchesPattern(url, pattern));
+      products.set(url, excluded);
+    }
+  }
+
+  return [...products.entries()]
+    .map(([url, excluded]) => ({ url, excluded }))
+    .sort((a, b) => a.url.localeCompare(b.url));
+}
+
+async function persistDiscoveryPage(
+  run: DurableRun,
+  pass: number,
+  state: DiscoveryState,
+  items: ManifestItemInput[],
+  nextCursor: string | null,
+  sourceHasMore: boolean,
+) {
+  const first = await upsertManifestItems({
+    runId: run.runId,
+    items,
+    pass,
+    nextCursor,
+    state,
+    complete: false,
+  });
+  const insertedInPass = state.insertedInPass + Number(first.insertedCount ?? 0);
+
+  if (sourceHasMore) {
+    const nextState = { pass, insertedInPass };
+    await upsertManifestItems({
+      runId: run.runId,
+      items: [],
+      pass,
+      nextCursor,
+      state: nextState,
+      complete: false,
+    });
+    return {
+      complete: false,
+      nextCursor,
+      state: nextState,
+      insertedCount: Number(first.insertedCount ?? 0),
+      discoveredCount: first.discoveredCount,
+    };
+  }
+
+  if (pass >= 2 && insertedInPass === 0) {
+    const finalState = { pass, insertedInPass: 0 };
+    const finalized = await upsertManifestItems({
+      runId: run.runId,
+      items: [],
+      pass,
+      nextCursor: null,
+      state: finalState,
+      complete: true,
+    });
+    return {
+      complete: true,
+      nextCursor: null,
+      state: finalState,
+      insertedCount: Number(first.insertedCount ?? 0),
+      discoveredCount: finalized.discoveredCount,
+      manifestHash: finalized.manifestHash,
+    };
+  }
+
+  const nextState = { pass: pass + 1, insertedInPass: 0 };
+  await upsertManifestItems({
+    runId: run.runId,
+    items: [],
+    pass,
+    nextCursor: null,
+    state: nextState,
+    complete: false,
+  });
+  return {
+    complete: false,
+    nextCursor: null,
+    state: nextState,
+    insertedCount: Number(first.insertedCount ?? 0),
+    discoveredCount: first.discoveredCount,
+  };
+}
+
+async function advanceDurableDiscovery(
+  run: DurableRun,
+  adapter: AdapterRow,
+  source: SourceRow,
+  limit: number,
+) {
+  const config = adapter.config ?? {};
+  const mode = String(config.discoveryMode ?? "sitemap").trim();
+  const state = discoveryState(run.discoveryState);
+  const pass = state.pass;
+
+  if (mode === "shopify_products_json") {
+    const page = Math.max(1, Number.parseInt(run.nextCursor ?? "1", 10) || 1);
+    const pageSize = Math.min(Math.max(limit, 25), 250);
+    const products = await fetchShopifyProducts(config, page, pageSize);
+    const parsed = products.flatMap((product) =>
+      normalizeShopifyProductVariants(product, source, config)
+    );
+    const items: ManifestItemInput[] = parsed.flatMap((item) => {
+      const upstreamItemId = String(item.normalized?.source_external_product_id ?? "").trim();
+      if (!upstreamItemId) return [];
+      return [{
+        upstreamItemId,
+        sourceUrl: item.url,
+        itemKind: "variant",
+        discoveryStatus: parsedDiscoveryStatus(item),
+        upstreamParentProductId:
+          item.normalized?.source_external_parent_product_id == null
+            ? null
+            : String(item.normalized.source_external_parent_product_id),
+        upstreamVariantId:
+          item.normalized?.source_external_variant_id == null
+            ? null
+            : String(item.normalized.source_external_variant_id),
+        rawPayload: {
+          source: "shopify_products_json",
+          discoveryPage: page,
+        },
+        normalizedData: item.normalized,
+        errors: item.errors,
+      }];
+    });
+    const sourceHasMore = products.length === pageSize;
+    return persistDiscoveryPage(
+      run,
+      pass,
+      state,
+      items,
+      sourceHasMore ? String(page + 1) : null,
+      sourceHasMore,
+    );
+  }
+
+  const candidates = mode === "category_html"
+    ? await discoverCategoryManifestCandidates(config)
+    : await discoverSitemapManifestCandidates(config);
+  const after = run.nextCursor ?? "";
+  const discoveryLimit = Math.min(Math.max(limit * 4, 100), 1000);
+  const remaining = candidates.filter((item) => !after || item.url > after);
+  const selected = remaining.slice(0, discoveryLimit);
+  const sourceHasMore = remaining.length > selected.length;
+  const nextCursor = sourceHasMore ? selected[selected.length - 1]?.url ?? null : null;
+  const items: ManifestItemInput[] = selected.map(({ url, excluded }) => ({
+    upstreamItemId: pageManifestId(url),
+    sourceUrl: url,
+    itemKind: "product_page",
+    discoveryStatus: excluded ? "excluded" : "discovered",
+    rawPayload: {
+      source: mode,
+      excludedByAdapterRule: excluded,
+    },
+    errors: excluded ? ["Excluded by adapter discovery rule."] : [],
+  }));
+
+  return persistDiscoveryPage(run, pass, state, items, nextCursor, sourceHasMore);
+}
+
+async function findStagedRunBatch(runId: string) {
+  const items = await adminRest<Array<{ batch_id: string | null }>>(
+    "catalogue_import_run_items?select=batch_id" +
+      "&run_id=eq." + encodeURIComponent(runId) +
+      "&processing_status=eq.staged" +
+      "&batch_id=not.is.null" +
+      "&order=discovery_ordinal.asc&limit=1",
+  );
+  return items[0]?.batch_id ?? null;
+}
+
+async function processDurableBatch(batchId: string, createCandidates: boolean) {
+  return adminRest<Record<string, unknown>>("rpc/catalogue_process_import_batch", {
+    method: "POST",
+    body: JSON.stringify({
+      p_batch_id: batchId,
+      p_create_candidates: createCandidates,
+      p_reviewer: "DroneCores durable manufacturer importer",
+    }),
+  });
+}
+
+async function claimRunItems(
+  runId: string,
+  limit: number,
+  maxAttempts: number,
+  retryExhausted: boolean,
+) {
+  return adminRest<{ runId: string; items: ClaimedRunItem[] }>(
+    "rpc/catalogue_claim_import_run_items",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        p_run_id: runId,
+        p_limit: Math.min(limit, 500),
+        p_max_attempts: maxAttempts,
+        p_retry_exhausted: retryExhausted,
+      }),
+    },
+  );
+}
+
+function resultForStoredVariant(item: ClaimedRunItem) {
+  if (!item.normalizedData) {
+    return {
+      upstreamItemId: item.upstreamItemId,
+      outcome: "parse_failed",
+      sourceUrl: item.sourceUrl,
+      errors: item.errors,
+      lastError: "Stored manufacturer variant has no normalized data.",
+    };
+  }
+  return {
+    upstreamItemId: item.upstreamItemId,
+    outcome: "ready",
+    sourceUrl: item.sourceUrl,
+    upstreamParentProductId: item.upstreamParentProductId,
+    upstreamVariantId: item.upstreamVariantId,
+    normalizedData: item.normalizedData,
+    errors: item.errors,
+    rawData: {
+      sourceProductUrl: item.sourceUrl,
+      upstreamItemId: item.upstreamItemId,
+    },
+  };
+}
+
+async function processClaimedPageItem(
+  item: ClaimedRunItem,
+  source: SourceRow,
+  config: Record<string, unknown>,
+) {
+  try {
+    const html = await fetchText(item.sourceUrl, "text/html,application/xhtml+xml", {
+      retryAttempts: Number(config.retryAttempts ?? 3),
+      retryBaseDelayMs: Number(config.retryBaseDelayMs ?? 1000),
+    });
+    const parsed = normalizeProductPageVariants(item.sourceUrl, html, source, config);
+    if (!parsed.length) {
+      return [{
+        upstreamItemId: item.upstreamItemId,
+        outcome: "parse_failed",
+        sourceUrl: item.sourceUrl,
+        errors: ["No product variant could be parsed from the manufacturer page."],
+        lastError: "No product variant could be parsed from the manufacturer page.",
+      }];
+    }
+
+    const results: Record<string, unknown>[] = [{
+      upstreamItemId: item.upstreamItemId,
+      outcome: "expanded",
+      sourceUrl: item.sourceUrl,
+      errors: [],
+    }];
+
+    parsed.forEach((parsedItem, index) => {
+      const normalized = parsedItem.normalized;
+      const upstreamItemId = String(
+        normalized?.source_external_product_id ??
+          item.upstreamItemId + ":parsed:" + stableImportFingerprint([index, parsedItem.url]),
+      );
+      const outcome = !normalized
+        ? "parse_failed"
+        : parsedItem.errors.some((message) => message.includes("eligibility rules"))
+          ? "excluded"
+          : normalized.category
+            ? "ready"
+            : "parse_failed";
+      results.push({
+        upstreamItemId,
+        parentUpstreamItemId: item.upstreamItemId,
+        upstreamParentProductId:
+          normalized?.source_external_parent_product_id ?? item.upstreamParentProductId,
+        upstreamVariantId: normalized?.source_external_variant_id ?? null,
+        itemKind: "variant",
+        outcome,
+        sourceUrl: parsedItem.url,
+        normalizedData: normalized,
+        errors: parsedItem.errors,
+        lastError: outcome === "parse_failed"
+          ? parsedItem.errors.join(" | ") || "Product parsing failed."
+          : null,
+        rawPayload: {
+          source: "manufacturer_product_page",
+          parentUpstreamItemId: item.upstreamItemId,
+        },
+        rawData: {
+          sourceProductUrl: parsedItem.url,
+          upstreamItemId,
+        },
+      });
+    });
+
+    return results;
+  } catch (error) {
+    return [{
+      upstreamItemId: item.upstreamItemId,
+      outcome: "fetch_failed",
+      sourceUrl: item.sourceUrl,
+      errors: [error instanceof Error ? error.message : "Product fetch failed."],
+      lastError: error instanceof Error ? error.message : "Product fetch failed.",
+    }];
+  }
+}
+
+async function advanceDurableProcessing(input: {
+  run: DurableRun;
+  source: SourceRow;
+  adapter: AdapterRow;
+  limit: number;
+  maxAttempts: number;
+  retryExhausted: boolean;
+  createCandidates: boolean;
+}) {
+  const existingBatchId = await findStagedRunBatch(input.run.runId);
+  if (existingBatchId) {
+    const processed = await processDurableBatch(existingBatchId, input.createCandidates);
+    return { phase: "recovered_batch", batchId: existingBatchId, processed };
+  }
+
+  const claimed = await claimRunItems(
+    input.run.runId,
+    input.limit,
+    input.maxAttempts,
+    input.retryExhausted,
+  );
+  if (!claimed.items.length) {
+    const state = await adminRest<Record<string, unknown>>(
+      "rpc/catalogue_refresh_import_run_state",
+      { method: "POST", body: JSON.stringify({ p_run_id: input.run.runId }) },
+    );
+    return { phase: "idle", state };
+  }
+
+  const resultGroups = await mapConcurrent(
+    claimed.items,
+    Math.max(1, Math.min(Number(input.adapter.config?.concurrency ?? 3), 8)),
+    async (item) => {
+      if (item.itemKind === "variant" && item.normalizedData) {
+        return [resultForStoredVariant(item)];
+      }
+      return processClaimedPageItem(item, input.source, input.adapter.config ?? {});
+    },
+  );
+  const results = resultGroups.flat();
+  const chunkKey = "items-" + stableImportFingerprint(
+    claimed.items.map((item) => item.upstreamItemId).sort(),
+  );
+  const staged = await adminRest<{
+    runId: string;
+    batchId: string;
+    totalRows: number;
+    validRows: number;
+    invalidRows: number;
+  }>("rpc/catalogue_stage_import_run_chunk", {
+    method: "POST",
+    body: JSON.stringify({
+      p_run_id: input.run.runId,
+      p_chunk_key: chunkKey,
+      p_results: results,
+    }),
+  });
+
+  let processed: Record<string, unknown> | null = null;
+  if (Number(staged.totalRows ?? 0) > 0) {
+    processed = await processDurableBatch(staged.batchId, input.createCandidates);
+  } else {
+    processed = await adminRest<Record<string, unknown>>(
+      "rpc/catalogue_refresh_import_run_state",
+      { method: "POST", body: JSON.stringify({ p_run_id: input.run.runId }) },
+    );
+  }
+
+  return {
+    phase: "processed_chunk",
+    chunkKey,
+    claimedCount: claimed.items.length,
+    resultCount: results.length,
+    staged,
+    processed,
+  };
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") {
     return new Response(JSON.stringify({ error: "Method not allowed" }), {
@@ -871,10 +1490,16 @@ Deno.serve(async (req: Request) => {
   const adapterKey = String(body.adapterKey ?? "").trim();
   const dryRun = body.dryRun !== false;
   const createCandidates = body.createCandidates === true;
-  const requestedLimit = Math.max(1, Math.min(Number(body.limit ?? 100), 1000));
+  const requestedLimit = Math.max(1, Math.min(Number(body.limit ?? 100), 500));
   const rawCursor = String(body.cursor ?? "").trim();
   const requestedCursor = Math.max(0, Number.parseInt(rawCursor || "0", 10) || 0);
-  const requestedSourceRunId = String(body.sourceRunId ?? "").trim();
+  const requestedLogicalRunId = String(
+    body.logicalRunId ?? body.sourceRunId ?? "",
+  ).trim();
+  const retryExhausted = body.retryFailed === true;
+  const maxAttempts = Math.max(1, Math.min(Number(body.maxAttempts ?? 3), 20));
+  const finalize = body.finalize === true;
+  const allowFinalizeWithErrors = body.allowFinalizeWithErrors === true;
 
   if (!adapterKey) {
     return new Response(JSON.stringify({ error: "adapterKey is required" }), {
@@ -884,6 +1509,7 @@ Deno.serve(async (req: Request) => {
   }
 
   let adapterForStatus: AdapterRow | null = null;
+  let activeRunId: string | null = null;
 
   try {
     const adapters = await adminRest<AdapterRow[]>(
@@ -907,17 +1533,17 @@ Deno.serve(async (req: Request) => {
 
     await updateAdapterStatus(adapter.id, {
       last_started_at: new Date().toISOString(),
-      last_status: "running",
+      last_status: dryRun ? "dry_run_running" : "running",
     });
 
-    const limit = Math.min(requestedLimit, adapter.max_batch_size || 500);
-    const discovery = await discoverAdapterBatch(adapter.config ?? {}, source, requestedCursor, limit);
-    const parsed = discovery.parsed as ParsedItem[];
-    const eligible = parsed.filter(isEligibleParsedItem);
-    const skipped = parsed.length - eligible.length;
-    const failures = parsed.filter((item) => !item.normalized);
-
+    // Dry-run remains side-effect-light and exercises the live source parser
+    // without creating durable run rows.
     if (dryRun) {
+      const limit = Math.min(requestedLimit, adapter.max_batch_size || 500);
+      const discovery = await discoverAdapterBatch(adapter.config ?? {}, source, requestedCursor, limit);
+      const parsed = discovery.parsed as ParsedItem[];
+      const eligible = parsed.filter(isEligibleParsedItem);
+      const failures = parsed.filter((item) => !item.normalized);
       await updateAdapterStatus(adapter.id, {
         last_completed_at: new Date().toISOString(),
         last_status: "dry_run_completed",
@@ -929,7 +1555,7 @@ Deno.serve(async (req: Request) => {
         discovered: discovery.selectedUrls.length,
         totalAvailable: discovery.totalAvailable,
         stageable: eligible.length,
-        skipped,
+        skipped: parsed.length - eligible.length,
         failed: failures.length,
         nextCursor: discovery.nextCursor,
         hasMore: discovery.hasMore,
@@ -939,109 +1565,106 @@ Deno.serve(async (req: Request) => {
       }), { headers: JSON_HEADERS });
     }
 
-    const runId = requestedSourceRunId || crypto.randomUUID();
-    const batchRows = await adminRest<Array<{ id: string }>>(
-      "catalogue_import_batches",
-      {
-        method: "POST",
-        body: JSON.stringify({
-          source_id: source.id,
-          adapter_id: adapter.id,
-          file_name: adapter.adapter_key + "-" + new Date().toISOString(),
-          import_kind: "products",
-          status: "staged",
-          total_rows: eligible.length,
-          valid_rows: eligible.length,
-          invalid_rows: 0,
-          notes: "Automated official-manufacturer adapter run " + runId,
-          source_run_id: runId,
-          source_cursor: rawCursor || null,
-        }),
-      },
-      "return=representation",
+    const run = await getOrCreateDurableRun(
+      adapter,
+      source,
+      requestedLogicalRunId,
     );
-    const batchId = batchRows[0]?.id;
-    if (!batchId) throw new Error("Import batch could not be created.");
+    activeRunId = run.runId;
 
-    const rows = eligible.map((item, index) => {
-      const advisoryOnly = item.errors.every((message) =>
-        message.includes("No SKU/MPN") || message.includes("No manufacturer image")
-      );
-      return {
-        batch_id: batchId,
-        row_number: index + 1,
-        proposed_product_id: item.normalized?.id ?? null,
-        raw_data: {
-          sourceProductUrl: item.url,
-          adapterKey,
-          adapterVersion: adapter.version,
-          discoveryCursor: rawCursor || null,
+    if (finalize) {
+      const state = await adminRest<Record<string, unknown>>(
+        "rpc/catalogue_finalize_import_run",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            p_run_id: run.runId,
+            p_allow_errors: allowFinalizeWithErrors,
+          }),
         },
-        normalized_data: item.normalized,
-        status: item.errors.length === 0 || advisoryOnly ? "validated" : "needs_review",
-        validation_errors: item.errors,
-      };
-    });
-
-    const insertChunkSize = Math.min(adapter.max_batch_size || 500, 500);
-    for (let index = 0; index < rows.length; index += insertChunkSize) {
-      await adminRest("catalogue_import_rows", {
-        method: "POST",
-        body: JSON.stringify(rows.slice(index, index + insertChunkSize)),
+      );
+      await updateAdapterStatus(adapter.id, {
+        last_completed_at: new Date().toISOString(),
+        last_status: String(state.status ?? "completed"),
       });
+      return new Response(JSON.stringify({
+        dryRun: false,
+        adapterKey,
+        logicalRunId: run.logicalRunId,
+        runId: run.runId,
+        phase: "finalized",
+        state,
+      }), { headers: JSON_HEADERS });
     }
 
-    const dedupe = await adminRest<Record<string, unknown>>(
-      "rpc/catalogue_run_import_dedupe",
-      { method: "POST", body: JSON.stringify({ p_batch_id: batchId }) },
-    );
+    if (!run.manifestComplete) {
+      const discovery = await advanceDurableDiscovery(
+        run,
+        adapter,
+        source,
+        Math.min(requestedLimit, adapter.max_batch_size || 500),
+      );
+      const state = await readDurableRun(run.runId);
+      await updateAdapterStatus(adapter.id, {
+        last_completed_at: new Date().toISOString(),
+        last_status: discovery.complete ? "resumable" : "discovering",
+      });
+      return new Response(JSON.stringify({
+        dryRun: false,
+        adapterKey,
+        logicalRunId: run.logicalRunId,
+        runId: run.runId,
+        phase: "discovery",
+        discovery,
+        state,
+      }), { headers: JSON_HEADERS });
+    }
 
-    const linked = await adminRest<{ linkedRows?: number }>(
-      "rpc/catalogue_link_exact_import_matches",
-      {
-        method: "POST",
-        body: JSON.stringify({
-          p_batch_id: batchId,
-          p_reviewer: "DroneCores official-manufacturer importer",
-          p_notes: "Exact identity matches attach this official source to the existing canonical product. Verified canonical specifications are not overwritten.",
-        }),
-      },
-    ).catch(() => ({ linkedRows: 0 }));
+    let processing: Record<string, unknown>;
+    try {
+      processing = await advanceDurableProcessing({
+        run,
+        source,
+        adapter,
+        limit: Math.min(requestedLimit, adapter.max_batch_size || 500),
+        maxAttempts,
+        retryExhausted,
+        createCandidates,
+      }) as Record<string, unknown>;
+    } catch (error) {
+      await markRunError(run.runId, error, false);
+      throw error;
+    }
 
-    const candidateResult = createCandidates
-      ? await createCandidatesFromBatch(batchId, source, adapter)
-      : { candidatesCreated: 0, candidateFailures: [], evidenceSeedFailures: [] };
-
+    const state = await readDurableRun(run.runId);
+    const finalStatus = state?.status ?? "resumable";
     await updateAdapterStatus(adapter.id, {
       last_completed_at: new Date().toISOString(),
-      last_status: "completed",
+      last_status: finalStatus,
     });
 
     return new Response(JSON.stringify({
       dryRun: false,
       adapterKey,
-      batchId,
-      sourceRunId: runId,
-      cursor: rawCursor || null,
-      discovered: discovery.selectedUrls.length,
-      totalAvailable: discovery.totalAvailable,
-      staged: rows.length,
-      skipped,
-      nextCursor: discovery.nextCursor,
-      hasMore: discovery.hasMore,
-      dedupe,
-      linkedExactMatches: Number(linked?.linkedRows ?? 0),
-      ...candidateResult,
+      logicalRunId: run.logicalRunId,
+      runId: run.runId,
+      phase: "processing",
+      processing,
+      state,
     }), { headers: JSON_HEADERS });
   } catch (error) {
+    if (activeRunId) {
+      await markRunError(activeRunId, error, false);
+    }
     if (adapterForStatus?.id) {
       await updateAdapterStatus(adapterForStatus.id, {
         last_completed_at: new Date().toISOString(),
-        last_status: "failed",
+        last_status: activeRunId ? "resumable" : "failed",
       }).catch(() => undefined);
     }
     return new Response(JSON.stringify({
       error: error instanceof Error ? error.message : "Import runner failed",
+      ...(activeRunId ? { runId: activeRunId, resumable: true } : {}),
     }), { status: 500, headers: JSON_HEADERS });
   }
 });
