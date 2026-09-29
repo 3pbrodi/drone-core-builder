@@ -98,6 +98,16 @@ select pg_temp.assert_true(
   'same logical run must create exactly one durable run'
 );
 
+
+-- Production importer calls these RPCs through service_role, not postgres.
+set local role service_role;
+select public.catalogue_get_or_create_import_run(
+  '10000000-0000-0000-0000-000000000002',
+  '10000000-0000-0000-0000-000000000001',
+  'integration-service-role-smoke',1
+);
+reset role;
+
 -- Source changes between discovery pages/passes. Pass 1 sees A/B, pass 2 sees
 -- B/C, pass 3 confirms B/C. A must become a durable excluded manifest item.
 select public.catalogue_get_or_create_import_run(
