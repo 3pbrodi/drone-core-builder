@@ -1,7 +1,5 @@
 export type IdentityConflict =
-  | "repeated_manufacturer_sku"
-  | "repeated_mpn"
-  | "missing_stable_variant_identity";
+  "repeated_manufacturer_sku" | "repeated_mpn" | "missing_stable_variant_identity";
 
 export type UpstreamVariantDescriptor = {
   upstreamItemId: string;
@@ -109,14 +107,9 @@ function meaningfulVariantLabel(variant: ShopifyVariant) {
   return options.length ? options.join(" / ") : null;
 }
 
-function shopifyVariantImage(
-  product: ShopifyProduct,
-  variant: ShopifyVariant,
-  baseUrl: string,
-) {
+function shopifyVariantImage(product: ShopifyProduct, variant: ShopifyVariant, baseUrl: string) {
   const direct =
-    absoluteUrl(variant.featured_image?.src, baseUrl) ??
-    absoluteUrl(variant.image?.src, baseUrl);
+    absoluteUrl(variant.featured_image?.src, baseUrl) ?? absoluteUrl(variant.image?.src, baseUrl);
   if (direct) return direct;
 
   const variantId = variant.id == null ? null : String(variant.id);
@@ -160,12 +153,8 @@ export function enumerateShopifyProductVariants(
 
   const variants =
     product.variants && product.variants.length > 0 ? product.variants : ([{}] as ShopifyVariant[]);
-  const repeatedSkus = repeatedNormalizedValues(
-    variants.map((variant) => cleanText(variant.sku)),
-  );
-  const repeatedMpns = repeatedNormalizedValues(
-    variants.map((variant) => cleanText(variant.mpn)),
-  );
+  const repeatedSkus = repeatedNormalizedValues(variants.map((variant) => cleanText(variant.sku)));
+  const repeatedMpns = repeatedNormalizedValues(variants.map((variant) => cleanText(variant.mpn)));
 
   return variants.map((variant, index) => {
     const variantLabel = meaningfulVariantLabel(variant);
@@ -229,8 +218,7 @@ export function enumerateShopifyProductVariants(
 
 function parseJsonLd(html: string) {
   const parsed: unknown[] = [];
-  const expression =
-    /<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+  const expression = /<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
   for (const match of html.matchAll(expression)) {
     const raw = match[1]?.trim();
     if (!raw) continue;
@@ -346,12 +334,8 @@ export function enumerateJsonLdProductVariants(
     pageUrl;
   const parentId = "jsonld:product:" + stableImportFingerprint(parentIdentity);
 
-  const repeatedSkus = repeatedNormalizedValues(
-    products.map((product) => cleanText(product.sku)),
-  );
-  const repeatedMpns = repeatedNormalizedValues(
-    products.map((product) => cleanText(product.mpn)),
-  );
+  const repeatedSkus = repeatedNormalizedValues(products.map((product) => cleanText(product.sku)));
+  const repeatedMpns = repeatedNormalizedValues(products.map((product) => cleanText(product.mpn)));
 
   const seen = new Set<string>();
   const descriptors: UpstreamVariantDescriptor[] = [];
@@ -395,10 +379,11 @@ export function enumerateJsonLdProductVariants(
     seen.add(upstreamItemId);
 
     const name = cleanText(product.name);
-    const model = parent ? parentModel : name ?? parentModel;
-    const displayName = variant && normalizeIdentity(variant) !== normalizeIdentity(model)
-      ? model + " — " + variant
-      : model;
+    const model = parent ? parentModel : (name ?? parentModel);
+    const displayName =
+      variant && normalizeIdentity(variant) !== normalizeIdentity(model)
+        ? model + " — " + variant
+        : model;
     const sourceUrl = absoluteUrl(product.url, pageUrl) ?? pageUrl;
 
     descriptors.push({
