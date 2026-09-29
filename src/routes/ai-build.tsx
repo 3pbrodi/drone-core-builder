@@ -95,6 +95,8 @@ function AiBuildPage() {
         source: "ai",
         budget,
         ...(selectedPriorities.length ? { priorities: selectedPriorities.join(",") } : {}),
+        ...(color ? { color } : {}),
+        ...(wishes.trim() ? { wishes: wishes.trim().slice(0, 500) } : {}),
       },
     });
   };

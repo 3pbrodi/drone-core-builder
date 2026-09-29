@@ -81,6 +81,9 @@ export type CompatibilityEvaluation = {
   selected: SelectedProducts;
   count: number;
   price: number;
+  dronePrice: number;
+  pilotGearPrice: number;
+  totalPrice: number;
   weight: number | null;
   speed: number | null;
   score: number | null;

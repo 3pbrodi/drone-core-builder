@@ -10,6 +10,8 @@ type BuildSearch = {
   budget?: number;
   style?: "FPV" | "Cinematic" | "Racing" | "Long Range";
   priorities?: string;
+  color?: string;
+  wishes?: string;
 };
 
 const presetKeys = new Set(Object.keys(presets));
@@ -39,6 +41,14 @@ export const Route = createFileRoute("/create-custom-build")({
             .filter((value): value is Priority => priorityNames.has(value as Priority))
             .slice(0, 2)
         : [];
+    const color =
+      typeof search["color"] === "string" && search["color"].trim()
+        ? search["color"].trim().slice(0, 80)
+        : undefined;
+    const wishes =
+      typeof search["wishes"] === "string" && search["wishes"].trim()
+        ? search["wishes"].trim().slice(0, 500)
+        : undefined;
 
     return {
       ...(source ? { source } : {}),
@@ -46,6 +56,8 @@ export const Route = createFileRoute("/create-custom-build")({
       ...(budget !== undefined ? { budget } : {}),
       ...(style ? { style } : {}),
       ...(selectedPriorities.length ? { priorities: selectedPriorities.join(",") } : {}),
+      ...(color ? { color } : {}),
+      ...(wishes ? { wishes } : {}),
     };
   },
   loader: async () => getConfiguratorCatalogue(),
@@ -100,6 +112,17 @@ function CreateCustomBuildPage() {
     initial = rebaseBuildSelectionToCatalogue(generated.selection, runtimeCatalogue);
   }
 
+  const preferences =
+    source === "AI Build"
+      ? {
+          budget: search["budget"] ?? 1000,
+          style: search["style"] ?? null,
+          priorities: search["priorities"] ?? "",
+          color: search["color"] ?? null,
+          wishes: search["wishes"] ?? "",
+        }
+      : undefined;
+
   const identity =
     source +
     ":" +
@@ -120,6 +143,7 @@ function CreateCustomBuildPage() {
       products={catalogueSnapshot.products}
       evidenceSnapshot={catalogueSnapshot.evidence}
       catalogueReady={catalogueSnapshot.status === "ready"}
+      {...(preferences ? { preferences } : {})}
       {...(catalogueSnapshot.error ? { catalogueMessage: catalogueSnapshot.error } : {})}
     />
   );
