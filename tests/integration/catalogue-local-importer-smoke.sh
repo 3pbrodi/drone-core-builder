@@ -2,18 +2,11 @@
 set -euo pipefail
 
 eval "$(supabase status -o env)"
-
 LOCAL_SUPABASE_URL="${API_URL:-${SUPABASE_URL:-http://127.0.0.1:54321}}"
-LOCAL_SERVICE_ROLE_KEY="${SERVICE_ROLE_KEY:-${SUPABASE_SERVICE_ROLE_KEY:-}}"
-
-if [[ -z "${LOCAL_SERVICE_ROLE_KEY}" ]]; then
-  echo "Local Supabase service-role key was not reported by supabase status." >&2
-  exit 1
-fi
 
 TOKEN="$(openssl rand -hex 32)"
 TOKEN_HASH="$(printf '%s' "${TOKEN}" | sha256sum | awk '{print $1}')"
-ENV_FILE="$(mktemp)"
+ENV_FILE="supabase/functions/.env"
 FUNCTION_LOG="$(mktemp)"
 cleanup() {
   if [[ -n "${FUNCTION_PID:-}" ]]; then
@@ -24,14 +17,10 @@ cleanup() {
 }
 trap cleanup EXIT
 
+printf 'CATALOGUE_IMPORT_TOKEN_SHA256=%s\n' "${TOKEN_HASH}" > "${ENV_FILE}"
 chmod 600 "${ENV_FILE}"
-cat > "${ENV_FILE}" <<EOF
-CATALOGUE_IMPORT_TOKEN_SHA256=${TOKEN_HASH}
-SUPABASE_URL=${LOCAL_SUPABASE_URL}
-SUPABASE_SERVICE_ROLE_KEY=${LOCAL_SERVICE_ROLE_KEY}
-EOF
 
-supabase functions serve catalogue-import-runner --env-file "${ENV_FILE}" >"${FUNCTION_LOG}" 2>&1 &
+supabase functions serve catalogue-import-runner --no-verify-jwt >"${FUNCTION_LOG}" 2>&1 &
 FUNCTION_PID=$!
 
 READY=0
@@ -59,8 +48,9 @@ CODE="$(curl -sS -o /tmp/catalogue-import-no-run-id.json -w '%{http_code}' \
   -H "x-catalogue-import-token: ${TOKEN}" \
   -d '{"adapterKey":"cnhl-shopify-jsonld","dryRun":false,"limit":5}')"
 if [[ "${CODE}" != "400" ]]; then
-  echo "Importer accepted a write request without a stable logicalRunId." >&2
+  echo "Importer did not enforce the stable logicalRunId requirement." >&2
   cat /tmp/catalogue-import-no-run-id.json >&2
+  tail -100 "${FUNCTION_LOG}" >&2
   exit 1
 fi
 
