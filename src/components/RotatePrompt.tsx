@@ -6,7 +6,7 @@
 export function RotatePrompt() {
   return (
     <div
-      className="fixed inset-0 z-100 hidden flex-col items-center justify-center gap-6 bg-background px-8 text-center portrait:pointer-coarse:flex"
+      className="fixed inset-0 z-100 hidden flex-col items-center justify-center gap-6 bg-background px-8 text-center portrait:flex"
       role="status"
       aria-live="polite"
     >
