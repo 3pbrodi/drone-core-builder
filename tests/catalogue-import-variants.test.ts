@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   enumerateJsonLdProductVariants,
   enumerateShopifyProductVariants,
+  requireStableLogicalRunId,
 } from "../supabase/functions/_shared/catalogue-import-core";
 
 describe("manufacturer variant identity", () => {
@@ -71,6 +72,43 @@ describe("manufacturer variant identity", () => {
     );
     expect(new Set(first.map((item) => item.upstreamItemId)).size).toBe(2);
     expect(first.every((item) => item.upstreamVariantId === null)).toBe(true);
+  });
+
+  test("keeps missing-ID Shopify variant fingerprints stable when variant order changes", () => {
+    const first = enumerateShopifyProductVariants(
+      {
+        id: 301,
+        title: "Battery",
+        handle: "battery",
+        variants: [
+          { title: "XT60", sku: "BAT-XT60", position: 1 },
+          { title: "XT30", sku: "BAT-XT30", position: 2 },
+        ],
+      },
+      "https://example.test",
+    );
+    const reordered = enumerateShopifyProductVariants(
+      {
+        id: 301,
+        title: "Battery",
+        handle: "battery",
+        variants: [
+          { title: "XT30", sku: "BAT-XT30", position: 1 },
+          { title: "XT60", sku: "BAT-XT60", position: 2 },
+        ],
+      },
+      "https://example.test",
+    );
+
+    const bySku = (items: typeof first) =>
+      Object.fromEntries(items.map((item) => [item.manufacturerSku, item.upstreamItemId]));
+    expect(bySku(reordered)).toEqual(bySku(first));
+  });
+
+  test("requires an explicit stable logical run ID for write-mode callers", () => {
+    expect(requireStableLogicalRunId("  importer-2026-09-30  ")).toBe("importer-2026-09-30");
+    expect(() => requireStableLogicalRunId("")).toThrow();
+    expect(() => requireStableLogicalRunId("x".repeat(201))).toThrow();
   });
 
   test("enumerates JSON-LD ProductGroup variants instead of collapsing the group", () => {

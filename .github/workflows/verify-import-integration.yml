@@ -9,6 +9,7 @@ on:
       - "supabase/functions/catalogue-import-runner/**"
       - "supabase/functions/_shared/catalogue-import-core.ts"
       - "tests/integration/**"
+      - "tests/catalogue-import-variants.test.ts"
       - ".github/workflows/verify-import-integration.yml"
 
 permissions:
@@ -21,6 +22,20 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install JavaScript dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Lint P0 importer files
+        run: |
+          bunx eslint             supabase/functions/_shared/catalogue-import-core.ts             supabase/functions/catalogue-import-runner/index.ts             tests/catalogue-import-variants.test.ts
+
+      - name: Run importer variant unit tests
+        run: bun test tests/catalogue-import-variants.test.ts
 
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v3.0.1

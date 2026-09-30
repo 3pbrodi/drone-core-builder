@@ -52,6 +52,26 @@ reconciliation.
 ## Clean-environment verification
 
 The import integration workflow starts a disposable local Supabase stack,
-replays the repository migrations from zero, and runs the importer reliability
-integration SQL. This is the required proof that the reconciled migration chain
-can construct a new environment independently of production.
+replays the repository migrations from zero, runs focused variant/importer
+lint and unit tests, and then runs the importer reliability integration SQL.
+This is the required proof that the reconciled migration chain can construct a
+new environment independently of production.
+
+Non-dry-run importer calls require an explicit stable `logicalRunId` (the
+legacy `sourceRunId` request field remains accepted as an alias). The runner
+does not invent a random write-run identity. Retries of the same logical run
+therefore converge on the same durable run, chunk keys, manifest items, and
+staging rows.
+
+Fallback variant fingerprints no longer depend on array position when upstream
+identity fields such as SKU, MPN, option labels, barcode, or variant labels are
+available. Reordering manufacturer variants therefore does not create a new
+upstream identity. A position is used only when the source exposes no stable
+variant identity at all; those rows are explicitly marked as identity conflicts
+and cannot auto-merge.
+
+Canonical uniqueness and dedupe are category-aware. The canonical uniqueness
+tuple also retains known SKU/MPN identity so materially distinct variants are
+not rejected merely because their display model/variant labels coincide.
+Likewise, an incoming row with the same explicit model/variant but conflicting
+known SKU or MPN is a review conflict, never an automatic exact merge.

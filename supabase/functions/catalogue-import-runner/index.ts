@@ -2,6 +2,7 @@ import {
   enumerateJsonLdProductVariants,
   enumerateShopifyProductVariants,
   stableImportFingerprint,
+  requireStableLogicalRunId,
   type UpstreamVariantDescriptor,
 } from "../_shared/catalogue-import-core.ts";
 
@@ -916,29 +917,12 @@ function parsedDiscoveryStatus(item: ParsedItem): "ready" | "excluded" | "discov
   return "ready";
 }
 
-async function findActiveLogicalRunId(adapterId: string) {
-  const rows = await adminRest<Array<{ logical_run_id: string }>>(
-    "catalogue_import_runs?select=logical_run_id" +
-      "&adapter_id=eq." + encodeURIComponent(adapterId) +
-      "&status=in.(discovering,processing,resumable)" +
-      "&order=started_at.desc&limit=1",
-  ).catch(() => []);
-  return rows[0]?.logical_run_id ?? null;
-}
-
 async function getOrCreateDurableRun(
   adapter: AdapterRow,
   source: SourceRow,
   requestedLogicalRunId: string,
 ) {
-  let logicalRunId = requestedLogicalRunId.trim();
-  if (!logicalRunId) {
-    logicalRunId = await findActiveLogicalRunId(adapter.id) ?? "";
-  }
-  if (!logicalRunId) {
-    logicalRunId =
-      adapter.adapter_key + ":" + new Date().toISOString() + ":" + crypto.randomUUID().slice(0, 8);
-  }
+  const logicalRunId = requireStableLogicalRunId(requestedLogicalRunId);
 
   return adminRest<DurableRun>("rpc/catalogue_get_or_create_import_run", {
     method: "POST",
@@ -1007,14 +991,14 @@ async function upsertManifestItems(input: {
 
 async function markRunError(runId: string, error: unknown, terminal = false) {
   const message = error instanceof Error ? error.message : String(error ?? "Import run failed");
-  await adminRest("rpc/catalogue_mark_import_run_error", {
+  return adminRest("rpc/catalogue_mark_import_run_error", {
     method: "POST",
     body: JSON.stringify({
       p_run_id: runId,
       p_error: message.slice(0, 1000),
       p_terminal: terminal,
     }),
-  }).catch(() => undefined);
+  });
 }
 
 async function discoverSitemapManifestCandidates(config: Record<string, unknown>) {
@@ -1299,6 +1283,26 @@ function resultForStoredVariant(item: ClaimedRunItem) {
       lastError: "Stored manufacturer variant has no normalized data.",
     };
   }
+  if (item.errors.some((message) => message.includes("eligibility rules"))) {
+    return {
+      upstreamItemId: item.upstreamItemId,
+      outcome: "excluded",
+      sourceUrl: item.sourceUrl,
+      normalizedData: item.normalizedData,
+      errors: item.errors,
+      lastError: null,
+    };
+  }
+  if (!item.normalizedData.category) {
+    return {
+      upstreamItemId: item.upstreamItemId,
+      outcome: "parse_failed",
+      sourceUrl: item.sourceUrl,
+      normalizedData: item.normalizedData,
+      errors: item.errors,
+      lastError: "Stored manufacturer variant could not be classified into a component category.",
+    };
+  }
   return {
     upstreamItemId: item.upstreamItemId,
     outcome: "ready",
@@ -1460,14 +1464,23 @@ async function advanceDurableProcessing(input: {
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Import chunk staging failed.";
-    await adminRest("rpc/catalogue_release_import_run_claims", {
-      method: "POST",
-      body: JSON.stringify({
-        p_run_id: input.run.runId,
-        p_item_ids: claimed.items.map((item) => item.id),
-        p_error: message.slice(0, 1000),
-      }),
-    }).catch(() => undefined);
+    try {
+      await adminRest("rpc/catalogue_release_import_run_claims", {
+        method: "POST",
+        body: JSON.stringify({
+          p_run_id: input.run.runId,
+          p_item_ids: claimed.items.map((item) => item.id),
+          p_error: message.slice(0, 1000),
+        }),
+      });
+    } catch (releaseError) {
+      const releaseMessage =
+        releaseError instanceof Error ? releaseError.message : String(releaseError);
+      throw new Error(
+        "Import chunk staging failed and claim release also failed. " +
+          "Staging error: " + message + " Claim release error: " + releaseMessage,
+      );
+    }
     throw error;
   }
 
@@ -1514,9 +1527,20 @@ Deno.serve(async (req: Request) => {
   const requestedLimit = Math.max(1, Math.min(Number(body.limit ?? 100), 500));
   const rawCursor = String(body.cursor ?? "").trim();
   const requestedCursor = Math.max(0, Number.parseInt(rawCursor || "0", 10) || 0);
-  const requestedLogicalRunId = String(
-    body.logicalRunId ?? body.sourceRunId ?? "",
-  ).trim();
+  const requestedLogicalRunIdRaw = body.logicalRunId ?? body.sourceRunId ?? "";
+  let requestedLogicalRunId = "";
+  if (!dryRun) {
+    try {
+      requestedLogicalRunId = requireStableLogicalRunId(requestedLogicalRunIdRaw);
+    } catch (error) {
+      return new Response(JSON.stringify({
+        error: error instanceof Error ? error.message : "A stable logicalRunId is required.",
+      }), {
+        status: 400,
+        headers: JSON_HEADERS,
+      });
+    }
+  }
   const retryExhausted = body.retryFailed === true;
   const maxAttempts = Math.max(1, Math.min(Number(body.maxAttempts ?? 3), 20));
   const finalize = body.finalize === true;
@@ -1641,21 +1665,15 @@ Deno.serve(async (req: Request) => {
       }), { headers: JSON_HEADERS });
     }
 
-    let processing: Record<string, unknown>;
-    try {
-      processing = await advanceDurableProcessing({
-        run,
-        source,
-        adapter,
-        limit: Math.min(requestedLimit, adapter.max_batch_size || 500),
-        maxAttempts,
-        retryExhausted,
-        createCandidates,
-      }) as Record<string, unknown>;
-    } catch (error) {
-      await markRunError(run.runId, error, false);
-      throw error;
-    }
+    const processing = await advanceDurableProcessing({
+      run,
+      source,
+      adapter,
+      limit: Math.min(requestedLimit, adapter.max_batch_size || 500),
+      maxAttempts,
+      retryExhausted,
+      createCandidates,
+    }) as Record<string, unknown>;
 
     const state = await readDurableRun(run.runId);
     const finalStatus = state?.status ?? "resumable";
@@ -1674,18 +1692,36 @@ Deno.serve(async (req: Request) => {
       state,
     }), { headers: JSON_HEADERS });
   } catch (error) {
+    const recoveryErrors: string[] = [];
     if (activeRunId) {
-      await markRunError(activeRunId, error, false);
+      try {
+        await markRunError(activeRunId, error, false);
+      } catch (markError) {
+        recoveryErrors.push(
+          "Could not persist run error state: " +
+            (markError instanceof Error ? markError.message : String(markError)),
+        );
+      }
     }
     if (adapterForStatus?.id) {
-      await updateAdapterStatus(adapterForStatus.id, {
-        last_completed_at: new Date().toISOString(),
-        last_status: activeRunId ? "resumable" : "failed",
-      }).catch(() => undefined);
+      try {
+        await updateAdapterStatus(adapterForStatus.id, {
+          last_completed_at: new Date().toISOString(),
+          last_status: activeRunId ? "resumable" : "failed",
+        });
+      } catch (adapterStatusError) {
+        recoveryErrors.push(
+          "Could not persist adapter status: " +
+            (adapterStatusError instanceof Error
+              ? adapterStatusError.message
+              : String(adapterStatusError)),
+        );
+      }
     }
     return new Response(JSON.stringify({
       error: error instanceof Error ? error.message : "Import runner failed",
       ...(activeRunId ? { runId: activeRunId, resumable: true } : {}),
+      ...(recoveryErrors.length ? { recoveryErrors } : {}),
     }), { status: 500, headers: JSON_HEADERS });
   }
 });

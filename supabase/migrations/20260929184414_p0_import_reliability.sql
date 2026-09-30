@@ -10,7 +10,13 @@ begin
     select 1
     from public.catalogue_products p
     where p.manufacturer_id is not null
-    group by p.manufacturer_id,p.category,lower(trim(p.model)),lower(trim(coalesce(p.variant,'')))
+    group by
+      p.manufacturer_id,
+      p.category,
+      lower(trim(p.model)),
+      lower(trim(coalesce(p.variant,''))),
+      lower(trim(coalesce(p.manufacturer_sku,''))),
+      lower(trim(coalesce(p.mpn,'')))
     having count(*) > 1
   ) then
     raise exception 'Cannot install category-aware canonical identity uniqueness: duplicate canonical identity tuples exist.';
@@ -19,12 +25,15 @@ end
 $$;
 
 drop index if exists public.catalogue_products_manufacturer_model_variant_unique;
-create unique index if not exists catalogue_products_manufacturer_category_model_variant_unique
+drop index if exists public.catalogue_products_manufacturer_category_model_variant_unique;
+create unique index if not exists catalogue_products_manufacturer_category_identity_unique
   on public.catalogue_products(
     manufacturer_id,
     category,
     lower(trim(model)),
-    lower(trim(coalesce(variant,'')))
+    lower(trim(coalesce(variant,''))),
+    lower(trim(coalesce(manufacturer_sku,''))),
+    lower(trim(coalesce(mpn,'')))
   )
   where manufacturer_id is not null;
 
@@ -1006,6 +1015,31 @@ begin
       v_identity_key:=coalesce(v_source_id::text||'|'||v_external,v_model_prefix);
     end if;
 
+    if v_status is null and v_variant<>'' and exists (
+      select 1
+      from public.catalogue_product_identity_keys k
+      join public.catalogue_products p on p.id=k.product_id
+      where k.key_kind='model_variant'
+        and k.key_value=v_category||'|'||v_manufacturer||'|'||v_model||'|'||v_variant
+        and (
+          (
+            v_sku is not null
+            and catalogue_internal.normalize_identity_text(p.manufacturer_sku) is not null
+            and catalogue_internal.normalize_identity_text(p.manufacturer_sku)<>v_sku
+          )
+          or (
+            v_mpn is not null
+            and catalogue_internal.normalize_identity_text(p.mpn) is not null
+            and catalogue_internal.normalize_identity_text(p.mpn)<>v_mpn
+          )
+        )
+    ) then
+      v_status:='conflict';
+      v_product_id:=null;
+      v_method:='model_variant_identifier_conflict';
+      v_identity_key:=v_category||'|'||v_manufacturer||'|'||v_model||'|'||v_variant;
+    end if;
+
     if v_status is null then
       with candidates as (
         select k.product_id,2 priority,'manufacturer_sku'::text method,
@@ -1025,9 +1059,23 @@ begin
         select k.product_id,4,'model_variant',
           v_category||'|'||v_manufacturer||'|'||v_model||'|'||v_variant
         from public.catalogue_product_identity_keys k
-        where v_category is not null and v_manufacturer is not null and v_model is not null
+        join public.catalogue_products p on p.id=k.product_id
+        where v_category is not null
+          and v_manufacturer is not null
+          and v_model is not null
+          and v_variant<>''
           and k.key_kind='model_variant'
           and k.key_value=v_category||'|'||v_manufacturer||'|'||v_model||'|'||v_variant
+          and (
+            v_sku is null
+            or catalogue_internal.normalize_identity_text(p.manufacturer_sku) is null
+            or catalogue_internal.normalize_identity_text(p.manufacturer_sku)=v_sku
+          )
+          and (
+            v_mpn is null
+            or catalogue_internal.normalize_identity_text(p.mpn) is null
+            or catalogue_internal.normalize_identity_text(p.mpn)=v_mpn
+          )
       ), distinct_candidates as (
         select product_id,min(priority) priority from candidates group by product_id
       ), chosen as (

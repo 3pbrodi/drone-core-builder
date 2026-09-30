@@ -85,6 +85,17 @@ export function stableImportFingerprint(value: unknown) {
   return (hash >>> 0).toString(16).padStart(8, "0");
 }
 
+export function requireStableLogicalRunId(value: unknown) {
+  const logicalRunId = String(value ?? "").trim();
+  if (!logicalRunId) {
+    throw new Error("logicalRunId is required for non-dry-run imports.");
+  }
+  if (logicalRunId.length > 200) {
+    throw new Error("logicalRunId must be 200 characters or fewer.");
+  }
+  return logicalRunId;
+}
+
 function absoluteUrl(value: unknown, baseUrl: string) {
   const raw = cleanText(value);
   if (!raw) return null;
@@ -182,11 +193,11 @@ export function enumerateShopifyProductVariants(
       identityConflicts.push("missing_stable_variant_identity");
     }
 
-    const fallbackFingerprint = stableImportFingerprint({
-      parentId,
-      stableIdentityParts,
-      position: variant.position ?? index + 1,
-    });
+    const fallbackFingerprint = stableImportFingerprint(
+      stableIdentityParts.length > 0
+        ? { parentId, stableIdentityParts }
+        : { parentId, stableIdentityParts, position: variant.position ?? index + 1 },
+    );
     const upstreamItemId = upstreamVariantId
       ? "shopify:variant:" + upstreamVariantId
       : parentId + ":variant-fingerprint:" + fallbackFingerprint;
@@ -366,11 +377,11 @@ export function enumerateJsonLdProductVariants(
       identityConflicts.push("missing_stable_variant_identity");
     }
 
-    const generatedFingerprint = stableImportFingerprint({
-      parentId,
-      stableIdentityParts,
-      position: index + 1,
-    });
+    const generatedFingerprint = stableImportFingerprint(
+      stableIdentityParts.length > 0
+        ? { parentId, stableIdentityParts }
+        : { parentId, stableIdentityParts, position: index + 1 },
+    );
     const upstreamItemId = upstreamVariantId
       ? "jsonld:variant:" + stableImportFingerprint(upstreamVariantId)
       : parentId + ":variant-fingerprint:" + generatedFingerprint;
