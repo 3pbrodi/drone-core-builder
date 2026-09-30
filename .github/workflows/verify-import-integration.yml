@@ -50,7 +50,7 @@ jobs:
         run: bun test tests/catalogue-import-variants.test.ts
 
       - name: Start disposable local Supabase
-        run: supabase db start
+        run: supabase start
 
       - name: Verify repository migration count
         run: test "$(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | wc -l)" -eq 22
@@ -83,7 +83,6 @@ jobs:
             -f tests/integration/catalogue-import-reliability.sql
 
       - name: Run local importer and real-source dry-run
-        continue-on-error: true
         run: bash tests/integration/catalogue-local-importer-smoke.sh
 
       - name: Stop disposable Supabase
