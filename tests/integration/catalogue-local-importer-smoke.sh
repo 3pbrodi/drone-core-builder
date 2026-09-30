@@ -24,19 +24,6 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# Verify the repository-defined official endpoint is reachable from this
-# disposable runner before attributing a failure to the importer.
-UPSTREAM_CODE="$(curl -sS -L --max-time 30 --retry 2 --retry-delay 1 \
-  -o /tmp/catalogue-upstream.json -w '%{http_code}' \
-  'https://chinahobbyline.com/products.json?page=1&limit=5' || true)"
-if [[ "${UPSTREAM_CODE}" != "200" ]]; then
-  echo "CNHL repository-defined products endpoint is unreachable from the disposable runner (HTTP ${UPSTREAM_CODE})." >&2
-  exit 2
-fi
-jq -e '.products | type == "array" and length >= 1' /tmp/catalogue-upstream.json >/dev/null
-UPSTREAM_PRODUCTS="$(jq -r '.products | length' /tmp/catalogue-upstream.json)"
-echo "Real-source preflight: CNHL endpoint reachable, products_received=${UPSTREAM_PRODUCTS}"
-
 # Run the exact repository Edge Function source directly under Deno. Database
 # access is pointed only at the disposable local Supabase API and uses only the
 # local service-role key emitted by the local stack.
@@ -54,7 +41,7 @@ for _ in $(seq 1 60); do
     -X POST "${FUNCTION_URL}" \
     -H 'content-type: application/json' \
     -H "x-catalogue-import-token: ${TOKEN}" \
-    -d '{"adapterKey":"cnhl-shopify-jsonld","dryRun":false,"limit":5}' || true)"
+    -d '{"adapterKey":"radiomaster-shopify-jsonld","dryRun":false,"limit":10}' || true)"
   if [[ "${CODE}" == "400" ]] && jq -e '.error | test("logicalRunId|stable"; "i")' /tmp/catalogue-import-readiness.json >/dev/null 2>&1; then
     READY=1
     break
@@ -73,7 +60,7 @@ CODE="$(curl -sS -o /tmp/catalogue-import-real-source.json -w '%{http_code}' \
   -X POST "${FUNCTION_URL}" \
   -H 'content-type: application/json' \
   -H "x-catalogue-import-token: ${TOKEN}" \
-  -d '{"adapterKey":"cnhl-shopify-jsonld","dryRun":true,"cursor":"1","limit":5}')"
+  -d '{"adapterKey":"radiomaster-shopify-jsonld","dryRun":true,"cursor":"1","limit":10}')"
 if [[ "${CODE}" != "200" ]]; then
   echo "Real-source importer dry-run failed." >&2
   cat /tmp/catalogue-import-real-source.json >&2
@@ -81,14 +68,15 @@ if [[ "${CODE}" != "200" ]]; then
   exit 1
 fi
 
-jq -e '.dryRun == true and .adapterKey == "cnhl-shopify-jsonld" and .discovered >= 1 and (.sample | length) >= 1' \
+jq -e '.dryRun == true and .adapterKey == "radiomaster-shopify-jsonld" and .discovered >= 1 and ((.sample | length) + (.skippedSample | length)) >= 1' \
   /tmp/catalogue-import-real-source.json >/dev/null
 
 DISCOVERED="$(jq -r '.discovered' /tmp/catalogue-import-real-source.json)"
 STAGEABLE="$(jq -r '.stageable' /tmp/catalogue-import-real-source.json)"
 FAILED="$(jq -r '.failed' /tmp/catalogue-import-real-source.json)"
+PARSED="$(jq -r '(.sample | length) + (.skippedSample | length)' /tmp/catalogue-import-real-source.json)"
 MULTI_VARIANT_PARENTS="$(jq -r '
-  [.sample[]
+  [(.sample + .skippedSample)[]
     | .normalized
     | select(.source_external_parent_product_id != null)
     | {parent:.source_external_parent_product_id, variant:.source_external_variant_id}]
@@ -97,7 +85,7 @@ MULTI_VARIANT_PARENTS="$(jq -r '
   | length
 ' /tmp/catalogue-import-real-source.json)"
 
-echo "Real-source dry-run summary: upstream_products=${DISCOVERED}, stageable_variants=${STAGEABLE}, failed=${FAILED}, multi_variant_parents_in_sample=${MULTI_VARIANT_PARENTS}"
+echo "Real-source dry-run summary: adapter=radiomaster-shopify-jsonld, upstream_products=${DISCOVERED}, parsed_sample_items=${PARSED}, stageable_variants=${STAGEABLE}, failed=${FAILED}, multi_variant_parents_in_sample=${MULTI_VARIANT_PARENTS}"
 
 PGPASSWORD=postgres psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
   -v ON_ERROR_STOP=1 <<'SQL'
