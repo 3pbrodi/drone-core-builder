@@ -5,6 +5,8 @@ import {
   requireStableLogicalRunId,
 } from "../supabase/functions/_shared/catalogue-import-core";
 
+// This suite is also an integration-workflow trigger: variant identity changes must
+// be revalidated against a disposable Supabase migration replay before merging.
 describe("manufacturer variant identity", () => {
   test("enumerates every Shopify variant with upstream product and variant identity", () => {
     const variants = enumerateShopifyProductVariants(
