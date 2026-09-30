@@ -1,5 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { Link, createFileRoute } from "@tanstack/react-router";
 import {
+  ArrowLeft,
   LayoutTemplate,
   PackageSearch,
   SlidersHorizontal,
@@ -36,6 +37,13 @@ function Start() {
       <SiteHeader />
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-20 sm:px-6">
         <section aria-label="Ways to build your drone" className="pt-10 sm:pt-14">
+          <Link
+            to="/"
+            className="mb-5 inline-flex min-h-11 items-center gap-2 rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-brand-deep active:scale-95"
+          >
+            <ArrowLeft className="size-4" aria-hidden />
+            Back
+          </Link>
           <h1 className="font-display text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
             Choose how you want to start
           </h1>
