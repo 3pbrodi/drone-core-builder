@@ -37,6 +37,11 @@ jobs:
         with:
           bun-version: latest
 
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.7
+
       - name: Install JavaScript dependencies
         run: bun install --frozen-lockfile
 
@@ -52,10 +57,7 @@ jobs:
       - name: Prepare disposable importer auth
         run: |
           umask 077
-          token="$(openssl rand -hex 32)"
-          token_hash="$(printf '%s' "$token" | sha256sum | awk '{print $1}')"
-          printf '%s' "$token" > /tmp/catalogue-import-token
-          printf 'CATALOGUE_IMPORT_TOKEN_SHA256=%s\n' "$token_hash" > supabase/functions/.env
+          openssl rand -hex 32 > /tmp/catalogue-import-token
 
       - name: Start disposable local Supabase
         run: supabase start
@@ -66,13 +68,15 @@ jobs:
       - name: Replay repository migrations from zero
         run: supabase db reset --local --yes
 
-      - name: Bootstrap disposable manufacturer sources
+      - name: Bootstrap disposable manufacturer sources twice
         env:
           PGPASSWORD: postgres
         run: |
-          psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
-            -v ON_ERROR_STOP=1 \
-            -f tests/integration/catalogue-local-staging-bootstrap.sql
+          for pass in 1 2; do
+            psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
+              -v ON_ERROR_STOP=1 \
+              -f tests/integration/catalogue-local-staging-bootstrap.sql
+          done
 
       - name: Verify disposable staging readiness
         env:

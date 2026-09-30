@@ -3,36 +3,55 @@ set -euo pipefail
 
 eval "$(supabase status -o env)"
 LOCAL_SUPABASE_URL="${API_URL:-${SUPABASE_URL:-http://127.0.0.1:54321}}"
+LOCAL_SERVICE_ROLE_KEY="${SERVICE_ROLE_KEY:-${SUPABASE_SERVICE_ROLE_KEY:-}}"
 TOKEN_FILE="/tmp/catalogue-import-token"
-ENV_FILE="supabase/functions/.env"
+FUNCTION_URL="http://127.0.0.1:8000"
 FUNCTION_LOG="$(mktemp)"
 
-if [[ ! -s "${TOKEN_FILE}" || ! -s "${ENV_FILE}" ]]; then
-  echo "Disposable importer auth was not prepared before the local Supabase stack started." >&2
+if [[ -z "${LOCAL_SERVICE_ROLE_KEY}" || ! -s "${TOKEN_FILE}" ]]; then
+  echo "Disposable local Supabase credentials or importer token are unavailable." >&2
   exit 1
 fi
 
 TOKEN="$(cat "${TOKEN_FILE}")"
+TOKEN_HASH="$(printf '%s' "${TOKEN}" | sha256sum | awk '{print $1}')"
 cleanup() {
   if [[ -n "${FUNCTION_PID:-}" ]]; then
     kill "${FUNCTION_PID}" 2>/dev/null || true
     wait "${FUNCTION_PID}" 2>/dev/null || true
   fi
-  rm -f "${TOKEN_FILE}" "${ENV_FILE}" "${FUNCTION_LOG}" /tmp/catalogue-import-*.json
+  rm -f "${TOKEN_FILE}" "${FUNCTION_LOG}" /tmp/catalogue-import-*.json /tmp/catalogue-upstream.json
 }
 trap cleanup EXIT
 
-supabase functions serve catalogue-import-runner --no-verify-jwt >"${FUNCTION_LOG}" 2>&1 &
+# Verify the repository-defined official endpoint is reachable from this
+# disposable runner before attributing a failure to the importer.
+UPSTREAM_CODE="$(curl -sS -L --max-time 30 --retry 2 --retry-delay 1 \
+  -o /tmp/catalogue-upstream.json -w '%{http_code}' \
+  'https://chinahobbyline.com/products.json?page=1&limit=5' || true)"
+if [[ "${UPSTREAM_CODE}" != "200" ]]; then
+  echo "CNHL repository-defined products endpoint is unreachable from the disposable runner (HTTP ${UPSTREAM_CODE})." >&2
+  exit 2
+fi
+jq -e '.products | type == "array" and length >= 1' /tmp/catalogue-upstream.json >/dev/null
+UPSTREAM_PRODUCTS="$(jq -r '.products | length' /tmp/catalogue-upstream.json)"
+echo "Real-source preflight: CNHL endpoint reachable, products_received=${UPSTREAM_PRODUCTS}"
+
+# Run the exact repository Edge Function source directly under Deno. Database
+# access is pointed only at the disposable local Supabase API and uses only the
+# local service-role key emitted by the local stack.
+env \
+  CATALOGUE_IMPORT_TOKEN_SHA256="${TOKEN_HASH}" \
+  SUPABASE_URL="${LOCAL_SUPABASE_URL}" \
+  SUPABASE_SERVICE_ROLE_KEY="${LOCAL_SERVICE_ROLE_KEY}" \
+  deno run --allow-env --allow-net supabase/functions/catalogue-import-runner/index.ts \
+  >"${FUNCTION_LOG}" 2>&1 &
 FUNCTION_PID=$!
 
-# Wait for the function instance that loaded this run-specific token. An
-# unauthorized response can come from the stack runtime before functions serve
-# has reloaded the function, so only the expected logicalRunId validation marks
-# the importer as ready.
 READY=0
 for _ in $(seq 1 60); do
   CODE="$(curl -sS -o /tmp/catalogue-import-readiness.json -w '%{http_code}' \
-    -X POST "${LOCAL_SUPABASE_URL}/functions/v1/catalogue-import-runner" \
+    -X POST "${FUNCTION_URL}" \
     -H 'content-type: application/json' \
     -H "x-catalogue-import-token: ${TOKEN}" \
     -d '{"adapterKey":"cnhl-shopify-jsonld","dryRun":false,"limit":5}' || true)"
@@ -44,22 +63,19 @@ for _ in $(seq 1 60); do
 done
 
 if [[ "${READY}" != "1" ]]; then
-  echo "Local catalogue-import-runner did not load the disposable auth configuration." >&2
+  echo "Direct-Deno catalogue-import-runner did not become ready with disposable auth." >&2
   cat /tmp/catalogue-import-readiness.json >&2 || true
   tail -100 "${FUNCTION_LOG}" >&2
   exit 1
 fi
 
-# Small real-source parser/adapter test. It is deliberately dry-run: five
-# upstream Shopify products are fetched, but no durable run/candidate/offer or
-# evidence record is created.
 CODE="$(curl -sS -o /tmp/catalogue-import-real-source.json -w '%{http_code}' \
-  -X POST "${LOCAL_SUPABASE_URL}/functions/v1/catalogue-import-runner" \
+  -X POST "${FUNCTION_URL}" \
   -H 'content-type: application/json' \
   -H "x-catalogue-import-token: ${TOKEN}" \
   -d '{"adapterKey":"cnhl-shopify-jsonld","dryRun":true,"cursor":"1","limit":5}')"
 if [[ "${CODE}" != "200" ]]; then
-  echo "Real-source dry-run failed." >&2
+  echo "Real-source importer dry-run failed." >&2
   cat /tmp/catalogue-import-real-source.json >&2
   tail -100 "${FUNCTION_LOG}" >&2
   exit 1
