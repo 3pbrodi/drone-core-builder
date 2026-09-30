@@ -11,7 +11,6 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
-import { RotatePrompt } from "../components/RotatePrompt";
 
 function NotFoundComponent() {
   return (
@@ -125,10 +124,7 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
-      {/* Landscape-first: ask portrait touch devices (iPad etc.) to rotate. */}
-      <RotatePrompt />
     </QueryClientProvider>
   );
 }
