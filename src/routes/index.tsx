@@ -44,13 +44,13 @@ function Index() {
             finished build. For filming, racing or just for fun.
           </p>
           <div className="mt-9">
-            <a
-              href="/start"
+            <Link
+              to="/start"
               className="inline-flex min-h-[3.5rem] items-center gap-3 rounded-full bg-primary px-9 text-lg font-semibold text-primary-foreground shadow-lg shadow-primary/25 transition-all hover:bg-brand-deep active:scale-95"
             >
               Let&apos;s Build
               <ArrowRight className="h-5 w-5" aria-hidden />
-            </a>
+            </Link>
           </div>
           <p className="mt-6 text-sm font-medium text-muted-foreground">
             No experience needed · Step-by-step guidance · Free to explore
