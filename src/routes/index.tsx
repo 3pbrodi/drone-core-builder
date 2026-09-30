@@ -63,7 +63,7 @@ function Index() {
             alt="A modern camera drone ready to be configured"
             width={1024}
             height={768}
-            className="relative mx-auto h-[clamp(7.5rem,18svh,9rem)] w-full object-contain sm:h-auto sm:w-full"
+            className="relative mx-auto h-[clamp(11rem,27svh,15rem)] w-full object-contain sm:h-auto sm:w-full"
           />
         </section>
       </main>
