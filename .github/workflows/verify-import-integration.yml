@@ -1,6 +1,7 @@
 name: Verify Supabase import integration
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - feature/shared-drone-configurator
@@ -18,10 +19,13 @@ permissions:
 jobs:
   local-supabase:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Verify clean checkout
+        run: test -z "$(git status --porcelain)"
 
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v3.0.1
@@ -48,8 +52,27 @@ jobs:
       - name: Start disposable local Supabase
         run: supabase db start
 
+      - name: Verify repository migration count
+        run: test "$(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | wc -l)" -eq 22
+
       - name: Replay repository migrations from zero
         run: supabase db reset --local --yes
+
+      - name: Bootstrap disposable manufacturer sources
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
+            -v ON_ERROR_STOP=1 \
+            -f tests/integration/catalogue-local-staging-bootstrap.sql
+
+      - name: Verify disposable staging readiness
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
+            -v ON_ERROR_STOP=1 \
+            -f tests/integration/catalogue-local-staging-readiness.sql
 
       - name: Run importer write-path integration tests
         env:
@@ -58,6 +81,10 @@ jobs:
           psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
             -v ON_ERROR_STOP=1 \
             -f tests/integration/catalogue-import-reliability.sql
+
+      - name: Run local importer and real-source dry-run
+        continue-on-error: true
+        run: bash tests/integration/catalogue-local-importer-smoke.sh
 
       - name: Stop disposable Supabase
         if: always()
