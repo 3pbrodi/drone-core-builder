@@ -677,7 +677,7 @@ async function discoverAdapterBatch(
   const retryAttempts = Math.max(1, Math.min(Number(config.retryAttempts ?? 3), 5));
   const retryBaseDelayMs = Math.max(250, Number(config.retryBaseDelayMs ?? 1000));
 
-  const parsed = await mapConcurrent(selectedUrls, concurrency, async (url): Promise<ParsedItem> => {
+  const parsed = await mapConcurrent(selectedUrls, concurrency, async (url): Promise<ParsedItem[]> => {
     try {
       const html = await fetchText(url, "text/html,application/xhtml+xml", {
         retryAttempts,
