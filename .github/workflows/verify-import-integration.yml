@@ -23,24 +23,27 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - uses: oven-sh/setup-bun@v2
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v3.0.1
+        with:
+          version: 2.118.0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
 
       - name: Install JavaScript dependencies
         run: bun install --frozen-lockfile
 
-      - name: Lint P0 importer files
+      - name: Lint P0 variant identity core
         run: |
-          bunx eslint             supabase/functions/_shared/catalogue-import-core.ts             supabase/functions/catalogue-import-runner/index.ts             tests/catalogue-import-variants.test.ts
+          bunx eslint \
+            supabase/functions/_shared/catalogue-import-core.ts \
+            tests/catalogue-import-variants.test.ts
 
       - name: Run importer variant unit tests
         run: bun test tests/catalogue-import-variants.test.ts
-
-      - name: Setup Supabase CLI
-        uses: supabase/setup-cli@v3.0.1
-        with:
-          version: 2.118.0
 
       - name: Start disposable local Supabase
         run: supabase db start
