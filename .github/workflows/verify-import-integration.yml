@@ -49,6 +49,14 @@ jobs:
       - name: Run importer variant unit tests
         run: bun test tests/catalogue-import-variants.test.ts
 
+      - name: Prepare disposable importer auth
+        run: |
+          umask 077
+          token="$(openssl rand -hex 32)"
+          token_hash="$(printf '%s' "$token" | sha256sum | awk '{print $1}')"
+          printf '%s' "$token" > /tmp/catalogue-import-token
+          printf 'CATALOGUE_IMPORT_TOKEN_SHA256=%s\n' "$token_hash" > supabase/functions/.env
+
       - name: Start disposable local Supabase
         run: supabase start
 

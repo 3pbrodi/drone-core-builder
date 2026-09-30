@@ -3,33 +3,40 @@ set -euo pipefail
 
 eval "$(supabase status -o env)"
 LOCAL_SUPABASE_URL="${API_URL:-${SUPABASE_URL:-http://127.0.0.1:54321}}"
-
-TOKEN="$(openssl rand -hex 32)"
-TOKEN_HASH="$(printf '%s' "${TOKEN}" | sha256sum | awk '{print $1}')"
+TOKEN_FILE="/tmp/catalogue-import-token"
 ENV_FILE="supabase/functions/.env"
 FUNCTION_LOG="$(mktemp)"
+
+if [[ ! -s "${TOKEN_FILE}" || ! -s "${ENV_FILE}" ]]; then
+  echo "Disposable importer auth was not prepared before the local Supabase stack started." >&2
+  exit 1
+fi
+
+TOKEN="$(cat "${TOKEN_FILE}")"
 cleanup() {
   if [[ -n "${FUNCTION_PID:-}" ]]; then
     kill "${FUNCTION_PID}" 2>/dev/null || true
     wait "${FUNCTION_PID}" 2>/dev/null || true
   fi
-  rm -f "${ENV_FILE}" "${FUNCTION_LOG}" /tmp/catalogue-import-*.json
+  rm -f "${TOKEN_FILE}" "${ENV_FILE}" "${FUNCTION_LOG}" /tmp/catalogue-import-*.json
 }
 trap cleanup EXIT
-
-printf 'CATALOGUE_IMPORT_TOKEN_SHA256=%s\n' "${TOKEN_HASH}" > "${ENV_FILE}"
-chmod 600 "${ENV_FILE}"
 
 supabase functions serve catalogue-import-runner --no-verify-jwt >"${FUNCTION_LOG}" 2>&1 &
 FUNCTION_PID=$!
 
+# Wait for the function instance that loaded this run-specific token. An
+# unauthorized response can come from the stack runtime before functions serve
+# has reloaded the function, so only the expected logicalRunId validation marks
+# the importer as ready.
 READY=0
 for _ in $(seq 1 60); do
-  CODE="$(curl -sS -o /tmp/catalogue-import-unauthorized.json -w '%{http_code}' \
+  CODE="$(curl -sS -o /tmp/catalogue-import-readiness.json -w '%{http_code}' \
     -X POST "${LOCAL_SUPABASE_URL}/functions/v1/catalogue-import-runner" \
     -H 'content-type: application/json' \
-    -d '{}' || true)"
-  if [[ "${CODE}" == "401" ]]; then
+    -H "x-catalogue-import-token: ${TOKEN}" \
+    -d '{"adapterKey":"cnhl-shopify-jsonld","dryRun":false,"limit":5}' || true)"
+  if [[ "${CODE}" == "400" ]] && jq -e '.error | test("logicalRunId|stable"; "i")' /tmp/catalogue-import-readiness.json >/dev/null 2>&1; then
     READY=1
     break
   fi
@@ -37,23 +44,15 @@ for _ in $(seq 1 60); do
 done
 
 if [[ "${READY}" != "1" ]]; then
-  echo "Local catalogue-import-runner did not become ready." >&2
+  echo "Local catalogue-import-runner did not load the disposable auth configuration." >&2
+  cat /tmp/catalogue-import-readiness.json >&2 || true
   tail -100 "${FUNCTION_LOG}" >&2
   exit 1
 fi
 
-CODE="$(curl -sS -o /tmp/catalogue-import-no-run-id.json -w '%{http_code}' \
-  -X POST "${LOCAL_SUPABASE_URL}/functions/v1/catalogue-import-runner" \
-  -H 'content-type: application/json' \
-  -H "x-catalogue-import-token: ${TOKEN}" \
-  -d '{"adapterKey":"cnhl-shopify-jsonld","dryRun":false,"limit":5}')"
-if [[ "${CODE}" != "400" ]]; then
-  echo "Importer did not enforce the stable logicalRunId requirement." >&2
-  cat /tmp/catalogue-import-no-run-id.json >&2
-  tail -100 "${FUNCTION_LOG}" >&2
-  exit 1
-fi
-
+# Small real-source parser/adapter test. It is deliberately dry-run: five
+# upstream Shopify products are fetched, but no durable run/candidate/offer or
+# evidence record is created.
 CODE="$(curl -sS -o /tmp/catalogue-import-real-source.json -w '%{http_code}' \
   -X POST "${LOCAL_SUPABASE_URL}/functions/v1/catalogue-import-runner" \
   -H 'content-type: application/json' \
