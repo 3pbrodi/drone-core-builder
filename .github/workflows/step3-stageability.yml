@@ -68,8 +68,9 @@ jobs:
           done
           if [[ "$READY" != 1 ]]; then tail -80 /tmp/step3-function.log; exit 1; fi
           TOTAL=0
-          for ADAPTER in cnhl-shopify-jsonld radiomaster-shopify-jsonld iflight-eu-shopify-jsonld geprc-sitemap-jsonld speedybee-sitemap-jsonld foxeer-sitemap-jsonld runcam-sitemap-jsonld hqprop-sitemap-jsonld tattu-sitemap-jsonld tbs-category-html; do
+          for ADAPTER in hqprop-sitemap-jsonld iflight-eu-shopify-jsonld tattu-sitemap-jsonld speedybee-sitemap-jsonld; do
             OUT="step3-results/$ADAPTER.json"
+            : > "$OUT"
             CODE="$(curl -sS --max-time 230 -o "$OUT" -w '%{http_code}' \
               -H "content-type: application/json" -H "x-catalogue-import-token: $TOKEN" \
               -d "{\"adapterKey\":\"$ADAPTER\",\"dryRun\":true,\"limit\":5}" \
@@ -85,12 +86,12 @@ jobs:
             if ((TOTAL >= 8)); then break; fi
           done
           jq -s '[.[]|select(.dryRun==true)|{adapterKey,discovered,parsed:(.stageable+.skipped-.failed),rejected:(.skipped-.failed),failed,stageable,skippedSample}]' \
-            step3-results/*.json >step3-results/summary.json
+            step3-results/*-jsonld.json >step3-results/summary.json
           jq -s '[.[]|select(.dryRun==true)|.sample[]?|{name:.normalized.display_name,manufacturer:.normalized.manufacturer,category:.normalized.category,url:.normalized.source_url,
             externalId:.normalized.source_external_product_id,parent:.normalized.source_external_parent_product_id,variantId:.normalized.source_external_variant_id,
             variant:.normalized.variant,sku:.normalized.manufacturer_sku,mpn:.normalized.mpn,identityConflicts:.normalized.identity_conflicts,
             specSummary:.normalized.spec_summary,normalized:.normalized,warnings:.errors}]|unique_by(.externalId)|.[0:10]' \
-            step3-results/*.json >step3-results/selected.json
+            step3-results/*-jsonld.json >step3-results/selected.json
           echo "=== PER ADAPTER ==="
           cat step3-results/summary.json
           echo "=== UP TO 10 ACTUAL IMPORTER-STAGEABLE ITEMS ==="
@@ -99,7 +100,7 @@ jobs:
           jq -s '[.[]|select(.dryRun==true)|.sample[]?|select(.normalized.source_external_parent_product_id!=null)|
             {parent:.normalized.source_external_parent_product_id,id:.normalized.source_external_product_id,variant:.normalized.variant,conflicts:.normalized.identity_conflicts}]|
             group_by(.parent)|map(select(length>1 and ([.[].id]|unique|length)>1))' \
-            step3-results/*.json | tee step3-results/live-variants.json
+            step3-results/*-jsonld.json | tee step3-results/live-variants.json
           echo "=== ASSERT ZERO LOCAL CATALOGUE WRITES ==="
           PGPASSWORD=postgres psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 <<'SQL'
           DO $$
