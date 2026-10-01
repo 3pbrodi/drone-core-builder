@@ -97,7 +97,7 @@ env CATALOGUE_IMPORT_TOKEN_SHA256="$HASH" \
   supabase/functions/catalogue-import-runner/index.ts >"$OUT/importer.log" 2>&1 &
 FUNCTION_PID=$!
 post() {
-  curl --fail-with-body -fsS --max-time 180 \
+  curl --fail-with-body -sS --max-time 180 \
     -H 'content-type: application/json' -H "x-catalogue-import-token: $TOKEN" \
     -d "$1" 'http://127.0.0.1:8000' -o "$2"
 }
