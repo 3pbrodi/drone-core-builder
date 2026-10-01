@@ -27,9 +27,12 @@ python3 -m http.server 8765 --bind 127.0.0.1 --directory /tmp/step4-sitemap >"$O
 SITEMAP_PID=$!
 FUNCTION_PID=""
 cleanup() {
+  RC=$?
+  if [[ "$RC" -ne 0 ]] && declare -F snapshot >/dev/null; then snapshot "$OUT/failed-state.json" || true; fi
   if [[ -n "$FUNCTION_PID" ]]; then kill "$FUNCTION_PID" 2>/dev/null || true; fi
   kill "$SITEMAP_PID" 2>/dev/null || true
   rm -f /tmp/step4-import-token
+  exit "$RC"
 }
 trap cleanup EXIT
 for i in $(seq 1 20); do
@@ -67,6 +70,31 @@ jq -e '
  and .sources==10 and .activeAdapters==10' "$OUT/before.json" >/dev/null
 test "$(psql_local -At -c 'select count(*) from supabase_migrations.schema_migrations;')" = 22
 echo "22 local migrations, 10 verified sources and zero imported catalogue rows" | tee -a "$OUT/safety.txt"
+
+# Verified root cause from attempt 2: the 22-migration baseline grants EXECUTE
+# on catalogue_internal.normalize_identity_text to service_role but omits
+# USAGE on the private schema. P0 SQL tests run as postgres and miss this.
+# Local-only minimal USAGE is needed to test the unchanged real importer.
+# This is NOT a repository migration, production change, or RLS bypass.
+psql_local -At -c "
+  select jsonb_build_object(
+    'role','service_role',
+    'schemaUsageBefore',has_schema_privilege('service_role','catalogue_internal','USAGE'),
+    'helperExecuteBefore',has_function_privilege(
+       'service_role','catalogue_internal.normalize_identity_text(text)','EXECUTE'))" \
+  | jq . > "$OUT/private-schema-privilege-before.json"
+psql_local -c "grant usage on schema catalogue_internal to service_role;"
+psql_local -At -c "
+  select jsonb_build_object(
+    'role','service_role',
+    'schemaUsageAfter',has_schema_privilege('service_role','catalogue_internal','USAGE'),
+    'helperExecuteAfter',has_function_privilege(
+       'service_role','catalogue_internal.normalize_identity_text(text)','EXECUTE'))" \
+  | jq . > "$OUT/private-schema-privilege-after.json"
+jq -e '.schemaUsageAfter==true and .helperExecuteAfter==true' \
+  "$OUT/private-schema-privilege-after.json" >/dev/null
+echo "Local-only service_role private-schema USAGE repair applied; NO RLS, review, spec, offer, or publication gates changed" | tee -a "$OUT/safety.txt"
+
 
 # ONLY local adapter configuration is changed, to constrain discovery.
 # The product pages are still fetched directly from HQProp on each run.
