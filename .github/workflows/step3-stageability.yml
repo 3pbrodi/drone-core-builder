@@ -1,0 +1,123 @@
+name: Step 3 bounded manufacturer dry runs
+on:
+  push:
+    branches: [verification/step3-stageability-20261001]
+    paths: [.github/workflows/step3-stageability.yml]
+permissions:
+  contents: read
+jobs:
+  dry-run-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify isolated branch
+        run: |
+          test "$GITHUB_REF_NAME" = "verification/step3-stageability-20261001"
+          test "$(git rev-parse HEAD^)" = "02823ffe15adb6a77622bf07740a008bc89e0f2a"
+          test -z "$(git status --porcelain)"
+      - uses: supabase/setup-cli@v3.0.1
+        with:
+          version: 2.118.0
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.7
+      - name: Verify importer tests and type-check
+        run: |
+          bun install --frozen-lockfile
+          bun test tests/catalogue-import-variants.test.ts
+          bunx eslint supabase/functions/_shared/catalogue-import-core.ts tests/catalogue-import-variants.test.ts
+          deno check supabase/functions/catalogue-import-runner/index.ts
+      - name: Prepare existing disposable staging
+        run: |
+          supabase start
+          supabase db reset --local --yes
+          PGPASSWORD=postgres psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -f tests/integration/catalogue-local-staging-bootstrap.sql
+          PGPASSWORD=postgres psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -f tests/integration/catalogue-local-staging-readiness.sql
+      - name: Real manufacturer requests with dryRun true only
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p step3-results
+          eval "$(supabase status -o env)"
+          test "$API_URL" = "http://127.0.0.1:54321"
+          test -n "$SERVICE_ROLE_KEY"
+          umask 077
+          openssl rand -hex 32 > /tmp/step3-local-token
+          TOKEN="$(cat /tmp/step3-local-token)"
+          HASH="$(printf '%s' "$TOKEN" | sha256sum | awk '{print $1}')"
+          env CATALOGUE_IMPORT_TOKEN_SHA256="$HASH" SUPABASE_URL="$API_URL" \
+            SUPABASE_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY" \
+            deno run --allow-env --allow-net supabase/functions/catalogue-import-runner/index.ts \
+            >/tmp/step3-function.log 2>&1 &
+          PID=$!
+          trap 'kill "$PID" 2>/dev/null || true; rm -f /tmp/step3-local-token' EXIT
+          READY=0
+          for i in $(seq 1 45); do
+            CODE="$(curl -sS --max-time 3 -o /tmp/step3-ready.json -w '%{http_code}' \
+              -H "content-type: application/json" -H "x-catalogue-import-token: $TOKEN" \
+              -d '{"adapterKey":"radiomaster-shopify-jsonld","dryRun":false,"limit":1}' \
+              http://127.0.0.1:8000 || true)"
+            if [[ "$CODE" == 400 ]] && jq -e '.error | test("logicalRunId")' /tmp/step3-ready.json >/dev/null 2>&1; then READY=1; break; fi
+            sleep 1
+          done
+          if [[ "$READY" != 1 ]]; then tail -80 /tmp/step3-function.log; exit 1; fi
+          TOTAL=0
+          for ADAPTER in cnhl-shopify-jsonld radiomaster-shopify-jsonld iflight-eu-shopify-jsonld geprc-sitemap-jsonld speedybee-sitemap-jsonld foxeer-sitemap-jsonld runcam-sitemap-jsonld hqprop-sitemap-jsonld tattu-sitemap-jsonld tbs-category-html; do
+            OUT="step3-results/$ADAPTER.json"
+            CODE="$(curl -sS --max-time 230 -o "$OUT" -w '%{http_code}' \
+              -H "content-type: application/json" -H "x-catalogue-import-token: $TOKEN" \
+              -d "{\"adapterKey\":\"$ADAPTER\",\"dryRun\":true,\"limit\":5}" \
+              http://127.0.0.1:8000 || true)"
+            if [[ "$CODE" == 200 ]] && jq -e --arg a "$ADAPTER" '.dryRun==true and .adapterKey==$a' "$OUT" >/dev/null 2>&1; then
+              jq -c '{adapterKey,discovered,parsed:(.stageable+.skipped-.failed),rejected:(.skipped-.failed),failed,stageable}' "$OUT"
+              TOTAL=$((TOTAL + $(jq -r '.stageable' "$OUT")))
+            else
+              printf 'Adapter %s HTTP %s: ' "$ADAPTER" "$CODE"
+              jq -rc '.error // "network or parser failure"' "$OUT" 2>/dev/null || true
+              mv "$OUT" "step3-results/$ADAPTER-error.json"
+            fi
+            if ((TOTAL >= 8)); then break; fi
+          done
+          jq -s '[.[]|select(.dryRun==true)|{adapterKey,discovered,parsed:(.stageable+.skipped-.failed),rejected:(.skipped-.failed),failed,stageable,skippedSample}]' \
+            step3-results/*.json >step3-results/summary.json
+          jq -s '[.[]|select(.dryRun==true)|.sample[]?|{name:.normalized.display_name,manufacturer:.normalized.manufacturer,category:.normalized.category,url:.normalized.source_url,
+            externalId:.normalized.source_external_product_id,parent:.normalized.source_external_parent_product_id,variantId:.normalized.source_external_variant_id,
+            variant:.normalized.variant,sku:.normalized.manufacturer_sku,mpn:.normalized.mpn,identityConflicts:.normalized.identity_conflicts,
+            specSummary:.normalized.spec_summary,normalized:.normalized,warnings:.errors}]|unique_by(.externalId)|.[0:10]' \
+            step3-results/*.json >step3-results/selected.json
+          echo "=== PER ADAPTER ==="
+          cat step3-results/summary.json
+          echo "=== UP TO 10 ACTUAL IMPORTER-STAGEABLE ITEMS ==="
+          cat step3-results/selected.json
+          echo "=== LIVE MULTIVARIANT GROUPS ==="
+          jq -s '[.[]|select(.dryRun==true)|.sample[]?|select(.normalized.source_external_parent_product_id!=null)|
+            {parent:.normalized.source_external_parent_product_id,id:.normalized.source_external_product_id,variant:.normalized.variant,conflicts:.normalized.identity_conflicts}]|
+            group_by(.parent)|map(select(length>1 and ([.[].id]|unique|length)>1))' \
+            step3-results/*.json | tee step3-results/live-variants.json
+          echo "=== ASSERT ZERO LOCAL CATALOGUE WRITES ==="
+          PGPASSWORD=postgres psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 <<'SQL'
+          DO $$
+          BEGIN
+            IF EXISTS(SELECT 1 FROM public.catalogue_products)
+              OR EXISTS(SELECT 1 FROM public.catalogue_offers)
+              OR EXISTS(SELECT 1 FROM public.catalogue_spec_evidence)
+              OR EXISTS(SELECT 1 FROM public.catalogue_identity_evidence)
+              OR EXISTS(SELECT 1 FROM public.catalogue_import_runs)
+              OR EXISTS(SELECT 1 FROM public.catalogue_import_batches)
+              OR EXISTS(SELECT 1 FROM public.catalogue_import_rows)
+            THEN RAISE EXCEPTION 'DRY RUN MODIFIED CATALOGUE'; END IF;
+          END $$;
+          SQL
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: step3-dry-run-evidence
+          path: step3-results/
+          if-no-files-found: warn
+      - name: Destroy disposable local stack
+        if: always()
+        run: supabase stop --no-backup
