@@ -162,7 +162,7 @@ request_run() {
   for n in 1 2 3 4 5; do
     post "$(jq -nc --arg id "$logical" '{adapterKey:"hqprop-sitemap-jsonld",dryRun:false,createCandidates:true,logicalRunId:$id,limit:2}')" \
       "$OUT/$prefix-call-$n.json"
-    phase="$(jq -r '.phase // empty' "$OUT/$prefix-call-$n.json")"
+    phase="$(jq -r 'if .phase=="processing" then .processing.phase else .phase end' "$OUT/$prefix-call-$n.json")"
     jq -c '{phase,logicalRunId,runId,discovery,processing}' "$OUT/$prefix-call-$n.json"
     if [[ "$phase" == "processed_chunk" ]]; then
       jq -e --argjson expected "$expected" \
