@@ -1,0 +1,100 @@
+name: Step 4 isolated real manufacturer write test
+
+on:
+  push:
+    branches:
+      - verification/step4-local-write-20261001
+    paths:
+      - ".github/workflows/step4-local-write.yml"
+      - "tests/integration/catalogue-step4-real-write.sh"
+
+permissions:
+  contents: read
+
+jobs:
+  disposable-local-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout isolated verification branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify HEAD and do not run on a deploy branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF_NAME" = "verification/step4-local-write-20261001"
+          test "$(git merge-base HEAD 02823ffe15adb6a77622bf07740a008bc89e0f2a)" = "02823ffe15adb6a77622bf07740a008bc89e0f2a"
+          test -z "$(git status --porcelain)"
+          test "$(find supabase/migrations -maxdepth 1 -name '*.sql' | wc -l)" -eq 22
+          bash -n tests/integration/catalogue-step4-real-write.sh
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v3.0.1
+        with:
+          version: 2.118.0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.7
+
+      - name: Install JS dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Run all existing tests and importer variant tests
+        run: |
+          bun test
+          bun test tests/catalogue-import-variants.test.ts
+
+      - name: Lint importer and variant test
+        run: bunx eslint supabase/functions/_shared/catalogue-import-core.ts tests/catalogue-import-variants.test.ts
+
+      - name: Typecheck Deno importer and TypeScript
+        run: |
+          deno check supabase/functions/catalogue-import-runner/index.ts
+          bunx tsc --noEmit
+
+      - name: Verify production build without deploying
+        run: bun run build
+
+      - name: Start and verify existing disposable Supabase
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase start
+          supabase db reset --local --yes
+          for pass in 1 2; do
+            PGPASSWORD=postgres psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
+              -v ON_ERROR_STOP=1 -f tests/integration/catalogue-local-staging-bootstrap.sql
+          done
+          PGPASSWORD=postgres psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
+            -v ON_ERROR_STOP=1 -f tests/integration/catalogue-local-staging-readiness.sql
+
+      - name: Run existing disposable P0 recovery and idempotence SQL integration tests
+        run: |
+          PGPASSWORD=postgres psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
+            -v ON_ERROR_STOP=1 -f tests/integration/catalogue-import-reliability.sql
+
+      - name: REAL WRITE of exactly two HQProp products to local Supabase only
+        run: bash tests/integration/catalogue-step4-real-write.sh
+
+      - name: Upload persistent test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: step4-local-real-write-evidence
+          path: step4-results/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Stop disposable Supabase without backup
+        if: always()
+        run: if command -v supabase >/dev/null; then supabase stop --no-backup || true; fi
