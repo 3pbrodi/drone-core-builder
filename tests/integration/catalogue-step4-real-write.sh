@@ -93,7 +93,7 @@ TOKEN="$(cat /tmp/step4-import-token)"
 HASH="$(printf '%s' "$TOKEN" | sha256sum | awk '{print $1}')"
 env CATALOGUE_IMPORT_TOKEN_SHA256="$HASH" \
   SUPABASE_URL="$API_URL" SUPABASE_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY" \
-  deno run --allow-env --allow-net=127.0.0.1:54321,127.0.0.1:8765,hqprop.com,www.hqprop.com \
+  deno run --allow-env --allow-net=0.0.0.0:8000,127.0.0.1:8000,127.0.0.1:54321,127.0.0.1:8765,hqprop.com,www.hqprop.com \
   supabase/functions/catalogue-import-runner/index.ts >"$OUT/importer.log" 2>&1 &
 FUNCTION_PID=$!
 post() {
