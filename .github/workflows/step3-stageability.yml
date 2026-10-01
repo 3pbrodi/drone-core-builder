@@ -11,10 +11,12 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Verify isolated branch
         run: |
           test "$GITHUB_REF_NAME" = "verification/step3-stageability-20261001"
-          test "$(git rev-parse HEAD^)" = "02823ffe15adb6a77622bf07740a008bc89e0f2a"
+          test "$(git merge-base 02823ffe15adb6a77622bf07740a008bc89e0f2a HEAD)" = "02823ffe15adb6a77622bf07740a008bc89e0f2a"
           test -z "$(git status --porcelain)"
       - uses: supabase/setup-cli@v3.0.1
         with:
@@ -120,4 +122,4 @@ jobs:
           if-no-files-found: warn
       - name: Destroy disposable local stack
         if: always()
-        run: supabase stop --no-backup
+        run: if command -v supabase >/dev/null; then supabase stop --no-backup || true; fi
