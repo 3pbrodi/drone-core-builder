@@ -1,0 +1,82 @@
+name: Step 6 isolated local synthetic scale
+on:
+  push:
+    branches:
+      - verification/step6-disposable-mass-import-20261002
+    paths:
+      - ".github/workflows/step6-disposable-load.yml"
+      - "tests/integration/catalogue-step6-synthetic-load.sql"
+permissions:
+  contents: read
+jobs:
+  disposable:
+    runs-on: ubuntu-latest
+    timeout-minutes: 110
+    steps:
+      - uses: actions/checkout@v4
+      - name: Local-only safety guards
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF_NAME" = "verification/step6-disposable-mass-import-20261002"
+          test -z "$(env | grep '^SUPABASE_ACCESS_TOKEN=' || true)"
+          test -z "$(git status --porcelain)"
+          test "$(find supabase/migrations -maxdepth 1 -name '*.sql' | wc -l)" -eq 23
+          mkdir -p step6-results
+      - uses: supabase/setup-cli@v3.0.1
+        with:
+          version: 2.118.0
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.7
+      - name: Existing automated tests and build without deployment
+        run: |
+          bun install --frozen-lockfile
+          bun test
+          bun test tests/catalogue-import-variants.test.ts
+          bunx eslint supabase/functions/_shared/catalogue-import-core.ts tests/catalogue-import-variants.test.ts
+          deno check supabase/functions/catalogue-import-runner/index.ts
+          bunx tsc --noEmit
+          bun run build
+      - name: Fresh local Supabase and P0 reliability
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase start
+          supabase db reset --local --yes
+          eval "$(supabase status -o env)"
+          test "$API_URL" = "http://127.0.0.1:54321"
+          export PGPASSWORD=postgres
+          PG="postgresql://postgres:postgres@127.0.0.1:54322/postgres"
+          psql "$PG" -v ON_ERROR_STOP=1 -f tests/integration/catalogue-local-staging-bootstrap.sql
+          psql "$PG" -v ON_ERROR_STOP=1 -f tests/integration/catalogue-local-staging-readiness.sql
+          psql "$PG" -v ON_ERROR_STOP=1 -At -c "select json_build_object('migrations',(select count(*) from supabase_migrations.schema_migrations),'products',(select count(*) from public.catalogue_products),'serviceUsage',has_schema_privilege('service_role','catalogue_internal','USAGE'),'anonUsage',has_schema_privilege('anon','catalogue_internal','USAGE'),'databaseBytes',pg_database_size(current_database()),'indexes',(select count(*) from pg_indexes where schemaname='public' and tablename like 'catalogue_%'))" | tee step6-results/baseline.json
+          psql "$PG" -v ON_ERROR_STOP=1 -f tests/integration/catalogue-import-reliability.sql > step6-results/p0.log
+      - name: Progressive local synthetic database RPC write load
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PGPASSWORD=postgres
+          PG="postgresql://postgres:postgres@127.0.0.1:54322/postgres"
+          for n in 10 100 1000 5000 10000; do
+            echo "STEP6_START level=$n" | tee -a step6-results/load.log
+            PGOPTIONS="-c step6.size=$n" /usr/bin/time -f "STEP6_WALLCLOCK level=$n sec=%e maxRssKB=%M" psql "$PG" -v ON_ERROR_STOP=1 -f tests/integration/catalogue-step6-synthetic-load.sql 2>&1 | tee -a step6-results/load.log
+            if test "$n" -ge 1000; then
+              psql "$PG" -v ON_ERROR_STOP=1 -c "analyze public.catalogue_products; analyze public.catalogue_import_run_items;"
+              psql "$PG" -v ON_ERROR_STOP=1 -c "explain (analyze,buffers) select id from public.catalogue_products where manufacturer_sku='TEST-SKU-$n-1';" | tee -a step6-results/explain.txt
+            fi
+          done
+      - name: Persist evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: step6-disposable-local-scale-evidence
+          path: step6-results/
+          if-no-files-found: warn
+          retention-days: 30
+      - name: Stop without backup
+        if: always()
+        run: if command -v supabase >/dev/null; then supabase stop --no-backup || true; fi
