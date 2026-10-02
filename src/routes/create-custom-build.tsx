@@ -1,7 +1,9 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { Check } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { PageShell } from "@/components/PageShell";
+import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/create-custom-build")({
   head: () => ({
@@ -96,11 +98,31 @@ const PARTS: Part[] = [
 ];
 
 function CreateCustomBuildPage() {
-  const [selected, setSelected] = useState<Set<string>>(
-    () => new Set(PARTS.filter((part) => part.essential).map((part) => part.id)),
+  const { user, status } = useAuth();
+  const [selected, setSelected] = useState<Set<string>>(() =>
+    new Set(PARTS.filter((part) => part.essential).map((part) => part.id)),
   );
+  useEffect(() => {
+    const validIds = new Set(PARTS.map((part) => part.id));
+    try {
+      const raw = window.localStorage.getItem("dronecores.draft");
+      if (raw) {
+        const draft = JSON.parse(raw) as { partIds?: unknown };
+        if (Array.isArray(draft.partIds)) {
+          const restored = draft.partIds.filter((id): id is string => typeof id === "string" && validIds.has(id));
+          setSelected(new Set(restored));
+        }
+      }
+    } catch {
+      // Use the sample starter build if the local draft is unavailable.
+    }
+  }, []);
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
   const toggle = (id: string) => {
+    setSaved(false);
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(id)) {
@@ -116,6 +138,28 @@ function CreateCustomBuildPage() {
     (sum, part) => sum + part.price,
     0,
   );
+
+  function saveBuild() {
+    const partIds = [...selected];
+    try {
+      if (status === "signedIn" && user) {
+        const key = `dronecores.builds.${user.id}`;
+        const parsed = JSON.parse(window.localStorage.getItem(key) || "[]") as unknown;
+        const builds = Array.isArray(parsed) ? parsed : [];
+        builds.push({ id: crypto.randomUUID(), savedAt: new Date().toISOString(), partIds, estimatedTotal: total });
+        window.localStorage.setItem(key, JSON.stringify(builds));
+        window.localStorage.removeItem("dronecores.draft");
+        setSaveError("");
+        setSaved(true);
+      } else if (status === "signedOut") {
+        window.localStorage.setItem("dronecores.draft", JSON.stringify({ partIds, savedAt: new Date().toISOString() }));
+        setSaveError("");
+        setSaveDialogOpen(true);
+      }
+    } catch {
+      setSaveError("This browser could not save your build. Check its storage settings and try again.");
+    }
+  }
 
   return (
     <PageShell
@@ -190,9 +234,26 @@ function CreateCustomBuildPage() {
               Sample parts and prices for now. When the real configurator arrives,
               this list will check that all your parts actually fit together.
             </p>
+            <button type="button" onClick={saveBuild} disabled={status === "loading"} className="mt-5 h-11 w-full rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-wait disabled:opacity-60">
+              {saved ? "Saved" : "Save Build"}
+            </button>
+            {saveError && <p role="alert" className="mt-2 text-xs text-destructive">{saveError}</p>}
           </div>
         </aside>
       </div>
+      <Dialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen}>
+        <DialogContent className="max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="font-display text-xl">Want to save your progress?</DialogTitle>
+            <DialogDescription>Your selected parts are saved as a draft in this browser. Sign in or create an account to keep this build with your account.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-2 pt-2 sm:grid-cols-2">
+            <Link to="/login" search={{ redirect: "/create-custom-build", mode: "signup" }} className="inline-flex h-11 items-center justify-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90">Create account</Link>
+            <Link to="/login" search={{ redirect: "/create-custom-build" }} className="inline-flex h-11 items-center justify-center rounded-xl border border-border px-4 text-sm font-semibold hover:bg-muted">Sign in</Link>
+            <button type="button" onClick={() => setSaveDialogOpen(false)} className="h-11 rounded-xl text-sm font-semibold text-muted-foreground hover:bg-muted sm:col-span-2">Not now</button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </PageShell>
   );
 }
