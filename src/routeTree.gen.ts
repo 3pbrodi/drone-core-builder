@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AiBuildRouteImport } from './routes/ai-build'
 import { Route as BillingRouteImport } from './routes/billing'
 import { Route as CreateCustomBuildRouteImport } from './routes/create-custom-build'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as PreBuiltRouteImport } from './routes/pre-built'
 import { Route as StartRouteImport } from './routes/start'
 import { Route as TemplatesRouteImport } from './routes/templates'
@@ -37,6 +38,11 @@ const CreateCustomBuildRoute = CreateCustomBuildRouteImport.update({
   path: '/create-custom-build',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PreBuiltRoute = PreBuiltRouteImport.update({
   id: '/pre-built',
   path: '/pre-built',
@@ -58,6 +64,7 @@ export interface FileRoutesByFullPath {
   '/ai-build': typeof AiBuildRoute
   '/billing': typeof BillingRoute
   '/create-custom-build': typeof CreateCustomBuildRoute
+  '/login': typeof LoginRoute
   '/pre-built': typeof PreBuiltRoute
   '/start': typeof StartRoute
   '/templates': typeof TemplatesRoute
@@ -67,6 +74,7 @@ export interface FileRoutesByTo {
   '/ai-build': typeof AiBuildRoute
   '/billing': typeof BillingRoute
   '/create-custom-build': typeof CreateCustomBuildRoute
+  '/login': typeof LoginRoute
   '/pre-built': typeof PreBuiltRoute
   '/start': typeof StartRoute
   '/templates': typeof TemplatesRoute
@@ -77,6 +85,7 @@ export interface FileRoutesById {
   '/ai-build': typeof AiBuildRoute
   '/billing': typeof BillingRoute
   '/create-custom-build': typeof CreateCustomBuildRoute
+  '/login': typeof LoginRoute
   '/pre-built': typeof PreBuiltRoute
   '/start': typeof StartRoute
   '/templates': typeof TemplatesRoute
@@ -88,6 +97,7 @@ export interface FileRouteTypes {
     | '/ai-build'
     | '/billing'
     | '/create-custom-build'
+    | '/login'
     | '/pre-built'
     | '/start'
     | '/templates'
@@ -97,6 +107,7 @@ export interface FileRouteTypes {
     | '/ai-build'
     | '/billing'
     | '/create-custom-build'
+    | '/login'
     | '/pre-built'
     | '/start'
     | '/templates'
@@ -106,6 +117,7 @@ export interface FileRouteTypes {
     | '/ai-build'
     | '/billing'
     | '/create-custom-build'
+    | '/login'
     | '/pre-built'
     | '/start'
     | '/templates'
@@ -116,6 +128,7 @@ export interface RootRouteChildren {
   AiBuildRoute: typeof AiBuildRoute
   BillingRoute: typeof BillingRoute
   CreateCustomBuildRoute: typeof CreateCustomBuildRoute
+  LoginRoute: typeof LoginRoute
   PreBuiltRoute: typeof PreBuiltRoute
   StartRoute: typeof StartRoute
   TemplatesRoute: typeof TemplatesRoute
@@ -151,6 +164,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CreateCustomBuildRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/pre-built': {
       id: '/pre-built'
       path: '/pre-built'
@@ -180,6 +200,7 @@ const rootRouteChildren: RootRouteChildren = {
   AiBuildRoute: AiBuildRoute,
   BillingRoute: BillingRoute,
   CreateCustomBuildRoute: CreateCustomBuildRoute,
+  LoginRoute: LoginRoute,
   PreBuiltRoute: PreBuiltRoute,
   StartRoute: StartRoute,
   TemplatesRoute: TemplatesRoute,
