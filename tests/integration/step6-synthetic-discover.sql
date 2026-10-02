@@ -42,7 +42,7 @@ with synthetic as (
   from synthetic
 )
 select public.catalogue_upsert_import_manifest_items(
- :'run_id'::uuid,coalesce(jsonb_agg(item order by n),'[]'::jsonb),
+ :'run_id'::uuid,coalesce(jsonb_agg(item order by case when :pass=2 then -n else n end),'[]'::jsonb),
  :pass,case when :complete=1 then null else :'last_cursor' end,
  jsonb_build_object('pass',:pass,'synthetic',true,'expected',:total),
  (:complete=1)::boolean

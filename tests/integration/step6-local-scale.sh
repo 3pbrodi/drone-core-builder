@@ -34,7 +34,7 @@ psql_local -qAt -c "
  from pg_indexes where schemaname='public' and tablename like 'catalogue_%'
  " | jq . >"$OUT/existing-indexes.json"
 psql_local -qAt -c "
- select json_agg(json_build_object('table',table_name,'policy',policyname,'roles',roles,'command',cmd) order by table_name,policyname)
+ select json_agg(json_build_object('table',tablename,'policy',policyname,'roles',roles,'command',cmd) order by table_name,policyname)
  from pg_policies where schemaname='public' and tablename like 'catalogue_%'
  " | jq . >"$OUT/rls-policies.json"
 psql_local <<'SQL'
