@@ -1,12 +1,15 @@
 \set ON_ERROR_STOP on
 set role service_role;
-with synthetic as (
+with families as (
   select n,
     case when n<=10 then 1 when n<=35 then 2 when n<=85 then 3
-         else 4+((n-86)/50) end as family,
-    case ((n-1)/50)%4 when 0 then 'propellers'
-      when 1 then 'motors' when 2 then 'frame' else 'battery' end as category
+         else 4+((n-86)/50) end as family
   from generate_series(:first,:last) n
+), synthetic as (
+  select n,family,
+    case (family-1)%4 when 0 then 'propellers'
+      when 1 then 'motors' when 2 then 'frame' else 'battery' end as category
+  from families
 ), records as (
   select n,jsonb_build_object(
    'upstreamItemId','synthetic:variant:'||n,

@@ -68,6 +68,13 @@ snapshot(){
    'manifestItems',(select count(*) from public.catalogue_import_run_items),
    'batches',(select count(*) from public.catalogue_import_batches),
    'rows',(select count(*) from public.catalogue_import_rows),
+   'probableRows',(select count(*) from public.catalogue_import_rows where dedupe_status='probable_match'),
+   'conflictRows',(select count(*) from public.catalogue_import_rows where dedupe_status='conflict'),
+   'exactRows',(select count(*) from public.catalogue_import_rows where dedupe_status='exact_match'),
+   'reviewRows',(select count(*) from public.catalogue_import_rows where status='needs_review'),
+   'reviewItems',(select count(*) from public.catalogue_import_run_items where processing_status='needs_review'),
+   'failedItems',(select count(*) from public.catalogue_import_run_items where processing_status='failed'),
+   'incompleteItems',(select count(*) from public.catalogue_import_run_items where processing_status not in ('done','needs_review','failed')),
    'dbBytes',pg_database_size(current_database()))" | jq . >"$1"
 }
 create_run(){
@@ -83,7 +90,7 @@ stage_chunk(){
 }
 process_chunk(){
  psql_local -qAt -c "set role service_role;
- select public.catalogue_process_import_batch('$1'::uuid,true,'LOCAL SYNTHETIC SCALE TEST');" >/dev/null
+ select public.catalogue_process_import_batch('$1'::uuid,true,'LOCAL SYNTHETIC SCALE TEST');" | jq -c . >>"$OUT/process-outcomes.jsonl"
 }
 level(){
  local target="$1" start="$2" chunk="$3" runid curr last pass batch before ms expected
@@ -112,9 +119,22 @@ level(){
  done
  psql_local -qAt -c "set role service_role; select public.catalogue_finalize_import_run('$runid'::uuid,false);" >/dev/null
  snapshot "$OUT/after-$target.json"
- jq -e --argjson n "$target" '.products==$n and .candidates==$n and .identityEvidence==$n and .offers==0 and .selectable==0 and .published==0' "$OUT/after-$target.json" >/dev/null
+ jq -e --argjson n "$target" '
+   .manifestItems==$n and .rows==$n
+   and .products==.candidates and .identityEvidence==.products
+   and .specEvidence==.products
+   and (.products+.reviewRows+.exactRows)==$n
+   and .reviewRows==.reviewItems
+   and .reviewRows==(.probableRows+.conflictRows)
+   and .failedItems==0 and .incompleteItems==0
+   and .offers==0 and .selectable==0 and .published==0
+ ' "$OUT/after-$target.json" >/dev/null || {
+   echo "Unexpected stage/identity/review/evidence accounting at scale $target" >&2
+   cat "$OUT/after-$target.json" >&2
+   exit 1
+ }
  ms=$(( $(date +%s%3N)-before ))
- echo "{\"level\":$target,\"increment\":$((target-start+1)),\"chunk\":$chunk,\"elapsedMs\":$ms,\"millisPerNewProduct\":$(awk "BEGIN{printf \"%.3f\",$ms/($target-$start+1)}")}" | tee -a "$OUT/level-metrics.jsonl"
+ jq -c --argjson target "$target" --argjson increment "$((target-start+1))" --argjson chunk "$chunk" --argjson ms "$ms"    '. + {level:$target,increment:$increment,chunk:$chunk,elapsedMs:$ms,millisPerStagedItem:($ms/$increment)}'    "$OUT/after-$target.json" | tee -a "$OUT/level-metrics.jsonl"
  echo "PASS level $target: $ms ms"
 }
 level 10 1 10
