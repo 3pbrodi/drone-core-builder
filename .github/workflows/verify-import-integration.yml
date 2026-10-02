@@ -19,7 +19,7 @@ permissions:
 jobs:
   local-supabase:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -63,7 +63,7 @@ jobs:
         run: supabase start
 
       - name: Verify repository migration count
-        run: test "$(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | wc -l)" -eq 22
+        run: test "$(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | wc -l)" -eq 23
 
       - name: Replay repository migrations from zero
         run: supabase db reset --local --yes
@@ -96,6 +96,18 @@ jobs:
 
       - name: Run local importer and real-source dry-run
         run: bash tests/integration/catalogue-local-importer-smoke.sh
+
+      - name: Step 5 live HQProp write regression without a manual grant
+        run: bash tests/integration/catalogue-step5-local-write-regression.sh
+
+      - name: Save Step 5 local security and write evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: step5-fresh-migration-hqprop-evidence
+          path: step5-results/
+          if-no-files-found: warn
+          retention-days: 30
 
       - name: Stop disposable Supabase
         if: always()

@@ -14,8 +14,31 @@ end
 $$;
 
 select pg_temp.assert_true(
-  (select count(*) = 22 from supabase_migrations.schema_migrations),
-  'all 22 repository migrations must be recorded after a clean reset'
+  (select count(*) = 23 from supabase_migrations.schema_migrations),
+  'all 23 repository migrations must be recorded after a clean reset'
+);
+
+-- Verify the permanent private-schema permission and the absence of broadened access.
+select pg_temp.assert_true(
+  has_schema_privilege('service_role','catalogue_internal','USAGE')
+  and not has_schema_privilege('service_role','catalogue_internal','CREATE')
+  and has_function_privilege('service_role','catalogue_internal.normalize_identity_text(text)','EXECUTE'),
+  'service_role must receive private schema USAGE but not CREATE'
+);
+select pg_temp.assert_true(
+  not has_schema_privilege('anon','catalogue_internal','USAGE')
+  and not has_schema_privilege('anon','catalogue_internal','CREATE')
+  and not has_schema_privilege('authenticated','catalogue_internal','USAGE')
+  and not has_schema_privilege('authenticated','catalogue_internal','CREATE')
+  and not has_function_privilege('anon','catalogue_internal.normalize_identity_text(text)','EXECUTE')
+  and not has_function_privilege('authenticated','catalogue_internal.normalize_identity_text(text)','EXECUTE')
+  and not exists (
+    select 1 from pg_namespace n
+    cross join lateral aclexplode(coalesce(n.nspacl,acldefault('n',n.nspowner))) acl
+    where n.nspname='catalogue_internal'
+      and acl.grantee=0 and acl.privilege_type in ('USAGE','CREATE')
+  ),
+  'PRIVATE catalogue schema must remain inaccessible to PUBLIC, anon, authenticated'
 );
 
 select pg_temp.assert_true(
