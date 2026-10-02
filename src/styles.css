@@ -2,6 +2,23 @@
 @source "../src";
 @import "tw-animate-css";
 
+/* Landscape hint: tilting phone icon on the rotate prompt overlay. */
+@keyframes rotate-device {
+  0%,
+  25% {
+    transform: rotate(0deg);
+  }
+  60%,
+  100% {
+    transform: rotate(90deg);
+  }
+}
+
+@utility animate-rotate-device {
+  animation: rotate-device 2.2s ease-in-out infinite;
+}
+
+
 @custom-variant dark (&:is(.dark *));
 
 /*

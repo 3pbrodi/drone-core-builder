@@ -24,6 +24,9 @@ const csrfMiddleware = createCsrfMiddleware({
   filter: (ctx) => ctx.handlerType === "serverFn",
 });
 
+// No server function requires a signed-in user yet, so the Supabase bearer
+// attacher is intentionally not registered (it crashed public pages when the
+// browser bundle lacked backend keys). Re-add it when auth-protected fns exist.
 export const startInstance = createStart(() => ({
   requestMiddleware: [errorMiddleware, csrfMiddleware],
 }));
