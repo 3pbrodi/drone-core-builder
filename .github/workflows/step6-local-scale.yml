@@ -1,0 +1,57 @@
+name: Step 6 disposable mass scale (isolated verification branch)
+on:
+  push:
+    branches: [verification/step6-local-scale-20261002]
+permissions:
+  contents: read
+jobs:
+  local-scale:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify isolated ref and pristine checkout
+        run: |
+          test "$GITHUB_REF_NAME" = "verification/step6-local-scale-20261002"
+          test -z "$(git status --porcelain)"
+          test "$(find supabase/migrations -maxdepth 1 -name '*.sql' | wc -l)" -eq 23
+          bash -n tests/integration/step6-local-scale.sh
+      - uses: supabase/setup-cli@v3.0.1
+        with:
+          version: 2.118.0
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.7
+      - name: Run existing code tests, lint, typechecks, and build
+        run: |
+          bun install --frozen-lockfile
+          bun test
+          bunx eslint supabase/functions/_shared/catalogue-import-core.ts tests/catalogue-import-variants.test.ts
+          deno check supabase/functions/catalogue-import-runner/index.ts
+          bunx tsc --noEmit
+          bun run build
+      - name: Rebuild disposable local Supabase from 23 migrations
+        run: |
+          supabase start
+          supabase db reset --local --yes
+          for pass in 1 2; do
+            PGPASSWORD=postgres psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f tests/integration/catalogue-local-staging-bootstrap.sql
+          done
+          PGPASSWORD=postgres psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f tests/integration/catalogue-local-staging-readiness.sql
+          PGPASSWORD=postgres psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f tests/integration/catalogue-import-reliability.sql
+      - name: Synthetic catalogue mass write via current durable importer RPCs
+        run: bash tests/integration/step6-local-scale.sh
+      - name: Preserve synthetic scale evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: step6-local-scale-evidence
+          path: step6-results/
+          if-no-files-found: warn
+          retention-days: 30
+      - name: Stop disposable local Supabase
+        if: always()
+        run: supabase stop --no-backup || true
