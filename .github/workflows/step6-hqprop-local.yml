@@ -1,0 +1,47 @@
+name: Step 6 isolated HQProp real-write regression
+on:
+  push:
+    branches: [verification/step6-hqprop-local-20261002]
+permissions:
+  contents: read
+jobs:
+  local-hqprop-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ensure isolated branch and unchanged repository schema
+        run: |
+          test "$GITHUB_REF_NAME" = "verification/step6-hqprop-local-20261002"
+          test -z "$(git status --porcelain)"
+          test "$(find supabase/migrations -maxdepth 1 -name '*.sql' | wc -l)" -eq 23
+          bash -n tests/integration/catalogue-step5-local-write-regression.sh
+      - uses: supabase/setup-cli@v3.0.1
+        with:
+          version: 2.118.0
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.7
+      - name: Fresh local Supabase only; apply all repository migrations
+        run: |
+          set -euo pipefail
+          test -z "${SUPABASE_ACCESS_TOKEN:-}"
+          supabase start
+          supabase db reset --local --yes
+          for pass in 1 2; do
+            PGPASSWORD=postgres psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f tests/integration/catalogue-local-staging-bootstrap.sql
+          done
+          PGPASSWORD=postgres psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f tests/integration/catalogue-local-staging-readiness.sql
+      - name: Two live HQProp products, evidence, publication and cross-run dedupe on LOCAL only
+        run: bash tests/integration/catalogue-step5-local-write-regression.sh
+      - name: Save local manufacturer evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: step6-hqprop-local-regression-evidence
+          path: step5-results/
+          if-no-files-found: warn
+          retention-days: 30
+      - name: Stop disposable Supabase without backup
+        if: always()
+        run: supabase stop --no-backup || true
