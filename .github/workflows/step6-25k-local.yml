@@ -1,0 +1,46 @@
+name: Step 6 isolated 25k synthetic scale and cross-logical-run dedupe
+on:
+  push:
+    branches: [verification/step6-25k-20261002]
+permissions:
+  contents: read
+jobs:
+  local-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate isolated branch and test-only changes
+        run: |
+          test "$GITHUB_REF_NAME" = "verification/step6-25k-20261002"
+          test -z "$(git status --porcelain)"
+          test "$(find supabase/migrations -maxdepth 1 -name '*.sql' | wc -l)" -eq 23
+          bash -n tests/integration/step6-local-scale.sh
+          bash -n tests/integration/step6-25k-extension.sh
+      - uses: supabase/setup-cli@v3.0.1
+        with:
+          version: 2.118.0
+      - name: Fresh disposable Supabase; replay migration and security checks
+        run: |
+          set -euo pipefail
+          test -z "${SUPABASE_ACCESS_TOKEN:-}"
+          supabase start
+          supabase db reset --local --yes
+          for pass in 1 2; do
+            PGPASSWORD=postgres psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f tests/integration/catalogue-local-staging-bootstrap.sql
+          done
+          PGPASSWORD=postgres psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f tests/integration/catalogue-local-staging-readiness.sql
+          PGPASSWORD=postgres psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f tests/integration/catalogue-import-reliability.sql
+      - name: Deterministic synthetic 25k import, cross-run dedupe and EXPLAIN
+        run: bash tests/integration/step6-25k-extension.sh
+      - name: Retain disposable benchmark evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: step6-25k-crossrun-evidence
+          path: step6-results/
+          if-no-files-found: warn
+          retention-days: 30
+      - name: Stop disposable Supabase
+        if: always()
+        run: supabase stop --no-backup || true
