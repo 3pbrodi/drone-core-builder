@@ -42,10 +42,10 @@ export function SiteHeader() {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
 
-  const handleSignOut = () => {
-    signOut();
+  const handleSignOut = async () => {
     setOpen(false);
-    navigate({ to: "/", replace: true });
+    await navigate({ to: "/", replace: true });
+    signOut();
   };
   const initial = (user?.name || user?.email || "?").charAt(0).toUpperCase();
 
