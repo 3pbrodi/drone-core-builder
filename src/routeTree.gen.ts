@@ -15,6 +15,7 @@ import { Route as BillingRouteImport } from './routes/billing'
 import { Route as CreateCustomBuildRouteImport } from './routes/create-custom-build'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as PreBuiltRouteImport } from './routes/pre-built'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as StartRouteImport } from './routes/start'
 import { Route as TemplatesRouteImport } from './routes/templates'
 
@@ -48,6 +49,11 @@ const PreBuiltRoute = PreBuiltRouteImport.update({
   path: '/pre-built',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const StartRoute = StartRouteImport.update({
   id: '/start',
   path: '/start',
@@ -66,6 +72,7 @@ export interface FileRoutesByFullPath {
   '/create-custom-build': typeof CreateCustomBuildRoute
   '/login': typeof LoginRoute
   '/pre-built': typeof PreBuiltRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/start': typeof StartRoute
   '/templates': typeof TemplatesRoute
 }
@@ -99,6 +106,7 @@ export interface FileRouteTypes {
     | '/create-custom-build'
     | '/login'
     | '/pre-built'
+    | '/reset-password'
     | '/start'
     | '/templates'
   fileRoutesByTo: FileRoutesByTo
@@ -130,6 +138,7 @@ export interface RootRouteChildren {
   CreateCustomBuildRoute: typeof CreateCustomBuildRoute
   LoginRoute: typeof LoginRoute
   PreBuiltRoute: typeof PreBuiltRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
   StartRoute: typeof StartRoute
   TemplatesRoute: typeof TemplatesRoute
 }
@@ -178,6 +187,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PreBuiltRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/start': {
       id: '/start'
       path: '/start'
@@ -202,6 +218,7 @@ const rootRouteChildren: RootRouteChildren = {
   CreateCustomBuildRoute: CreateCustomBuildRoute,
   LoginRoute: LoginRoute,
   PreBuiltRoute: PreBuiltRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
   StartRoute: StartRoute,
   TemplatesRoute: TemplatesRoute,
 }
