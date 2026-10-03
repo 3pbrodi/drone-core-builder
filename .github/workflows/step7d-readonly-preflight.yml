@@ -1,0 +1,87 @@
+name: Step 7D local-only regression for READ-ONLY Production preflight
+on:
+  push:
+    branches:
+      - verification/step7d-production-preflight-20261003
+    paths:
+      - ".github/workflows/step7d-readonly-preflight.yml"
+permissions:
+  contents: read
+jobs:
+  local-regression-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    steps:
+      - uses: actions/checkout@v4
+      - name: Refuse hosted credentials and unexpected branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF_NAME" = verification/step7d-production-preflight-20261003
+          test -z "$(git status --porcelain)"
+          test -z "$(env | grep '^SUPABASE_ACCESS_TOKEN=' || true)"
+          test "$(find supabase/migrations -maxdepth 1 -name '*.sql' | wc -l)" -eq 24
+          test "$(md5sum supabase/migrations/20261002190436_auth_billing_foundation.sql | cut -d' ' -f1)" = 95e66762a514d72bad7d7c6cf5dc58cd
+          mkdir -p step7d-results
+      - uses: supabase/setup-cli@v3.0.1
+        with:
+          version: 2.118.0
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.7
+      - name: Existing unit/category/variant tests, lint, types and local build
+        shell: bash
+        run: |
+          set -euo pipefail
+          bun install --frozen-lockfile
+          bun test
+          bun test tests/component-migration.test.ts tests/catalogue-import-variants.test.ts
+          bunx eslint supabase/functions/_shared/catalogue-import-core.ts tests/catalogue-import-variants.test.ts
+          deno check supabase/functions/catalogue-import-runner/index.ts
+          bunx tsc --noEmit
+          bun run build
+          echo "PASS unit category variants lint Deno TypeScript local build" >step7d-results/code-tests.txt
+      - name: Fresh 24-migration DISPOSABLE Supabase only
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase start
+          eval "$(supabase status -o env)"
+          test "$API_URL" = http://127.0.0.1:54321
+          test -z "$(env | grep '^SUPABASE_ACCESS_TOKEN=' || true)"
+          supabase db reset --local --yes
+          export PGPASSWORD=postgres
+          PG=postgresql://postgres:postgres@127.0.0.1:54322/postgres
+          test "$(psql "$PG" -X -At -v ON_ERROR_STOP=1 -c 'select count(*) from supabase_migrations.schema_migrations')" = 24
+          psql "$PG" -X -v ON_ERROR_STOP=1 -f tests/integration/step7b-schema-audit.sql >step7d-results/clean-schema.txt
+          echo "PASS local 24 migrations security schema snapshot" >step7d-results/schema-summary.txt
+      - name: Existing local auth trigger and ownership RLS
+        shell: bash
+        run: |
+          set -euo pipefail
+          PGPASSWORD=postgres psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -X -v ON_ERROR_STOP=1 -f tests/integration/step7b-auth-rls.sql >step7d-results/auth-rls.txt
+          echo "PASS local auth trigger and per-user RLS" >step7d-results/auth-summary.txt
+      - name: Existing local importer/bootstrap/recovery/idempotency/RLS
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PGPASSWORD=postgres
+          PG=postgresql://postgres:postgres@127.0.0.1:54322/postgres
+          for n in 1 2; do psql "$PG" -X -v ON_ERROR_STOP=1 -f tests/integration/catalogue-local-staging-bootstrap.sql >"step7d-results/bootstrap-$n.txt"; done
+          psql "$PG" -X -v ON_ERROR_STOP=1 -f tests/integration/catalogue-local-staging-readiness.sql >step7d-results/readiness.txt
+          psql "$PG" -X -v ON_ERROR_STOP=1 -f tests/integration/catalogue-import-reliability.sql >step7d-results/p0.txt
+          echo "PASS local P0 importer retry/rollback/claims/idempotency" >step7d-results/p0-summary.txt
+      - name: Archive sanitized local-only results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: step7d-readonly-production-preflight-local-regression
+          path: step7d-results/
+          if-no-files-found: warn
+          retention-days: 30
+      - name: Stop disposable Supabase without backup
+        if: always()
+        run: if command -v supabase >/dev/null; then supabase stop --no-backup || true; fi
