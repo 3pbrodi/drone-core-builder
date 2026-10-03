@@ -1,0 +1,113 @@
+{
+  "step": "8",
+  "date": "2026-10-03",
+  "environment": "isolated/disposable",
+  "productionProjectRef": "rtwreynffguvqdcogahx",
+  "repositoryProjectRef": "krjwlyfxziqxdotdhjea",
+  "noProductionWrites": true,
+  "finalDecision": "NOT READY",
+  "entries": [
+    {
+      "requirement": "projectIdentity",
+      "status": "blocked",
+      "evidence": "other ref not accessible",
+      "blocking": true
+    },
+    {
+      "requirement": "productionBackup",
+      "status": "blocked",
+      "evidence": "no complete export credentials or backup endpoint",
+      "blocking": true
+    },
+    {
+      "requirement": "productionBackupRestore",
+      "status": "blocked",
+      "evidence": "no real Production archive",
+      "blocking": true
+    },
+    {
+      "requirement": "schemaReconstruction",
+      "status": "passed_prior",
+      "evidence": "Step7C complete historical schema Phase A",
+      "blocking": false
+    },
+    {
+      "requirement": "dataRestore",
+      "status": "blocked",
+      "evidence": "synthetic is not actual Production",
+      "blocking": true
+    },
+    {
+      "requirement": "fourMigrationRehearsal",
+      "status": "passed_prior",
+      "evidence": "Step7C four original SQLs; Step8 local CLI separate",
+      "blocking": false
+    },
+    {
+      "requirement": "dataFingerprints",
+      "status": "pending_synthetic",
+      "evidence": "local 25 shape not real row data",
+      "blocking": true
+    },
+    {
+      "requirement": "identityIndex",
+      "status": "passed_prior",
+      "evidence": "zero actual 25-product collisions Step7D and original SQL Step7C",
+      "blocking": false
+    },
+    {
+      "requirement": "publicSnapshot24",
+      "status": "blocked",
+      "evidence": "needs real restored published 24 rows",
+      "blocking": true
+    },
+    {
+      "requirement": "importHistory",
+      "status": "operational_block",
+      "evidence": "24 unresolved legacy imports",
+      "blocking": true
+    },
+    {
+      "requirement": "olderVersionCliDryRun",
+      "status": "pending_local",
+      "evidence": "dedicated Step8 local workflow",
+      "blocking": true
+    },
+    {
+      "requirement": "remoteCliDryRun",
+      "status": "blocked",
+      "evidence": "unverified second project ID and no actual approved database connection",
+      "blocking": true
+    },
+    {
+      "requirement": "rollbackPlan",
+      "status": "documented_not_tested",
+      "evidence": "full verified restore prerequisite",
+      "blocking": true
+    },
+    {
+      "requirement": "maintenanceWindow",
+      "status": "proposed_not_scheduled",
+      "evidence": "needs freeze owner and measured rehearsal",
+      "blocking": true
+    },
+    {
+      "requirement": "postMigrationVerification",
+      "status": "documented_not_executed",
+      "evidence": "requires future approved execution",
+      "blocking": true
+    },
+    {
+      "requirement": "edgeCompatibility",
+      "status": "prior_versions_stable",
+      "evidence": "catalogue functions 2/9/3/8 unchanged",
+      "blocking": false
+    },
+    {
+      "requirement": "authBillingCompatibility",
+      "status": "passed_prior",
+      "evidence": "Step7C/7D local RLS and FK checks",
+      "blocking": false
+    }
+  ]
+}
