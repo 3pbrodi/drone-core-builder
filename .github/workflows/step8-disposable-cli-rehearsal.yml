@@ -1,0 +1,65 @@
+name: Step 8 disposable CLI older-migration rehearsal
+on:
+  push:
+    branches:
+      - verification/step8-production-migration-plan-20261003
+    paths:
+      - ".github/workflows/step8-disposable-cli-rehearsal.yml"
+      - "tests/integration/step8-*.py"
+      - "tests/integration/step8-*.sql"
+permissions:
+  contents: read
+jobs:
+  local-migration-cli:
+    runs-on: ubuntu-latest
+    timeout-minutes: 95
+    steps:
+      - uses: actions/checkout@v4
+      - name: Guard local only and historical source integrity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF_NAME" = verification/step8-production-migration-plan-20261003
+          test -z "$(git status --porcelain)"
+          test -z "$(env | grep '^SUPABASE_ACCESS_TOKEN=' || true)"
+          test "$(find supabase/migrations -name '*.sql' | wc -l)" -eq 24
+          test "$(md5sum supabase/migrations/20261002190436_auth_billing_foundation.sql | awk '{print $1}')" = 95e66762a514d72bad7d7c6cf5dc58cd
+          mkdir -p step8-results
+      - uses: supabase/setup-cli@v3.0.1
+        with:
+          version: 2.118.0
+      - name: READ-ONLY-Production credentials absent; actual local-only CLI dry-run and apply
+        shell: bash
+        env:
+          SUPABASE_ACCESS_TOKEN: ""
+        run: |
+          set -euo pipefail
+          python3 tests/integration/step8-local-cli-rehearsal.py
+      - name: P0/auth/quality regression on separate CLEAN local 24-migration reset
+        shell: bash
+        env:
+          SUPABASE_ACCESS_TOKEN: ""
+        run: |
+          set -euo pipefail
+          git restore -- supabase/migrations
+          test -z "$(git status --porcelain)"
+          supabase db reset --local --yes
+          PG=postgresql://postgres:postgres@127.0.0.1:54322/postgres
+          export PGPASSWORD=postgres
+          psql "$PG" -X -v ON_ERROR_STOP=1 -f tests/integration/step7b-schema-audit.sql >step8-results/clean24-schema.log
+          psql "$PG" -X -v ON_ERROR_STOP=1 -f tests/integration/step7b-auth-rls.sql >step8-results/local-auth-rls.log
+          for i in 1 2; do psql "$PG" -X -v ON_ERROR_STOP=1 -f tests/integration/catalogue-local-staging-bootstrap.sql >"step8-results/local-bootstrap-$i.log"; done
+          psql "$PG" -X -v ON_ERROR_STOP=1 -f tests/integration/catalogue-local-staging-readiness.sql >step8-results/local-readiness.log
+          psql "$PG" -X -v ON_ERROR_STOP=1 -f tests/integration/catalogue-import-reliability.sql >step8-results/local-p0-reliability.log
+          echo 'PASS: clean24/auth/P0 after independent local CLI simulation' | tee step8-results/clean-regression-summary.txt
+      - name: Archive only sanitized local evidence — never include ephemeral dump or credentials
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: step8-disposable-cli-rehearsal-synthetic-shape
+          path: step8-results/
+          if-no-files-found: warn
+          retention-days: 30
+      - name: Destroy disposable local database and volumes
+        if: always()
+        run: if command -v supabase >/dev/null; then supabase stop --no-backup || true; fi
