@@ -24,7 +24,7 @@ case when g<=10 then 'V1' else null end,
 cat::public.drone_product_category,
 case when g<=8 then null else 'STEP8-SKU-'||g end,
 case when g=25 then 'STEP8-MPN-25' else null end,
-case when g=25 then 'candidate' else 'canonical' end,
+(case when g=25 then 'candidate' else 'canonical' end)::public.catalogue_record_class,
 'pending_review','pending_review',false
 from src order by g;
 insert into public.catalogue_product_specs(product_id)
