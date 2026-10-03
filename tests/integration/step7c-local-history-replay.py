@@ -221,6 +221,9 @@ delete from public.catalogue_manufacturers where id='88000000-0000-0000-0000-000
     psql_query(cleanup,"remove-only-disposable-synthetic-legacy-fixture")
     assert psql_query("select count(*) from public.catalogue_products","pre-hqprop-zero-products")=="0"
     psql_file(ROOT/"tests/integration/step7b-auth-rls.sql","post-upgrade-auth-rls")
+    # Local-only checkout file restoration; the replayed database remains unchanged.
+    shutil.copytree(backup,MIG,dirs_exist_ok=True)
+    assert len(list(MIG.glob("*.sql")))==24
     for n in range(2):
         psql_file(ROOT/"tests/integration/catalogue-local-staging-bootstrap.sql","bootstrap-"+str(n+1))
     psql_file(ROOT/"tests/integration/catalogue-local-staging-readiness.sql","post-upgrade-readiness")
