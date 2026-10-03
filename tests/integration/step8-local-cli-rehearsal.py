@@ -211,11 +211,23 @@ with tempfile.TemporaryDirectory(prefix="step7c-local-only-") as tmp:
        "catalogue_products","catalogue_product_specs","catalogue_offers",
        "catalogue_identity_evidence","catalogue_spec_evidence",
        "catalogue_product_identity_keys","catalogue_import_batches","catalogue_import_rows")
-    cmd(["pg_dump",URL,"--format=custom","--data-only","--no-owner","--no-privileges",
-        *[arg for name in table_names for arg in ("--table","public."+name)],
-        "--file",str(synthetic_backup)],"synthetic-data-only-export")
+    # Host runner often ships pg_dump 16 while disposable Supabase uses PG17;
+    # select the local Supabase DB container and use its version-matched tools.
+    db_containers=cmd(["docker","ps","--filter","name=supabase_db_",
+                      "--format","{{.ID}}"],"find-local-db-container",capture=True).splitlines()
+    assert len(db_containers)==1, f"Expected exactly one disposable Supabase DB, got {len(db_containers)}"
+    db_container=db_containers[0].strip()
+    db_dump_inside="/tmp/step8-synthetic-phase-a-only.dump"
+    cmd(["docker","exec","-e","PGPASSWORD=postgres",db_container,
+         "pg_dump","--username=postgres","--dbname=postgres",
+         "--format=custom","--data-only","--no-owner","--no-privileges",
+         *[arg for name in table_names for arg in ("--table","public."+name)],
+         "--file",db_dump_inside],"synthetic-data-only-export")
+    cmd(["docker","cp",db_container+":"+db_dump_inside,str(synthetic_backup)],
+        "copy-only-local-synthetic-dump-to-ephemeral-runner")
     assert synthetic_backup.is_file() and synthetic_backup.stat().st_size>0
-    cmd(["pg_restore","--list",str(synthetic_backup)],"synthetic-backup-toc")
+    cmd(["docker","exec",db_container,"pg_restore","--list",db_dump_inside],
+        "synthetic-backup-toc")
     record("synthetic-backup",{"syntheticDataOnly":True,
        "fullProductionBackup":False,"restoredProduction":False,
        "dumpBytes":synthetic_backup.stat().st_size,
