@@ -1,0 +1,73 @@
+{
+  "step": "8",
+  "verifiedAt": "2026-10-03",
+  "artifact": "step8-disposable-cli-rehearsal-synthetic-shape",
+  "artifactId": 11276066351,
+  "runId": 37128494830,
+  "url": "https://github.com/3pbrodi/drone-core-builder/actions/runs/37128494830",
+  "conclusion": "success",
+  "ciSha": "245c3e85d3bb78860da7c88331b3aa8f274060ab",
+  "scope": "DISPOSABLE LOCAL ONLY",
+  "historicalPhaseAVersions": 20,
+  "cliVersion": "2.118.0",
+  "dryRun": {
+    "nonMutating": true,
+    "beforeLedger": 20,
+    "afterLedger": 20,
+    "exactFiles": [
+      "20260929175500_component_category_enum.sql",
+      "20260929175600_component_category_architecture.sql",
+      "20260929184414_p0_import_reliability.sql",
+      "20261002180345_catalogue_internal_service_role_usage.sql"
+    ]
+  },
+  "actualLocalApply": {
+    "afterLedger": 24,
+    "originalColumnFingerprintChanges": {},
+    "syntheticBeforeAndAfter": {
+      "products": 25,
+      "candidates": 1,
+      "offers": 25,
+      "identityEvidence": 25,
+      "technicalEvidence": 98,
+      "importBatches": 5,
+      "importRows": 40,
+      "new": 16,
+      "unresolved": 24
+    },
+    "duplicateIdentities": 0,
+    "publishedSynthetic": 0
+  },
+  "syntheticDump": {
+    "format": "pg_dump custom DATA ONLY",
+    "tables": 11,
+    "bytes": 13572,
+    "sha256": "7dbec1803409503a922ab91e7a883393dcebd8cecb79056b9fdcb2fe42f3013b",
+    "includedInArtifact": false
+  },
+  "localRestore": {
+    "result": "PASS",
+    "fresh24MigrationSchema": true,
+    "sourceDump": "synthetic only",
+    "products": 25,
+    "importRows": 40,
+    "oldFieldFingerprintChanges": {},
+    "plansRegeneratedNotCopied": true,
+    "systemForeignKeyTriggersRemainEnabled": true
+  },
+  "regressions": {
+    "clean24Schema": true,
+    "authRLS": true,
+    "bootstrap": true,
+    "P0": true,
+    "localTeardown": true
+  },
+  "NOT_PROVEN": [
+    "Production backup",
+    "full Production dataset restore",
+    "24 actually published Production rows snapshot equality",
+    "linked remote CLI dry run",
+    "project config secondary ref owner",
+    "Production rollback"
+  ]
+}

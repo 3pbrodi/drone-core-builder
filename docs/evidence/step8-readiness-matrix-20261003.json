@@ -27,26 +27,26 @@
     },
     {
       "requirement": "schemaReconstruction",
-      "status": "passed_prior",
-      "evidence": "Step7C complete historical schema Phase A",
+      "status": "passed_local",
+      "evidence": "Step7C exact 20 historical schema Phase A and Step8 confirmation",
       "blocking": false
     },
     {
       "requirement": "dataRestore",
-      "status": "blocked",
-      "evidence": "synthetic is not actual Production",
+      "status": "blocked_real_production",
+      "evidence": "SYNTHETIC-only data-only pg_dump of 11 tables actually restored to fresh 24-migration local Supabase; 25 products/40 rows and fingerprints pass. No real Production dump/restore exists.",
       "blocking": true
     },
     {
       "requirement": "fourMigrationRehearsal",
-      "status": "passed_prior",
-      "evidence": "Step7C four original SQLs; Step8 local CLI separate",
+      "status": "passed_cli_local",
+      "evidence": "Step8 pinned CLI v2.118.0 --local --include-all applied 4 older versions: ledger 20→24",
       "blocking": false
     },
     {
       "requirement": "dataFingerprints",
-      "status": "pending_synthetic",
-      "evidence": "local 25 shape not real row data",
+      "status": "passed_synthetic_only",
+      "evidence": "25 synthetic products, 25 offers, 25 identity/98 spec, 5 batches/40 rows; original application column fingerprints preserved; actual Production row copy still unavailable",
       "blocking": true
     },
     {
@@ -69,9 +69,9 @@
     },
     {
       "requirement": "olderVersionCliDryRun",
-      "status": "pending_local",
-      "evidence": "dedicated Step8 local workflow",
-      "blocking": true
+      "status": "passed_local",
+      "evidence": "exactly 4 migration files listed in order; ledger remained 20",
+      "blocking": false
     },
     {
       "requirement": "remoteCliDryRun",
@@ -81,8 +81,8 @@
     },
     {
       "requirement": "rollbackPlan",
-      "status": "documented_not_tested",
-      "evidence": "full verified restore prerequisite",
+      "status": "documented_partial_synthetic_restore_only",
+      "evidence": "Local synthetic restore successful; primary full Production restore remains untested and blocks execution",
       "blocking": true
     },
     {
@@ -109,5 +109,17 @@
       "evidence": "Step7C/7D local RLS and FK checks",
       "blocking": false
     }
-  ]
+  ],
+  "completedLocalCi": {
+    "url": "https://github.com/3pbrodi/drone-core-builder/actions/runs/37128494830",
+    "conclusion": "success",
+    "cliVersion": "2.118.0",
+    "syntheticDumpBytes": 13572,
+    "syntheticDumpSHA256": "7dbec1803409503a922ab91e7a883393dcebd8cecb79056b9fdcb2fe42f3013b",
+    "artifactId": 11276066351,
+    "realProductionExport": false,
+    "realProductionRestore": false,
+    "localSyntheticRestore": true,
+    "regeneratedPlansExcludedFromRestoreFingerprint": true
+  }
 }
