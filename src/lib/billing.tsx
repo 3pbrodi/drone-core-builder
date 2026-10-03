@@ -153,11 +153,11 @@ export function BillingProvider({ children }: { children: ReactNode }) {
       });
     };
     const delay = expireAt - Date.now();
-    if (delay <= 0) expire();
-    else {
+    if (delay > 0) {
       const timeoutId = window.setTimeout(expire, delay);
       return () => window.clearTimeout(timeoutId);
     }
+    expire();
   }, [user, billing?.cancelAtPeriodEnd, billing?.periodEndAt]);
 
   const changePlan = useCallback(
