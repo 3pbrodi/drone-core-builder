@@ -10,6 +10,7 @@ import {
 import { useEffect, type ReactNode } from "react";
 
 import { AuthProvider } from "@/lib/auth";
+import { BillingProvider } from "@/lib/billing";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 
@@ -127,7 +128,9 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <AuthProvider>
-        <Outlet />
+        <BillingProvider>
+          <Outlet />
+        </BillingProvider>
       </AuthProvider>
     </QueryClientProvider>
   );
