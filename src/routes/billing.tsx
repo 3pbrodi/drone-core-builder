@@ -16,6 +16,7 @@ function BillingPage() {
   return (
     <RequireAuth>
       <PageShell
+        eyebrow="Account"
         title="Billing"
         description="Billing is not available in the demo yet."
       >
