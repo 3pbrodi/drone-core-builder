@@ -1,0 +1,94 @@
+name: Step 7C isolated Production-history LOCAL replay
+on:
+  push:
+    branches:
+      - verification/step7c-production-history-replay-20261003
+permissions:
+  contents: read
+jobs:
+  step7c-local:
+    runs-on: ubuntu-latest
+    timeout-minutes: 110
+    steps:
+      - uses: actions/checkout@v4
+      - name: Guard clean checkout, isolated branch, local-only remote auth absence
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF_NAME" = verification/step7c-production-history-replay-20261003
+          test -z "$(git status --porcelain)"
+          test -z "$(env | grep '^SUPABASE_ACCESS_TOKEN=' || true)"
+          test "$(find supabase/migrations -maxdepth 1 -name '*.sql' | wc -l)" -eq 24
+          test "$(md5sum supabase/migrations/20261002190436_auth_billing_foundation.sql | awk '{print $1}')" = 95e66762a514d72bad7d7c6cf5dc58cd
+          mkdir -p step7c-results
+      - uses: supabase/setup-cli@v3.0.1
+        with:
+          version: 2.118.0
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.7
+      - name: Existing full unit/category/variant tests, lint, TypeScript, Deno, build ONLY
+        shell: bash
+        run: |
+          set -euo pipefail
+          bun install --frozen-lockfile
+          bun test
+          bun test tests/component-migration.test.ts tests/catalogue-import-variants.test.ts
+          bunx eslint supabase/functions/_shared/catalogue-import-core.ts tests/catalogue-import-variants.test.ts
+          deno check supabase/functions/catalogue-import-runner/index.ts
+          bunx tsc --noEmit
+          bun run build
+      - name: Actual historical 20 migration LOCAL replay and four-version upgrade
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tests/integration/step7c-local-history-replay.py
+          echo "PASS Phase A original 20 migration SQL; Phase B exact four missing migrations; synthetic legacy retention, auth/RLS, P0 reliability" | tee step7c-results/phase-a-b-summary.txt
+      - name: Local importer and manufacturer dry-run against upgraded Phase B
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(env | grep '^SUPABASE_ACCESS_TOKEN=' || true)"
+          eval "$(supabase status -o env)"
+          test "$API_URL" = http://127.0.0.1:54321
+          umask 077
+          openssl rand -hex 32 >/tmp/catalogue-import-token
+          bash tests/integration/catalogue-local-importer-smoke.sh | tee step7c-results/importer-smoke.txt
+      - name: Real HQProp LOCAL two-product write + same-run replay + cross-run dedupe
+        shell: bash
+        run: |
+          set -euo pipefail
+          sed -e 's/= 23/= 24/g' -e 's/\.migrationCount==23/\.migrationCount==24/g' -e 's/23 local migrations/24 local migrations/g' -e 's/23 migrations/24 migrations/g' -e 's/23-migration/24-migration/g' tests/integration/catalogue-step5-local-write-regression.sh >/tmp/step7c-hqprop.sh
+          grep -q '\.migrationCount==24' /tmp/step7c-hqprop.sh
+          ! grep -Eiq 'grant usage on schema catalogue_internal to service_role' /tmp/step7c-hqprop.sh
+          bash /tmp/step7c-hqprop.sh
+          cp step5-results/final.json step7c-results/hqprop-final.json
+          jq -e '.products==2 and .candidates==2 and .identityEvidence==2 and .specEvidence==2 and .offers==0 and .selectable==0 and .publishedRuntime==0 and .productSources==2 and .runs==2 and .runItems==8 and .rows==4' step7c-results/hqprop-final.json >/dev/null
+      - name: Separate clean 24-migration local build and structural schema comparison
+        shell: bash
+        run: |
+          set -euo pipefail
+          git restore -- supabase/migrations
+          test "$(find supabase/migrations -maxdepth 1 -name '*.sql' | wc -l)" -eq 24
+          supabase db reset --local --yes
+          export PGPASSWORD=postgres
+          PG=postgresql://postgres:postgres@127.0.0.1:54322/postgres
+          psql "$PG" -X -v ON_ERROR_STOP=1 -f tests/integration/step7b-schema-audit.sql >step7c-results/clean24-audit.log
+          psql "$PG" -X -v ON_ERROR_STOP=1 -qAt -f tests/integration/step7c-schema-snapshot.sql >step7c-results/clean24.json
+          python3 tests/integration/step7c-compare-schemas.py | tee step7c-results/comparison-summary.txt
+      - name: Preserve exclusively LOCAL evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: step7c-real-production-history-local-upgrade-evidence
+          path: |
+            step7c-results/
+            step5-results/
+          if-no-files-found: warn
+          retention-days: 30
+      - name: Stop disposable LOCAL Supabase without backup
+        if: always()
+        run: if command -v supabase >/dev/null; then supabase stop --no-backup || true; fi
