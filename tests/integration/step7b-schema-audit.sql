@@ -58,7 +58,7 @@ begin
 end $audit$;
 select jsonb_build_object(
  'versions',(select jsonb_agg(version order by version) from supabase_migrations.schema_migrations),
- 'tables',(select jsonb_agg(c.relname||':'||c.relkind||':'||c.relrowsecurity order by c.relname) from pg_class c
+ 'tables',(select jsonb_agg(c.relname||':'||c.relkind::text||':'||c.relrowsecurity::text order by c.relname) from pg_class c
  join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind in ('r','p','v','m')),
  'indexes',(select jsonb_agg(tablename||':'||indexname order by tablename,indexname) from pg_indexes where schemaname='public'),
  'policies',(select jsonb_agg(tablename||':'||policyname||':'||cmd order by tablename,policyname) from pg_policies where schemaname='public'),
