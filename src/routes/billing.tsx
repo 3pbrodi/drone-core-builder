@@ -209,7 +209,7 @@ function BillingContent() {
               <button type="button" aria-pressed={interval === "yearly"} onClick={() => setInterval("yearly")} className={`rounded-lg px-3 py-2 font-semibold ${interval === "yearly" ? "bg-secondary text-secondary-foreground" : "text-muted-foreground"}`}>Yearly <span className="ml-1 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] text-emerald-700">Save 20%</span></button>
             </div>
           </div>
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {(["free", "pro", "team"] as const).map((plan) => {
               const current = billing.plan === plan;
               const price = plan === "free" ? 0 : interval === "yearly" ? PLAN_PRICES[plan].yearlyMonthly : PLAN_PRICES[plan].monthly;
