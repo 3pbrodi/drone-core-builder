@@ -136,7 +136,7 @@ export function BillingProvider({ children }: { children: ReactNode }) {
   }, [user, billing]);
 
   useEffect(() => {
-    if (!user || !billing?.cancelAtPeriodEnd || !billing.periodEndAt) return;
+    if (!user || !billing?.cancelAtPeriodEnd || !billing.periodEndAt) return undefined;
     const expireAt = new Date(billing.periodEndAt).getTime();
     const expire = () => {
       setBilling((current) => {
@@ -153,11 +153,12 @@ export function BillingProvider({ children }: { children: ReactNode }) {
       });
     };
     const delay = expireAt - Date.now();
-    if (delay <= 0) expire();
-    else {
+    if (delay > 0) {
       const timeoutId = window.setTimeout(expire, delay);
       return () => window.clearTimeout(timeoutId);
     }
+    expire();
+    return undefined;
   }, [user, billing?.cancelAtPeriodEnd, billing?.periodEndAt]);
 
   const changePlan = useCallback(
@@ -167,7 +168,7 @@ export function BillingProvider({ children }: { children: ReactNode }) {
       setBilling((current) => {
         if (!current) return current;
         const now = new Date();
-        const price = interval === "yearly" ? PLAN_PRICES[plan].yearlyTotal : PLAN_PRICES[plan].monthly;
+        const price = interval === "yearly" ? PLAN_PRICES[plan]?.yearlyTotal ?? 0 : PLAN_PRICES[plan]?.monthly ?? 0;
         const invoices =
           plan === "free"
             ? current.invoices
@@ -175,7 +176,7 @@ export function BillingProvider({ children }: { children: ReactNode }) {
                 {
                   id: `DEMO-${String(current.nextInvoiceNumber).padStart(4, "0")}`,
                   date: now.toISOString(),
-                  description: `${plan[0].toUpperCase()}${plan.slice(1)} plan, ${interval}`,
+                  description: `${plan.charAt(0).toUpperCase()}${plan.slice(1)} plan, ${interval}`,
                   amount: price,
                   status: "Paid" as const,
                 },
