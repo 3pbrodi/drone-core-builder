@@ -136,7 +136,7 @@ export function BillingProvider({ children }: { children: ReactNode }) {
   }, [user, billing]);
 
   useEffect(() => {
-    if (!user || !billing?.cancelAtPeriodEnd || !billing.periodEndAt) return;
+    if (!user || !billing?.cancelAtPeriodEnd || !billing.periodEndAt) return undefined;
     const expireAt = new Date(billing.periodEndAt).getTime();
     const expire = () => {
       setBilling((current) => {
@@ -158,6 +158,7 @@ export function BillingProvider({ children }: { children: ReactNode }) {
       return () => window.clearTimeout(timeoutId);
     }
     expire();
+    return undefined;
   }, [user, billing?.cancelAtPeriodEnd, billing?.periodEndAt]);
 
   const changePlan = useCallback(
@@ -175,7 +176,7 @@ export function BillingProvider({ children }: { children: ReactNode }) {
                 {
                   id: `DEMO-${String(current.nextInvoiceNumber).padStart(4, "0")}`,
                   date: now.toISOString(),
-                  description: `${plan[0].toUpperCase()}${plan.slice(1)} plan, ${interval}`,
+                  description: `${plan.charAt(0).toUpperCase()}${plan.slice(1)} plan, ${interval}`,
                   amount: price,
                   status: "Paid" as const,
                 },
