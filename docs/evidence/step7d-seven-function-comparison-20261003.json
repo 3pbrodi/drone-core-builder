@@ -1,0 +1,205 @@
+{
+  "audit": "Step 7D read-only seven function semantic comparison",
+  "projectRef": "rtwreynffguvqdcogahx",
+  "source": "live pg_get_functiondef + original Production schema_migrations SQL + GitHub canonical repository migration",
+  "comparisonMethod": "source-level token comparison ignoring comments and whitespace outside SQL string literals; metadata compared to installed Production",
+  "conclusion": "All seven original and canonical headers+bodies identical under normalization; live hashes equal original historical replay; no pending migration directly recreates them",
+  "functions": [
+    {
+      "schema": "catalogue_internal",
+      "name": "normalize_identity_text",
+      "arguments": "p_value text",
+      "returnType": "text",
+      "volatility": "IMMUTABLE",
+      "securityMode": "INVOKER",
+      "searchPath": [
+        "search_path=pg_catalog"
+      ],
+      "owner": "postgres",
+      "productionAcl": "{postgres=X/postgres,service_role=X/postgres}",
+      "installedDefinitionMD5": "d0544de1589abf7d3f77c8b4654750ae",
+      "originalMigration": "20260928211831_catalogue_scalable_import_dedupe",
+      "historicalDDL": "create or replace function catalogue_internal.normalize_identity_text(p_value text)\nreturns text\nlanguage sql\nimmutable\nset search_path=pg_catalog\nas $$\n  select nullif(regexp_replace(lower(trim(coalesce(p_value,''))), '[^a-z0-9]+', '', 'g'), '');\n$$;",
+      "repositoryDDL": "create or replace function catalogue_internal.normalize_identity_text(p_value text)\nreturns text\nlanguage sql\nimmutable\nset search_path=pg_catalog\nas $$\n  select nullif(\n    regexp_replace(lower(trim(coalesce(p_value,''))), '[^a-z0-9]+', '', 'g'),\n    ''\n  );\n$$;",
+      "currentProductionDefinition": "CREATE OR REPLACE FUNCTION catalogue_internal.normalize_identity_text(p_value text)\n RETURNS text\n LANGUAGE sql\n IMMUTABLE\n SET search_path TO 'pg_catalog'\nAS $function$\n  select nullif(regexp_replace(lower(trim(coalesce(p_value,''))), '[^a-z0-9]+', '', 'g'), '');\n$function$\n",
+      "normalizedHistoricalVsRepository": "IDENTICAL excluding comments and whitespace outside quoted strings",
+      "normalizedSqlDifferences": [],
+      "sqlBodyReferences": [],
+      "directlyRecreatedByPendingMigrations": [],
+      "classification": "Textual-only",
+      "runtimeBehaviorDifferenceIdentified": false,
+      "authorizationMetadataChangeIdentified": false
+    },
+    {
+      "schema": "catalogue_internal",
+      "name": "refresh_manufacturer_identity_keys_trigger",
+      "arguments": "",
+      "returnType": "trigger",
+      "volatility": "VOLATILE",
+      "securityMode": "DEFINER",
+      "searchPath": [
+        "search_path=pg_catalog"
+      ],
+      "owner": "postgres",
+      "productionAcl": "{postgres=X/postgres}",
+      "installedDefinitionMD5": "e17c9174fb43d7e1d19fed9a5254d415",
+      "originalMigration": "20260928211831_catalogue_scalable_import_dedupe",
+      "historicalDDL": "create or replace function catalogue_internal.refresh_manufacturer_identity_keys_trigger()\nreturns trigger\nlanguage plpgsql\nsecurity definer\nset search_path=pg_catalog\nas $$\ndeclare v_id text;\nbegin\n  if old.name is distinct from new.name then\n    for v_id in select p.id from public.catalogue_products p where p.manufacturer_id=new.id loop\n      perform catalogue_internal.refresh_product_identity_keys(v_id);\n    end loop;\n  end if;\n  return null;\nend;\n$$;",
+      "repositoryDDL": "create or replace function\n  catalogue_internal.refresh_manufacturer_identity_keys_trigger()\nreturns trigger\nlanguage plpgsql\nsecurity definer\nset search_path=pg_catalog\nas $$\ndeclare v_id text;\nbegin\n  if old.name is distinct from new.name then\n    for v_id in\n      select p.id\n      from public.catalogue_products p\n      where p.manufacturer_id=new.id\n    loop\n      perform catalogue_internal.refresh_product_identity_keys(v_id);\n    end loop;\n  end if;\n  return null;\nend;\n$$;",
+      "currentProductionDefinition": "CREATE OR REPLACE FUNCTION catalogue_internal.refresh_manufacturer_identity_keys_trigger()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'pg_catalog'\nAS $function$\ndeclare v_id text;\nbegin\n  if old.name is distinct from new.name then\n    for v_id in select p.id from public.catalogue_products p where p.manufacturer_id=new.id loop\n      perform catalogue_internal.refresh_product_identity_keys(v_id);\n    end loop;\n  end if;\n  return null;\nend;\n$function$\n",
+      "normalizedHistoricalVsRepository": "IDENTICAL excluding comments and whitespace outside quoted strings",
+      "normalizedSqlDifferences": [],
+      "sqlBodyReferences": [
+        "public.catalogue_products",
+        "catalogue_internal.refresh_product_identity_keys"
+      ],
+      "directlyRecreatedByPendingMigrations": [],
+      "classification": "Textual-only",
+      "runtimeBehaviorDifferenceIdentified": false,
+      "authorizationMetadataChangeIdentified": false
+    },
+    {
+      "schema": "catalogue_internal",
+      "name": "refresh_product_identity_keys",
+      "arguments": "p_product_id text",
+      "returnType": "void",
+      "volatility": "VOLATILE",
+      "securityMode": "DEFINER",
+      "searchPath": [
+        "search_path=pg_catalog"
+      ],
+      "owner": "postgres",
+      "productionAcl": "{postgres=X/postgres}",
+      "installedDefinitionMD5": "e23c8caeb0da56614bad7b2637c04fa8",
+      "originalMigration": "20260928211831_catalogue_scalable_import_dedupe",
+      "historicalDDL": "create or replace function catalogue_internal.refresh_product_identity_keys(p_product_id text)\nreturns void\nlanguage plpgsql\nsecurity definer\nset search_path=pg_catalog\nas $$\ndeclare\n  v_product record;\n  v_manufacturer_norm text;\n  v_category text;\n  v_sku text;\n  v_mpn text;\n  v_model text;\n  v_variant text;\nbegin\n  delete from public.catalogue_product_identity_keys\n  where product_id=p_product_id\n    and key_kind in ('manufacturer_sku','mpn','model_variant');\n\n  select p.*,m.name as manufacturer_name\n  into v_product\n  from public.catalogue_products p\n  left join public.catalogue_manufacturers m on m.id=p.manufacturer_id\n  where p.id=p_product_id;\n\n  if not found then return; end if;\n\n  v_manufacturer_norm:=catalogue_internal.normalize_identity_text(v_product.manufacturer_name);\n  v_category:=v_product.category::text;\n  v_sku:=catalogue_internal.normalize_identity_text(v_product.manufacturer_sku);\n  v_mpn:=catalogue_internal.normalize_identity_text(v_product.mpn);\n  v_model:=catalogue_internal.normalize_identity_text(v_product.model);\n  v_variant:=coalesce(catalogue_internal.normalize_identity_text(v_product.variant),'');\n\n  if v_manufacturer_norm is not null and v_sku is not null then\n    insert into public.catalogue_product_identity_keys(product_id,key_kind,key_value,confidence)\n    values(p_product_id,'manufacturer_sku',v_category||'|'||v_manufacturer_norm||'|'||v_sku,1)\n    on conflict (product_id,key_kind,key_value) do update\n      set confidence=excluded.confidence,updated_at=now();\n  end if;\n\n  if v_manufacturer_norm is not null and v_mpn is not null then\n    insert into public.catalogue_product_identity_keys(product_id,key_kind,key_value,confidence)\n    values(p_product_id,'mpn',v_category||'|'||v_manufacturer_norm||'|'||v_mpn,1)\n    on conflict (product_id,key_kind,key_value) do update\n      set confidence=excluded.confidence,updated_at=now();\n  end if;\n\n  if v_manufacturer_norm is not null and v_model is not null then\n    insert into public.catalogue_product_identity_keys(product_id,key_kind,key_value,confidence)\n    values(p_product_id,'model_variant',\n      v_category||'|'||v_manufacturer_norm||'|'||v_model||'|'||v_variant,0.92)\n    on conflict (product_id,key_kind,key_value) do update\n      set confidence=excluded.confidence,updated_at=now();\n  end if;\nend;\n$$;",
+      "repositoryDDL": "create or replace function catalogue_internal.refresh_product_identity_keys(\n  p_product_id text\n)\nreturns void\nlanguage plpgsql\nsecurity definer\nset search_path=pg_catalog\nas $$\ndeclare\n  v_product record;\n  v_manufacturer_norm text;\n  v_category text;\n  v_sku text;\n  v_mpn text;\n  v_model text;\n  v_variant text;\nbegin\n  delete from public.catalogue_product_identity_keys\n  where product_id=p_product_id\n    and key_kind in ('manufacturer_sku','mpn','model_variant');\n\n  select p.*,m.name as manufacturer_name\n  into v_product\n  from public.catalogue_products p\n  left join public.catalogue_manufacturers m on m.id=p.manufacturer_id\n  where p.id=p_product_id;\n\n  if not found then return; end if;\n\n  v_manufacturer_norm :=\n    catalogue_internal.normalize_identity_text(v_product.manufacturer_name);\n  v_category := v_product.category::text;\n  v_sku :=\n    catalogue_internal.normalize_identity_text(v_product.manufacturer_sku);\n  v_mpn := catalogue_internal.normalize_identity_text(v_product.mpn);\n  v_model := catalogue_internal.normalize_identity_text(v_product.model);\n  v_variant := coalesce(\n    catalogue_internal.normalize_identity_text(v_product.variant),''\n  );\n\n  if v_manufacturer_norm is not null and v_sku is not null then\n    insert into public.catalogue_product_identity_keys(\n      product_id,key_kind,key_value,confidence\n    ) values (\n      p_product_id,'manufacturer_sku',\n      v_category||'|'||v_manufacturer_norm||'|'||v_sku,1\n    )\n    on conflict (product_id,key_kind,key_value) do update\n      set confidence=excluded.confidence,updated_at=now();\n  end if;\n\n  if v_manufacturer_norm is not null and v_mpn is not null then\n    insert into public.catalogue_product_identity_keys(\n      product_id,key_kind,key_value,confidence\n    ) values (\n      p_product_id,'mpn',\n      v_category||'|'||v_manufacturer_norm||'|'||v_mpn,1\n    )\n    on conflict (product_id,key_kind,key_value) do update\n      set confidence=excluded.confidence,updated_at=now();\n  end if;\n\n  if v_manufacturer_norm is not null and v_model is not null then\n    insert into public.catalogue_product_identity_keys(\n      product_id,key_kind,key_value,confidence\n    ) values (\n      p_product_id,'model_variant',\n      v_category||'|'||v_manufacturer_norm||'|'||v_model||'|'||v_variant,\n      0.92\n    )\n    on conflict (product_id,key_kind,key_value) do update\n      set confidence=excluded.confidence,updated_at=now();\n  end if;\nend;\n$$;",
+      "currentProductionDefinition": "CREATE OR REPLACE FUNCTION catalogue_internal.refresh_product_identity_keys(p_product_id text)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'pg_catalog'\nAS $function$\ndeclare\n  v_product record;\n  v_manufacturer_norm text;\n  v_category text;\n  v_sku text;\n  v_mpn text;\n  v_model text;\n  v_variant text;\nbegin\n  delete from public.catalogue_product_identity_keys\n  where product_id=p_product_id\n    and key_kind in ('manufacturer_sku','mpn','model_variant');\n\n  select p.*,m.name as manufacturer_name\n  into v_product\n  from public.catalogue_products p\n  left join public.catalogue_manufacturers m on m.id=p.manufacturer_id\n  where p.id=p_product_id;\n\n  if not found then return; end if;\n\n  v_manufacturer_norm:=catalogue_internal.normalize_identity_text(v_product.manufacturer_name);\n  v_category:=v_product.category::text;\n  v_sku:=catalogue_internal.normalize_identity_text(v_product.manufacturer_sku);\n  v_mpn:=catalogue_internal.normalize_identity_text(v_product.mpn);\n  v_model:=catalogue_internal.normalize_identity_text(v_product.model);\n  v_variant:=coalesce(catalogue_internal.normalize_identity_text(v_product.variant),'');\n\n  if v_manufacturer_norm is not null and v_sku is not null then\n    insert into public.catalogue_product_identity_keys(product_id,key_kind,key_value,confidence)\n    values(p_product_id,'manufacturer_sku',v_category||'|'||v_manufacturer_norm||'|'||v_sku,1)\n    on conflict (product_id,key_kind,key_value) do update\n      set confidence=excluded.confidence,updated_at=now();\n  end if;\n\n  if v_manufacturer_norm is not null and v_mpn is not null then\n    insert into public.catalogue_product_identity_keys(product_id,key_kind,key_value,confidence)\n    values(p_product_id,'mpn',v_category||'|'||v_manufacturer_norm||'|'||v_mpn,1)\n    on conflict (product_id,key_kind,key_value) do update\n      set confidence=excluded.confidence,updated_at=now();\n  end if;\n\n  if v_manufacturer_norm is not null and v_model is not null then\n    insert into public.catalogue_product_identity_keys(product_id,key_kind,key_value,confidence)\n    values(p_product_id,'model_variant',\n      v_category||'|'||v_manufacturer_norm||'|'||v_model||'|'||v_variant,0.92)\n    on conflict (product_id,key_kind,key_value) do update\n      set confidence=excluded.confidence,updated_at=now();\n  end if;\nend;\n$function$\n",
+      "normalizedHistoricalVsRepository": "IDENTICAL excluding comments and whitespace outside quoted strings",
+      "normalizedSqlDifferences": [],
+      "sqlBodyReferences": [
+        "public.catalogue_product_identity_keys",
+        "public.catalogue_products",
+        "public.catalogue_manufacturers",
+        "catalogue_internal.normalize_identity_text"
+      ],
+      "directlyRecreatedByPendingMigrations": [],
+      "classification": "Textual-only",
+      "runtimeBehaviorDifferenceIdentified": false,
+      "authorizationMetadataChangeIdentified": false
+    },
+    {
+      "schema": "catalogue_internal",
+      "name": "refresh_product_identity_keys_trigger",
+      "arguments": "",
+      "returnType": "trigger",
+      "volatility": "VOLATILE",
+      "securityMode": "DEFINER",
+      "searchPath": [
+        "search_path=pg_catalog"
+      ],
+      "owner": "postgres",
+      "productionAcl": "{postgres=X/postgres}",
+      "installedDefinitionMD5": "ab09e3e65f966c11f8f159ba34bbd41d",
+      "originalMigration": "20260928211831_catalogue_scalable_import_dedupe",
+      "historicalDDL": "create or replace function catalogue_internal.refresh_product_identity_keys_trigger()\nreturns trigger\nlanguage plpgsql\nsecurity definer\nset search_path=pg_catalog\nas $$\nbegin\n  perform catalogue_internal.refresh_product_identity_keys(coalesce(new.id,old.id));\n  return null;\nend;\n$$;",
+      "repositoryDDL": "create or replace function\n  catalogue_internal.refresh_product_identity_keys_trigger()\nreturns trigger\nlanguage plpgsql\nsecurity definer\nset search_path=pg_catalog\nas $$\nbegin\n  perform catalogue_internal.refresh_product_identity_keys(\n    coalesce(new.id,old.id)\n  );\n  return null;\nend;\n$$;",
+      "currentProductionDefinition": "CREATE OR REPLACE FUNCTION catalogue_internal.refresh_product_identity_keys_trigger()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'pg_catalog'\nAS $function$\nbegin\n  perform catalogue_internal.refresh_product_identity_keys(coalesce(new.id,old.id));\n  return null;\nend;\n$function$\n",
+      "normalizedHistoricalVsRepository": "IDENTICAL excluding comments and whitespace outside quoted strings",
+      "normalizedSqlDifferences": [],
+      "sqlBodyReferences": [
+        "catalogue_internal.refresh_product_identity_keys"
+      ],
+      "directlyRecreatedByPendingMigrations": [],
+      "classification": "Textual-only",
+      "runtimeBehaviorDifferenceIdentified": false,
+      "authorizationMetadataChangeIdentified": false
+    },
+    {
+      "schema": "catalogue_internal",
+      "name": "refresh_product_source_identity_key_trigger",
+      "arguments": "",
+      "returnType": "trigger",
+      "volatility": "VOLATILE",
+      "securityMode": "DEFINER",
+      "searchPath": [
+        "search_path=pg_catalog"
+      ],
+      "owner": "postgres",
+      "productionAcl": "{postgres=X/postgres}",
+      "installedDefinitionMD5": "4ce3aeff6a630d8fdabfc3b87c1956ee",
+      "originalMigration": "20260928211831_catalogue_scalable_import_dedupe",
+      "historicalDDL": "create or replace function catalogue_internal.refresh_product_source_identity_key_trigger()\nreturns trigger\nlanguage plpgsql\nsecurity definer\nset search_path=pg_catalog\nas $$\ndeclare v_key text;\nbegin\n  if tg_op='DELETE' then\n    delete from public.catalogue_product_identity_keys\n    where product_id=old.product_id\n      and key_kind='source_external_id'\n      and key_value=old.source_id::text||'|'||\n        catalogue_internal.normalize_identity_text(old.external_product_id);\n    return null;\n  end if;\n\n  if tg_op='UPDATE' then\n    delete from public.catalogue_product_identity_keys\n    where product_id=old.product_id\n      and key_kind='source_external_id'\n      and key_value=old.source_id::text||'|'||\n        catalogue_internal.normalize_identity_text(old.external_product_id);\n  end if;\n\n  v_key:=new.source_id::text||'|'||\n    catalogue_internal.normalize_identity_text(new.external_product_id);\n\n  if catalogue_internal.normalize_identity_text(new.external_product_id) is not null then\n    insert into public.catalogue_product_identity_keys(product_id,key_kind,key_value,confidence)\n    values(new.product_id,'source_external_id',v_key,1)\n    on conflict (product_id,key_kind,key_value) do update\n      set confidence=excluded.confidence,updated_at=now();\n  end if;\n  return null;\nend;\n$$;",
+      "repositoryDDL": "create or replace function\n  catalogue_internal.refresh_product_source_identity_key_trigger()\nreturns trigger\nlanguage plpgsql\nsecurity definer\nset search_path=pg_catalog\nas $$\ndeclare v_key text;\nbegin\n  if tg_op='DELETE' then\n    delete from public.catalogue_product_identity_keys\n    where product_id=old.product_id\n      and key_kind='source_external_id'\n      and key_value=old.source_id::text||'|'||\n        catalogue_internal.normalize_identity_text(old.external_product_id);\n    return null;\n  end if;\n\n  if tg_op='UPDATE' then\n    delete from public.catalogue_product_identity_keys\n    where product_id=old.product_id\n      and key_kind='source_external_id'\n      and key_value=old.source_id::text||'|'||\n        catalogue_internal.normalize_identity_text(old.external_product_id);\n  end if;\n\n  v_key:=new.source_id::text||'|'||\n    catalogue_internal.normalize_identity_text(new.external_product_id);\n\n  if catalogue_internal.normalize_identity_text(\n    new.external_product_id\n  ) is not null then\n    insert into public.catalogue_product_identity_keys(\n      product_id,key_kind,key_value,confidence\n    ) values (\n      new.product_id,'source_external_id',v_key,1\n    )\n    on conflict (product_id,key_kind,key_value) do update\n      set confidence=excluded.confidence,updated_at=now();\n  end if;\n  return null;\nend;\n$$;",
+      "currentProductionDefinition": "CREATE OR REPLACE FUNCTION catalogue_internal.refresh_product_source_identity_key_trigger()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'pg_catalog'\nAS $function$\ndeclare v_key text;\nbegin\n  if tg_op='DELETE' then\n    delete from public.catalogue_product_identity_keys\n    where product_id=old.product_id\n      and key_kind='source_external_id'\n      and key_value=old.source_id::text||'|'||\n        catalogue_internal.normalize_identity_text(old.external_product_id);\n    return null;\n  end if;\n\n  if tg_op='UPDATE' then\n    delete from public.catalogue_product_identity_keys\n    where product_id=old.product_id\n      and key_kind='source_external_id'\n      and key_value=old.source_id::text||'|'||\n        catalogue_internal.normalize_identity_text(old.external_product_id);\n  end if;\n\n  v_key:=new.source_id::text||'|'||\n    catalogue_internal.normalize_identity_text(new.external_product_id);\n\n  if catalogue_internal.normalize_identity_text(new.external_product_id) is not null then\n    insert into public.catalogue_product_identity_keys(product_id,key_kind,key_value,confidence)\n    values(new.product_id,'source_external_id',v_key,1)\n    on conflict (product_id,key_kind,key_value) do update\n      set confidence=excluded.confidence,updated_at=now();\n  end if;\n  return null;\nend;\n$function$\n",
+      "normalizedHistoricalVsRepository": "IDENTICAL excluding comments and whitespace outside quoted strings",
+      "normalizedSqlDifferences": [],
+      "sqlBodyReferences": [
+        "public.catalogue_product_identity_keys",
+        "catalogue_internal.normalize_identity_text"
+      ],
+      "directlyRecreatedByPendingMigrations": [],
+      "classification": "Textual-only",
+      "runtimeBehaviorDifferenceIdentified": false,
+      "authorizationMetadataChangeIdentified": false
+    },
+    {
+      "schema": "public",
+      "name": "catalogue_create_candidate_from_deduped_import",
+      "arguments": "p_import_row_id bigint, p_reviewer text, p_notes text",
+      "returnType": "jsonb",
+      "volatility": "VOLATILE",
+      "securityMode": "INVOKER",
+      "searchPath": [
+        "search_path=public, pg_catalog"
+      ],
+      "owner": "postgres",
+      "productionAcl": "{postgres=X/postgres,service_role=X/postgres}",
+      "installedDefinitionMD5": "a5dd9de0c1afaaa5dcb8454c9398843c",
+      "originalMigration": "20260928211831_catalogue_scalable_import_dedupe",
+      "historicalDDL": "create or replace function public.catalogue_create_candidate_from_deduped_import(\n  p_import_row_id bigint,p_reviewer text,p_notes text default null\n)\nreturns jsonb\nlanguage plpgsql\nsecurity invoker\nset search_path=public,pg_catalog\nas $$\ndeclare v_status text;\nbegin\n  select dedupe_status into v_status\n  from public.catalogue_import_rows where id=p_import_row_id;\n\n  if not found then raise exception 'Import row does not exist.'; end if;\n  if v_status <> 'new' then\n    raise exception 'Candidate creation requires dedupe_status=new; current status is %.',v_status;\n  end if;\n\n  return public.catalogue_create_candidate_from_import(\n    p_import_row_id,p_reviewer,p_notes\n  );\nend;\n$$;",
+      "repositoryDDL": "create or replace function\n  public.catalogue_create_candidate_from_deduped_import(\n    p_import_row_id bigint,\n    p_reviewer text,\n    p_notes text default null\n  )\nreturns jsonb\nlanguage plpgsql\nsecurity invoker\nset search_path=public,pg_catalog\nas $$\ndeclare v_status text;\nbegin\n  select dedupe_status into v_status\n  from public.catalogue_import_rows\n  where id=p_import_row_id;\n\n  if not found then\n    raise exception 'Import row does not exist.';\n  end if;\n\n  if v_status <> 'new' then\n    raise exception\n      'Candidate creation requires dedupe_status=new; current status is %.',\n      v_status;\n  end if;\n\n  return public.catalogue_create_candidate_from_import(\n    p_import_row_id,p_reviewer,p_notes\n  );\nend;\n$$;",
+      "currentProductionDefinition": "CREATE OR REPLACE FUNCTION public.catalogue_create_candidate_from_deduped_import(p_import_row_id bigint, p_reviewer text, p_notes text DEFAULT NULL::text)\n RETURNS jsonb\n LANGUAGE plpgsql\n SET search_path TO 'public', 'pg_catalog'\nAS $function$\ndeclare v_status text;\nbegin\n  select dedupe_status into v_status\n  from public.catalogue_import_rows where id=p_import_row_id;\n\n  if not found then raise exception 'Import row does not exist.'; end if;\n  if v_status <> 'new' then\n    raise exception 'Candidate creation requires dedupe_status=new; current status is %.',v_status;\n  end if;\n\n  return public.catalogue_create_candidate_from_import(\n    p_import_row_id,p_reviewer,p_notes\n  );\nend;\n$function$\n",
+      "normalizedHistoricalVsRepository": "IDENTICAL excluding comments and whitespace outside quoted strings",
+      "normalizedSqlDifferences": [],
+      "sqlBodyReferences": [
+        "public.catalogue_import_rows",
+        "public.catalogue_create_candidate_from_import"
+      ],
+      "directlyRecreatedByPendingMigrations": [],
+      "classification": "Textual-only",
+      "runtimeBehaviorDifferenceIdentified": false,
+      "authorizationMetadataChangeIdentified": false
+    },
+    {
+      "schema": "public",
+      "name": "catalogue_link_exact_import_matches",
+      "arguments": "p_batch_id uuid, p_reviewer text, p_notes text",
+      "returnType": "jsonb",
+      "volatility": "VOLATILE",
+      "securityMode": "INVOKER",
+      "searchPath": [
+        "search_path=public, catalogue_internal, pg_catalog"
+      ],
+      "owner": "postgres",
+      "productionAcl": "{postgres=X/postgres,service_role=X/postgres}",
+      "installedDefinitionMD5": "ec5efdc408536cd6cbb13c17e47e5726",
+      "originalMigration": "20260928211831_catalogue_scalable_import_dedupe",
+      "historicalDDL": "create or replace function public.catalogue_link_exact_import_matches(\n  p_batch_id uuid,p_reviewer text,p_notes text default null\n)\nreturns jsonb\nlanguage plpgsql\nsecurity invoker\nset search_path=public,catalogue_internal,pg_catalog\nas $$\ndeclare\n  r record;\n  v_source_id uuid;\n  v_external text;\n  v_linked integer:=0;\nbegin\n  if p_reviewer is null or length(trim(p_reviewer))=0 then\n    raise exception 'Reviewer is required.';\n  end if;\n\n  select source_id into v_source_id\n  from public.catalogue_import_batches\n  where id=p_batch_id and import_kind='products';\n  if not found then raise exception 'Product import batch does not exist.'; end if;\n\n  for r in\n    select id,matched_product_id,normalized_data,match_method\n    from public.catalogue_import_rows\n    where batch_id=p_batch_id\n      and dedupe_status='exact_match'\n      and matched_product_id is not null\n      and status in ('validated','needs_review')\n  loop\n    v_external:=nullif(trim(r.normalized_data->>'source_external_product_id'),'');\n    if v_source_id is not null and v_external is not null then\n      insert into public.catalogue_product_sources(\n        product_id,source_id,external_product_id,source_url,\n        verification_status,exact_model_association,retrieved_at,metadata\n      ) values (\n        r.matched_product_id,v_source_id,v_external,\n        nullif(trim(r.normalized_data->>'source_url'),''),\n        'pending_review',true,now(),\n        jsonb_build_object('importRowId',r.id,'dedupeMethod',r.match_method)\n      )\n      on conflict do nothing;\n    end if;\n\n    update public.catalogue_import_rows\n    set status='imported',reviewed_at=now()\n    where id=r.id;\n\n    insert into public.catalogue_promotion_events(\n      product_id,action,reviewer,notes,blockers_snapshot\n    ) values (\n      r.matched_product_id,'exact_import_match_linked',\n      trim(p_reviewer),p_notes,'[]'::jsonb\n    );\n    v_linked:=v_linked+1;\n  end loop;\n\n  return jsonb_build_object('batchId',p_batch_id,'linkedRows',v_linked);\nend;\n$$;",
+      "repositoryDDL": "create or replace function public.catalogue_link_exact_import_matches(\n  p_batch_id uuid,\n  p_reviewer text,\n  p_notes text default null\n)\nreturns jsonb\nlanguage plpgsql\nsecurity invoker\nset search_path=public,catalogue_internal,pg_catalog\nas $$\ndeclare\n  r record;\n  v_source_id uuid;\n  v_external text;\n  v_linked integer:=0;\nbegin\n  if p_reviewer is null or length(trim(p_reviewer))=0 then\n    raise exception 'Reviewer is required.';\n  end if;\n\n  select source_id into v_source_id\n  from public.catalogue_import_batches\n  where id=p_batch_id and import_kind='products';\n\n  if not found then\n    raise exception 'Product import batch does not exist.';\n  end if;\n\n  for r in\n    select id,matched_product_id,normalized_data,match_method\n    from public.catalogue_import_rows\n    where batch_id=p_batch_id\n      and dedupe_status='exact_match'\n      and matched_product_id is not null\n      and status in ('validated','needs_review')\n  loop\n    v_external:=nullif(\n      trim(r.normalized_data->>'source_external_product_id'),''\n    );\n\n    if v_source_id is not null and v_external is not null then\n      insert into public.catalogue_product_sources(\n        product_id,source_id,external_product_id,source_url,\n        verification_status,exact_model_association,retrieved_at,metadata\n      ) values (\n        r.matched_product_id,\n        v_source_id,\n        v_external,\n        nullif(trim(r.normalized_data->>'source_url'),''),\n        'pending_review',\n        true,\n        now(),\n        jsonb_build_object(\n          'importRowId',r.id,\n          'dedupeMethod',r.match_method\n        )\n      )\n      on conflict do nothing;\n    end if;\n\n    update public.catalogue_import_rows\n    set status='imported',reviewed_at=now()\n    where id=r.id;\n\n    insert into public.catalogue_promotion_events(\n      product_id,action,reviewer,notes,blockers_snapshot\n    ) values (\n      r.matched_product_id,\n      'exact_import_match_linked',\n      trim(p_reviewer),\n      p_notes,\n      '[]'::jsonb\n    );\n\n    v_linked:=v_linked+1;\n  end loop;\n\n  return jsonb_build_object(\n    'batchId',p_batch_id,\n    'linkedRows',v_linked\n  );\nend;\n$$;",
+      "currentProductionDefinition": "CREATE OR REPLACE FUNCTION public.catalogue_link_exact_import_matches(p_batch_id uuid, p_reviewer text, p_notes text DEFAULT NULL::text)\n RETURNS jsonb\n LANGUAGE plpgsql\n SET search_path TO 'public', 'catalogue_internal', 'pg_catalog'\nAS $function$\ndeclare\n  r record;\n  v_source_id uuid;\n  v_external text;\n  v_linked integer:=0;\nbegin\n  if p_reviewer is null or length(trim(p_reviewer))=0 then\n    raise exception 'Reviewer is required.';\n  end if;\n\n  select source_id into v_source_id\n  from public.catalogue_import_batches\n  where id=p_batch_id and import_kind='products';\n  if not found then raise exception 'Product import batch does not exist.'; end if;\n\n  for r in\n    select id,matched_product_id,normalized_data,match_method\n    from public.catalogue_import_rows\n    where batch_id=p_batch_id\n      and dedupe_status='exact_match'\n      and matched_product_id is not null\n      and status in ('validated','needs_review')\n  loop\n    v_external:=nullif(trim(r.normalized_data->>'source_external_product_id'),'');\n    if v_source_id is not null and v_external is not null then\n      insert into public.catalogue_product_sources(\n        product_id,source_id,external_product_id,source_url,\n        verification_status,exact_model_association,retrieved_at,metadata\n      ) values (\n        r.matched_product_id,v_source_id,v_external,\n        nullif(trim(r.normalized_data->>'source_url'),''),\n        'pending_review',true,now(),\n        jsonb_build_object('importRowId',r.id,'dedupeMethod',r.match_method)\n      )\n      on conflict do nothing;\n    end if;\n\n    update public.catalogue_import_rows\n    set status='imported',reviewed_at=now()\n    where id=r.id;\n\n    insert into public.catalogue_promotion_events(\n      product_id,action,reviewer,notes,blockers_snapshot\n    ) values (\n      r.matched_product_id,'exact_import_match_linked',\n      trim(p_reviewer),p_notes,'[]'::jsonb\n    );\n    v_linked:=v_linked+1;\n  end loop;\n\n  return jsonb_build_object('batchId',p_batch_id,'linkedRows',v_linked);\nend;\n$function$\n",
+      "normalizedHistoricalVsRepository": "IDENTICAL excluding comments and whitespace outside quoted strings",
+      "normalizedSqlDifferences": [],
+      "sqlBodyReferences": [
+        "public.catalogue_import_batches",
+        "public.catalogue_import_rows",
+        "public.catalogue_product_sources",
+        "public.catalogue_promotion_events"
+      ],
+      "directlyRecreatedByPendingMigrations": [],
+      "classification": "Textual-only",
+      "runtimeBehaviorDifferenceIdentified": false,
+      "authorizationMetadataChangeIdentified": false
+    }
+  ]
+}
