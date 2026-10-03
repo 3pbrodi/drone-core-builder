@@ -48,7 +48,15 @@ def cmd(args, label, *, capture=False, check=True):
     with (OUT / (label + ".log")).open("w") as log:
         p = subprocess.run(args, cwd=ROOT, env=ENV, text=True, stdout=subprocess.PIPE,
                            stderr=subprocess.PIPE)
-        log.write("stdout:\n" + p.stdout + "\nstderr:\n" + p.stderr)
+        # The output of "supabase status -o env" includes disposable service
+        # keys. Keep only the local API endpoint in uploaded CI evidence.
+        safe_stdout = p.stdout
+        safe_stderr = p.stderr
+        if label == "local-status":
+            safe_stdout = "\n".join(line for line in p.stdout.splitlines()
+                                    if line.startswith("API_URL=")) + "\n[all ephemeral local keys omitted]"
+            safe_stderr = "[other ephemeral local status values omitted]"
+        log.write("stdout:\n" + safe_stdout + "\nstderr:\n" + safe_stderr)
     if check and p.returncode:
         print("FAILED", label, "exit", p.returncode, "\nSTDERR TAIL:\n", p.stderr[-2800:], flush=True)
         raise RuntimeError(f"{label}: exit {p.returncode}")
