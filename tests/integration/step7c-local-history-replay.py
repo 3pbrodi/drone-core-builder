@@ -146,14 +146,21 @@ with tempfile.TemporaryDirectory(prefix="step7c-local-only-") as tmp:
        "snapshotSetupNotInHistoricalLedger":True,
        "grant":"Production-state compatibility setup only: service_role USAGE on catalogue_internal",
        "grantWasRequired":acl_before=="f",
+       "currentProductionSnapshotFunction":"Canonical current Production body, read-only MD5 328171e95330d6b5d0f297f18105f581; original stored migration remains unchanged",
+       "threeCurrentProductionPrimaryKeyNames":["catalogue_public_fc_esc_evidence_next_pkey","catalogue_public_motor_esc_current_evidence_next_pkey","catalogue_public_motor_propeller_evidence_next_pkey"],
        "historicalSqlVersions":20,
        "manualLocalLedgerEmulation":"12 original Production versions recorded only after their original SQL completed; never on remote"})
+    # Only LOCAL: restore three existing Production PK/index names and the
+    # currently installed canonical snapshot refresh function. Original 20 SQL
+    # texts and their simulated migration records remain untouched.
+    psql_file(ROOT/"tests/integration/step7c-local-current-snapshot-compatibility.sql",
+              "documented-current-production-snapshot-compatibility")
     phase_a=snapshot("phase-a")
     diff_a=changes(phase_a,prod_snapshot)
     record("phase-a-vs-production-diff",diff_a)
     structural=["relations","columns","indexes","constraints","policies","triggers",
                 "functions","enums","schemaPrivateGrant","serviceUsage","anonUsage",
-                "authenticatedUsage","cron","migrationVersions"]
+                "authenticatedUsage","cron","migrationVersions","functionHashes"]
     unexpected={k:diff_a[k] for k in structural if k in diff_a}
     if unexpected:
         record("phase-a-unexpected-schema-diff",unexpected)
