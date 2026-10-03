@@ -1,10 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import {
+  ArrowRight,
   LayoutTemplate,
   PackageSearch,
   SlidersHorizontal,
   Sparkles,
 } from "lucide-react";
+import { useState } from "react";
 import heroDrone from "@/assets/hero-drone.png";
 import { OptionCard } from "@/components/OptionCard";
 import { SiteHeader } from "@/components/SiteHeader";
@@ -32,80 +34,93 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
+  const [showBuildOptions, setShowBuildOptions] = useState(false);
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <SiteHeader />
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-20 sm:px-6">
-        <section className="grid items-center gap-10 py-12 sm:py-16 lg:grid-cols-[1.1fr_0.9fr]">
-          <div>
-            <span className="inline-flex items-center gap-2 rounded-full border border-border bg-secondary px-3 py-1 text-xs font-semibold text-secondary-foreground">
-              Drone configurator · beta
-            </span>
-            <h1 className="mt-5 font-display text-4xl font-bold leading-tight tracking-tight text-foreground sm:text-5xl lg:text-6xl">
-              Build the drone you <span className="text-primary">actually</span> want
-            </h1>
-            <p className="mt-5 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg">
-              Pick a path below — start from scratch, use a proven template, let AI
-              suggest parts, or browse ready-to-fly drones. No experience needed.
-            </p>
-          </div>
-          <div className="relative">
+        {!showBuildOptions ? (
+          <section className="relative isolate my-8 grid min-h-[28rem] overflow-hidden rounded-3xl bg-primary px-6 py-12 text-primary-foreground shadow-xl sm:my-12 sm:min-h-[34rem] sm:px-12 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:px-16">
             <div
-              className="absolute inset-8 rounded-full bg-primary/10 blur-3xl"
+              className="absolute -right-16 -top-20 -z-10 h-72 w-72 rounded-full border border-white/15 sm:h-96 sm:w-96"
               aria-hidden
             />
+            <div
+              className="absolute -bottom-32 left-1/3 -z-10 h-80 w-80 rounded-full border border-white/15"
+              aria-hidden
+            />
+            <div>
+              <span className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs font-semibold">
+                Drone configurator · beta
+              </span>
+              <h1 className="mt-6 max-w-2xl font-display text-4xl font-bold leading-tight tracking-tight sm:text-5xl lg:text-6xl">
+                Build the drone you actually want
+              </h1>
+              <p className="mt-5 max-w-xl text-base leading-relaxed text-primary-foreground/85 sm:text-lg">
+                Your next drone starts here. Tell us how you want to build and
+                we’ll guide you through it.
+              </p>
+              <button
+                type="button"
+                onClick={() => setShowBuildOptions(true)}
+                className="mt-8 inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-white px-6 py-3 font-semibold text-primary shadow-sm transition hover:bg-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary"
+              >
+                Let’s build <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </div>
             <img
               src={heroDrone}
-              alt="A modern camera drone floating against a clean background"
+              alt="A modern camera drone"
               width={1024}
               height={768}
-              className="relative mx-auto w-full max-w-lg rounded-3xl object-contain drop-shadow-xl"
+              className="mx-auto mt-8 w-full max-w-lg rounded-3xl object-contain drop-shadow-2xl lg:mt-0"
             />
-          </div>
-        </section>
-
-        <section aria-label="Ways to build your drone">
-          <h2 className="font-display text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
-            Choose how you want to start
-          </h2>
-          <p className="mt-1 text-sm text-muted-foreground sm:text-base">
-            Every path is tappable — you can switch anytime.
-          </p>
-          <div className="mt-6 grid gap-4 sm:grid-cols-2 sm:gap-6">
-            <OptionCard
-              to="/create-custom-build"
-              icon={SlidersHorizontal}
-              step="Path 1"
-              title="Create Custom Build"
-              description="Pick every part yourself — frame, motors, camera, battery — with plain-English explanations for each one."
-              cta="Start building"
-            />
-            <OptionCard
-              to="/templates"
-              icon={LayoutTemplate}
-              step="Path 2"
-              title="Choose Template"
-              description="Start from a proven build for filming, racing, or freestyle — then tweak it to make it yours."
-              cta="Browse templates"
-            />
-            <OptionCard
-              to="/ai-build"
-              icon={Sparkles}
-              step="Path 3"
-              title="AI Build"
-              description="Describe what you want to do with your drone in one sentence, and get a suggested parts list."
-              cta="Ask the AI"
-            />
-            <OptionCard
-              to="/pre-built"
-              icon={PackageSearch}
-              step="Path 4"
-              title="Pre-Built Drones"
-              description="Rather not build? Compare ready-to-fly drones from DJI, Autel, Skydio and other makers."
-              cta="Compare drones"
-            />
-          </div>
-        </section>
+          </section>
+        ) : (
+          <section aria-label="Ways to build your drone" className="py-12 sm:py-16">
+            <h2 className="font-display text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
+              Choose how you want to start
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground sm:text-base">
+              Every path is tappable — you can switch anytime.
+            </p>
+            <div className="mt-6 grid gap-4 sm:grid-cols-2 sm:gap-6">
+              <OptionCard
+                to="/create-custom-build"
+                icon={SlidersHorizontal}
+                step="Path 1"
+                title="Create Custom Build"
+                description="Pick every part yourself — frame, motors, camera, battery — with plain-English explanations for each one."
+                cta="Start building"
+              />
+              <OptionCard
+                to="/templates"
+                icon={LayoutTemplate}
+                step="Path 2"
+                title="Choose Template"
+                description="Start from a proven build for filming, racing, or freestyle — then tweak it to make it yours."
+                cta="Browse templates"
+              />
+              <OptionCard
+                to="/ai-build"
+                icon={Sparkles}
+                step="Path 3"
+                title="AI Build"
+                description="Describe what you want to do with your drone in one sentence, and get a suggested parts list."
+                cta="Ask the AI"
+              />
+              <OptionCard
+                to="/pre-built"
+                icon={PackageSearch}
+                step="Path 4"
+                title="Pre-Built Drones"
+                description="Rather not build? Compare ready-to-fly drones from DJI, Autel, Skydio and other makers."
+                cta="Compare drones"
+              />
+            </div>
+          </section>
+        )}
       </main>
       <footer className="border-t border-border py-6 text-center text-xs text-muted-foreground">
         DroneCores — sample content for now, real parts and prices coming soon
