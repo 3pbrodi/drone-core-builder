@@ -8,7 +8,7 @@ export const isSupabaseConfigured = Boolean(supabaseUrl && supabasePublishableKe
 let client: SupabaseClient | null = null;
 
 export function getSupabase(): SupabaseClient | null {
-  if (!isSupabaseConfigured || typeof window === "undefined") return null;
+  if (!supabaseUrl || !supabasePublishableKey || typeof window === "undefined") return null;
 
   client ??= createClient(supabaseUrl, supabasePublishableKey, {
     auth: {
