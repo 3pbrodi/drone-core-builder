@@ -97,6 +97,7 @@ function BillingContent() {
   const endLabel = dateLabel(billing.periodEndAt);
 
   function selectPlan(plan: PlanId) {
+    if (!billing || !user) return;
     if (plan === billing.plan && (plan === "free" || interval === billing.interval)) return;
     if (plan === "free") {
       setCancelOpen(true);
@@ -112,6 +113,7 @@ function BillingContent() {
   }
 
   function startEmailEdit() {
+    if (!billing) return;
     setEmail(billing.billingEmail);
     setEmailError("");
     setEditingEmail(true);
