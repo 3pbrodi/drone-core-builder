@@ -42,7 +42,8 @@ jobs:
         run: |
           set -euo pipefail
           git restore -- supabase/migrations
-          test -z "$(git status --porcelain)"
+          # Evidence directory is intentionally untracked; assert only tracked source is unchanged.
+          test -z "$(git status --porcelain --untracked-files=no)"
           supabase db reset --local --yes
           PG=postgresql://postgres:postgres@127.0.0.1:54322/postgres
           export PGPASSWORD=postgres
