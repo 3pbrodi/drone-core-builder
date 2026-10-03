@@ -2,7 +2,6 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 import { Check, Eye, EyeOff, LockKeyhole, Mail, UserRound } from "lucide-react";
 import { z } from "zod";
-import { LogoMark } from "@/components/SiteHeader";
 import { MIN_PASSWORD_LENGTH, useAuth } from "@/lib/auth";
 
 const searchSchema = z.object({
@@ -19,10 +18,23 @@ export const Route = createFileRoute("/login")({
 type Mode = "signin" | "signup" | "forgot";
 type FormErrors = { name?: string; email?: string; password?: string; form?: string };
 
+function BrandMark() {
+  return (
+    <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary text-primary-foreground">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="h-5 w-5" aria-hidden>
+        <circle cx="5" cy="5" r="2.5" /><circle cx="19" cy="5" r="2.5" />
+        <circle cx="5" cy="19" r="2.5" /><circle cx="19" cy="19" r="2.5" />
+        <rect x="9.5" y="9.5" width="5" height="5" rx="1.5" />
+        <path d="M7 7l3 3M17 7l-3 3M7 17l3-3M17 17l-3-3" />
+      </svg>
+    </span>
+  );
+}
+
 function LoginPage() {
   const search = Route.useSearch();
   const navigate = useNavigate();
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, requestPasswordReset } = useAuth();
   const [mode, setMode] = useState<Mode>(search.mode === "signup" ? "signup" : "signin");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -30,17 +42,33 @@ function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
   const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState("");
+  const [resetSent, setResetSent] = useState(false);
 
   const switchMode = (next: Mode) => {
     setMode(next);
     setErrors({});
+    setNotice("");
+    setResetSent(false);
   };
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const next: FormErrors = {};
-    if (mode === "signup" && name.trim().length > 100) next.name = "Use 100 characters or fewer.";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) next.email = "Enter a valid email address.";
+
+    if (mode === "forgot") {
+      setErrors(next);
+      if (Object.keys(next).length) return;
+      setBusy(true);
+      const result = await requestPasswordReset(email);
+      setBusy(false);
+      if (!result.ok) setErrors({ form: result.error });
+      else setResetSent(true);
+      return;
+    }
+
+    if (mode === "signup" && name.trim().length > 100) next.name = "Use 100 characters or fewer.";
     if (!password) next.password = "Enter your password.";
     else if (mode === "signup" && password.length < MIN_PASSWORD_LENGTH) {
       next.password = `Use at least ${MIN_PASSWORD_LENGTH} characters.`;
@@ -55,17 +83,27 @@ function LoginPage() {
       setErrors({ form: result.error });
       return;
     }
+    if (mode === "signup" && result.needsConfirmation) {
+      setNotice("Account created. Check your inbox and confirm your email before signing in.");
+      setMode("signin");
+      setPassword("");
+      return;
+    }
     await navigate({ to: search.redirect ?? "/", replace: true });
   }
 
   const title = mode === "signup" ? "Create your account" : mode === "forgot" ? "Reset password" : "Welcome back";
-  const subtitle = mode === "signup" ? "Create an account to continue building." : "Sign in to continue building your drones.";
+  const subtitle = mode === "signup"
+    ? "Create an account to continue building."
+    : mode === "forgot"
+      ? "We’ll email you a secure password reset link."
+      : "Sign in to continue building your drones.";
 
   return (
     <div className="min-h-screen bg-white text-foreground lg:flex">
       <aside className="relative hidden min-h-screen w-1/2 flex-col justify-between overflow-hidden bg-gradient-to-br from-[#2e6be6] to-[#2a3fb0] p-12 text-white lg:flex xl:p-16">
         <Link to="/" className="relative z-10 flex items-center gap-3">
-          <LogoMark />
+          <BrandMark />
           <span className="font-display text-lg font-bold">DroneCores</span>
         </Link>
         <div className="relative z-10 max-w-xl">
@@ -96,7 +134,7 @@ function LoginPage() {
       <main className="flex min-h-screen w-full flex-col bg-white px-6 py-8 sm:px-10 md:items-center md:justify-center md:bg-brand-soft md:px-8 lg:w-1/2 lg:bg-white lg:px-12">
         <div className="mx-auto flex w-full max-w-[400px] flex-1 flex-col justify-center py-10 md:max-w-[560px] md:py-0 lg:max-w-[400px] lg:flex-none">
           <Link to="/" className="mb-8 flex items-center gap-3 lg:hidden">
-            <LogoMark />
+            <BrandMark />
             <span className="font-display text-lg font-bold">DroneCores</span>
           </Link>
           <section className="w-full rounded-3xl border border-transparent bg-white p-0 sm:p-1 md:border-border md:p-12 md:shadow-xl lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
@@ -105,15 +143,25 @@ function LoginPage() {
               <p className="mt-2 text-base text-muted-foreground">{subtitle}</p>
             </header>
 
+            {notice && <p role="status" className="mt-5 rounded-xl border border-success/30 bg-success/10 p-4 text-sm text-foreground">{notice}</p>}
+
             {mode === "forgot" ? (
-              <div className="mt-8 space-y-5">
-                <p role="status" className="rounded-xl border border-border bg-muted p-4 text-sm">
-                  Needs a connected backend and is not available in the demo yet.
-                </p>
-                <button type="button" onClick={() => switchMode("signin")} className="text-sm font-semibold text-primary hover:underline">
-                  Back to sign in
+              <form onSubmit={onSubmit} noValidate className="mt-8 space-y-5">
+                <div>
+                  <label htmlFor="reset-email" className="mb-2 block text-sm font-medium">Email</label>
+                  <div className="relative">
+                    <Mail className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+                    <input id="reset-email" type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} className="h-12 w-full rounded-xl border border-input bg-background pl-11 pr-4 text-base outline-none focus:border-primary focus:ring-2 focus:ring-ring/30" placeholder="you@example.com" aria-invalid={Boolean(errors.email)} aria-describedby={errors.email ? "email-error" : undefined} />
+                  </div>
+                  {errors.email && <p id="email-error" className="mt-1 text-sm text-destructive">{errors.email}</p>}
+                </div>
+                {errors.form && <p role="alert" className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{errors.form}</p>}
+                {resetSent && <p role="status" className="rounded-xl border border-success/30 bg-success/10 p-4 text-sm">If an account exists for that address, a reset link has been sent.</p>}
+                <button type="submit" disabled={busy} className="h-12 w-full rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60">
+                  {busy ? "Please wait…" : "Send reset link"}
                 </button>
-              </div>
+                <button type="button" onClick={() => switchMode("signin")} className="text-sm font-semibold text-primary hover:underline">Back to sign in</button>
+              </form>
             ) : (
               <>
                 <div className="mt-8 grid grid-cols-1 gap-3">
@@ -125,9 +173,7 @@ function LoginPage() {
                   ))}
                 </div>
                 <div className="my-6 flex items-center gap-3 text-xs text-muted-foreground">
-                  <span className="h-px flex-1 bg-border" />
-                  or continue with email
-                  <span className="h-px flex-1 bg-border" />
+                  <span className="h-px flex-1 bg-border" />or continue with email<span className="h-px flex-1 bg-border" />
                 </div>
 
                 <form onSubmit={onSubmit} noValidate className="space-y-4">
@@ -178,7 +224,7 @@ function LoginPage() {
             )}
           </section>
           <p className="mt-8 text-center text-xs leading-5 text-muted-foreground">
-            Demo mode: accounts stay in this browser. No real account or payment is created.
+            DroneCores account authentication is powered by Supabase. Email confirmation is required for new accounts.
           </p>
         </div>
         <p className="mx-auto mt-6 max-w-[400px] text-center text-[11px] leading-4 text-muted-foreground">
