@@ -14,8 +14,8 @@ end
 $$;
 
 select pg_temp.assert_true(
-  (select count(*) = 23 from supabase_migrations.schema_migrations),
-  'all 23 repository migrations must be recorded after a clean reset'
+  (select count(*) = 24 from supabase_migrations.schema_migrations),
+  'all 24 repository migrations must be recorded after a clean reset'
 );
 
 -- Verify the permanent private-schema permission and the absence of broadened access.

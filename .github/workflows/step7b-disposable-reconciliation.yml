@@ -1,0 +1,103 @@
+name: Step 7B disposable migration reconciliation
+on:
+  push:
+    branches:
+      - verification/step7b-disposable-reconciliation-20261003
+permissions:
+  contents: read
+jobs:
+  local-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    steps:
+      - uses: actions/checkout@v4
+      - name: Guard branch, pristine checkout and exact Production SQL
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF_NAME" = verification/step7b-disposable-reconciliation-20261003
+          test -z "$(git status --porcelain)"
+          test -z "$(env | grep '^SUPABASE_ACCESS_TOKEN=' || true)"
+          test "$(find supabase/migrations -maxdepth 1 -name '*.sql' | wc -l)" -eq 24
+          test "$(md5sum supabase/migrations/20261002190436_auth_billing_foundation.sql | awk '{print $1}')" = 95e66762a514d72bad7d7c6cf5dc58cd
+          mkdir -p step7b-results
+      - uses: supabase/setup-cli@v3.0.1
+        with:
+          version: 2.118.0
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.7
+      - name: Existing full tests, category/variant tests, lint, types and BUILD ONLY
+        run: |
+          bun install --frozen-lockfile
+          bun test
+          bun test tests/component-migration.test.ts tests/catalogue-import-variants.test.ts
+          bunx eslint supabase/functions/_shared/catalogue-import-core.ts tests/catalogue-import-variants.test.ts
+          deno check supabase/functions/catalogue-import-runner/index.ts
+          bunx tsc --noEmit
+          bun run build
+      - name: Twice rebuild freshly migrated disposable LOCAL database and compare schema
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase start
+          eval "$(supabase status -o env)"
+          test "$API_URL" = http://127.0.0.1:54321
+          export PGPASSWORD=postgres
+          PG=postgresql://postgres:postgres@127.0.0.1:54322/postgres
+          supabase db reset --local --yes
+          psql "$PG" -X -v ON_ERROR_STOP=1 -qAt -f tests/integration/step7b-schema-audit.sql | tee step7b-results/first.json
+          supabase db reset --local --yes
+          psql "$PG" -X -v ON_ERROR_STOP=1 -qAt -f tests/integration/step7b-schema-audit.sql | tee step7b-results/second.json
+          jq -S . step7b-results/first.json >step7b-results/first-sorted.json
+          jq -S . step7b-results/second.json >step7b-results/second-sorted.json
+          diff -u step7b-results/first-sorted.json step7b-results/second-sorted.json
+          jq -e '(.versions|length)==24 and (.categories|length)==18 and .authTables==7 and .snapshotTables==5 and .authIndexes==16 and .authPolicies==11 and .serviceSchemaUsage==true and .anonSchemaUsage==false and .authenticatedSchemaUsage==false and .products==0 and .offers==0' step7b-results/second.json >/dev/null
+          echo "PASS two clean 24-migration resets with identical schema, no manual grants" | tee step7b-results/rebuild-summary.txt
+      - name: Locally simulate two auth.users and verify triggers / row isolation
+        shell: bash
+        run: |
+          set -euo pipefail
+          PGPASSWORD=postgres psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -v ON_ERROR_STOP=1 -f tests/integration/step7b-auth-rls.sql | tee step7b-results/auth-rls.txt
+      - name: Existing manufacturer bootstrap, readiness and P0 reliability
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PGPASSWORD=postgres
+          PG=postgresql://postgres:postgres@127.0.0.1:54322/postgres
+          for n in 1 2; do psql "$PG" -v ON_ERROR_STOP=1 -f tests/integration/catalogue-local-staging-bootstrap.sql >step7b-results/bootstrap-$n.txt; done
+          psql "$PG" -v ON_ERROR_STOP=1 -f tests/integration/catalogue-local-staging-readiness.sql >step7b-results/readiness.txt
+          psql "$PG" -v ON_ERROR_STOP=1 -f tests/integration/catalogue-import-reliability.sql >step7b-results/p0.txt
+      - name: Local importer and manufacturer dry-run
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          openssl rand -hex 32 > /tmp/catalogue-import-token
+          bash tests/integration/catalogue-local-importer-smoke.sh | tee step7b-results/importer-smoke.txt
+      - name: Reuse unmodified HQProp two-product REAL local write regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          sed -e 's/= 23/= 24/g' -e 's/\.migrationCount==23/\.migrationCount==24/g' -e 's/23 local migrations/24 local migrations/g' -e 's/23 migrations/24 migrations/g' -e 's/23-migration/24-migration/g' tests/integration/catalogue-step5-local-write-regression.sh >/tmp/step7b-hqprop.sh
+          grep -q '\.migrationCount==24' /tmp/step7b-hqprop.sh
+          ! grep -Eiq 'grant usage on schema catalogue_internal to service_role' /tmp/step7b-hqprop.sh
+          bash /tmp/step7b-hqprop.sh
+          cp step5-results/final.json step7b-results/hqprop-final.json
+          jq -e '.products==2 and .candidates==2 and .identityEvidence==2 and .specEvidence==2 and .offers==0 and .selectable==0 and .publishedRuntime==0 and .productSources==2 and .runs==2 and .runItems==8 and .rows==4' step7b-results/hqprop-final.json >/dev/null
+      - name: Archive LOCAL evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: step7b-two-rebuild-auth-hqprop
+          path: |
+            step7b-results/
+            step5-results/
+          if-no-files-found: warn
+          retention-days: 30
+      - name: Stop disposable Supabase without backup
+        if: always()
+        run: if command -v supabase >/dev/null; then supabase stop --no-backup || true; fi
