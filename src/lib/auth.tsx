@@ -7,162 +7,191 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import type { User as SupabaseUser } from "@supabase/supabase-js";
+import { getSupabase } from "@/lib/supabase";
 
-const USERS_KEY = "dronecores.users";
-const SESSION_KEY = "dronecores.session";
 export const MIN_PASSWORD_LENGTH = 8;
-const SIGN_IN_ERROR = "Email or password is incorrect.";
 
 export type AuthUser = { id: string; email: string; name: string };
-type StoredUser = AuthUser & { salt: string; passwordHash: string };
 export type AuthStatus = "loading" | "signedIn" | "signedOut";
-export type AuthResult = { ok: true; user: AuthUser } | { ok: false; error: string };
+export type AuthResult = { ok: true; user?: AuthUser; needsConfirmation?: boolean } | { ok: false; error: string };
 
 type AuthContextValue = {
   user: AuthUser | null;
   status: AuthStatus;
+  passwordRecovery: boolean;
   signIn: (email: string, password: string) => Promise<AuthResult>;
   signUp: (email: string, password: string, name?: string) => Promise<AuthResult>;
   signOut: () => void;
+  requestPasswordReset: (email: string) => Promise<AuthResult>;
+  updatePassword: (password: string) => Promise<AuthResult>;
+  finishPasswordRecovery: () => void;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-function readLocal<T>(key: string, fallback: T): T {
-  try {
-    const raw = window.localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as T) : fallback;
-  } catch {
-    return fallback;
+function toAuthUser(user: SupabaseUser): AuthUser {
+  const email = user.email ?? "";
+  const metadataName = user.user_metadata?.name;
+  const name =
+    typeof metadataName === "string" && metadataName.trim()
+      ? metadataName.trim()
+      : email.split("@")[0] || "Pilot";
+  return { id: user.id, email, name };
+}
+
+function unavailable(): AuthResult {
+  return {
+    ok: false,
+    error: "Sign-in is not configured yet. Please try again later.",
+  };
+}
+
+function signInError(error: { code?: string; message?: string }): string {
+  if (error.code === "email_not_confirmed") {
+    return "Please confirm your email first. Check your inbox.";
   }
-}
-
-function writeLocal(key: string, value: unknown): boolean {
-  try {
-    if (value === null) window.localStorage.removeItem(key);
-    else window.localStorage.setItem(key, JSON.stringify(value));
-    return true;
-  } catch {
-    return false;
+  if (/fetch|network/i.test(error.message ?? "")) {
+    return "Could not reach the sign-in service. Check your connection and try again.";
   }
-}
-
-function toHex(bytes: Uint8Array) {
-  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
-}
-
-async function hashPassword(password: string, salt: string) {
-  const bytes = new TextEncoder().encode(`${salt}:${password}`);
-  return toHex(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)));
-}
-
-const normalizeEmail = (email: string) => email.trim().toLowerCase();
-const publicUser = ({ id, email, name }: StoredUser): AuthUser => ({ id, email, name });
-
-function currentSession(): AuthUser | null {
-  const session = readLocal<{ userId: string } | null>(SESSION_KEY, null);
-  if (!session?.userId) return null;
-  const users = readLocal<StoredUser[]>(USERS_KEY, []);
-  if (!Array.isArray(users)) return null;
-  const user = users.find((entry) => entry.id === session.userId);
-  return user ? publicUser(user) : null;
+  return "Email or password is incorrect.";
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const [supabase] = useState(() => getSupabase());
   const [user, setUser] = useState<AuthUser | null>(null);
   const [status, setStatus] = useState<AuthStatus>("loading");
-
-  const syncFromStorage = useCallback(() => {
-    const nextUser = currentSession();
-    setUser(nextUser);
-    setStatus(nextUser ? "signedIn" : "signedOut");
-  }, []);
+  const [passwordRecovery, setPasswordRecovery] = useState(false);
 
   useEffect(() => {
-    syncFromStorage();
-    const onStorage = (event: StorageEvent) => {
-      if (event.key === null || event.key === USERS_KEY || event.key === SESSION_KEY) {
-        syncFromStorage();
-      }
-    };
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
-  }, [syncFromStorage]);
-
-  const startSession = useCallback((stored: StoredUser): AuthResult => {
-    if (!writeLocal(SESSION_KEY, { userId: stored.id })) {
-      return { ok: false, error: "Your browser could not save this demo session." };
+    if (!supabase) {
+      setStatus("signedOut");
+      return;
     }
-    const nextUser = publicUser(stored);
-    setUser(nextUser);
-    setStatus("signedIn");
-    return { ok: true, user: nextUser };
-  }, []);
 
-  const signIn = useCallback(
-    async (email: string, password: string): Promise<AuthResult> => {
+    let active = true;
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!active) return;
+      setUser(session ? toAuthUser(session.user) : null);
+      setStatus(session ? "signedIn" : "signedOut");
+      if (event === "PASSWORD_RECOVERY") setPasswordRecovery(true);
+      if (event === "SIGNED_OUT") setPasswordRecovery(false);
+    });
+
+    void supabase.auth.getSession().then(({ data: sessionData }) => {
+      if (!active) return;
+      setUser(sessionData.session ? toAuthUser(sessionData.session.user) : null);
+      setStatus(sessionData.session ? "signedIn" : "signedOut");
+    }).catch(() => {
+      if (!active) return;
+      setUser(null);
+      setStatus("signedOut");
+    });
+
+    return () => {
+      active = false;
+      data.subscription.unsubscribe();
+    };
+  }, [supabase]);
+
+  const signIn = useCallback<AuthContextValue["signIn"]>(
+    async (email, password) => {
+      if (!supabase) return unavailable();
       try {
-        const normalized = normalizeEmail(email);
-        const stored = readLocal<StoredUser[]>(USERS_KEY, []).find(
-          (entry) => entry.email === normalized,
-        );
-        if (!stored || (await hashPassword(password, stored.salt)) !== stored.passwordHash) {
-          return { ok: false, error: SIGN_IN_ERROR };
-        }
-        return startSession(stored);
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
+        if (error) return { ok: false, error: signInError(error) };
+        return { ok: true, user: data.user ? toAuthUser(data.user) : undefined };
       } catch {
-        return { ok: false, error: SIGN_IN_ERROR };
+        return { ok: false, error: "Could not reach the sign-in service. Check your connection and try again." };
       }
     },
-    [startSession],
+    [supabase],
   );
 
-  const signUp = useCallback(
-    async (email: string, password: string, name = ""): Promise<AuthResult> => {
-      const normalized = normalizeEmail(email);
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized) || normalized.length > 255) {
-        return { ok: false, error: "Enter a valid email address." };
-      }
+  const signUp = useCallback<AuthContextValue["signUp"]>(
+    async (email, password, name = "") => {
+      if (!supabase) return unavailable();
       if (password.length < MIN_PASSWORD_LENGTH) {
-        return {
-          ok: false,
-          error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`,
-        };
+        return { ok: false, error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters.` };
       }
-
       try {
-        const users = readLocal<StoredUser[]>(USERS_KEY, []);
-        if (users.some((entry) => entry.email === normalized)) {
-          return { ok: false, error: "An account with this email already exists." };
+        const normalizedEmail = email.trim();
+        const { data, error } = await supabase.auth.signUp({
+          email: normalizedEmail,
+          password,
+          options: {
+            data: { name: name.trim().slice(0, 100) },
+            emailRedirectTo: `${window.location.origin}/login`,
+          },
+        });
+        if (error) return { ok: false, error: error.message };
+        if (data.user && data.user.identities?.length === 0) {
+          return { ok: false, error: "An account with this email already exists. Try signing in." };
         }
-        const salt = toHex(crypto.getRandomValues(new Uint8Array(16)));
-        const stored: StoredUser = {
-          id: crypto.randomUUID(),
-          email: normalized,
-          name: name.trim().slice(0, 100) || normalized.split("@")[0] || "Pilot",
-          salt,
-          passwordHash: await hashPassword(password, salt),
-        };
-        if (!writeLocal(USERS_KEY, [...users, stored])) {
-          return { ok: false, error: "Your browser blocked saving the account." };
-        }
-        return startSession(stored);
+        return data.session
+          ? { ok: true, user: data.user ? toAuthUser(data.user) : undefined }
+          : { ok: true, needsConfirmation: true };
       } catch {
-        return { ok: false, error: "Could not create the account. Please try again." };
+        return { ok: false, error: "Could not create your account. Check your connection and try again." };
       }
     },
-    [startSession],
+    [supabase],
+  );
+
+  const requestPasswordReset = useCallback<AuthContextValue["requestPasswordReset"]>(
+    async (email) => {
+      if (!supabase) return unavailable();
+      try {
+        const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+          redirectTo: `${window.location.origin}/reset-password`,
+        });
+        return error ? { ok: false, error: error.message } : { ok: true };
+      } catch {
+        return { ok: false, error: "Could not send the reset request. Check your connection and try again." };
+      }
+    },
+    [supabase],
+  );
+
+  const updatePassword = useCallback<AuthContextValue["updatePassword"]>(
+    async (password) => {
+      if (!supabase) return unavailable();
+      if (password.length < MIN_PASSWORD_LENGTH) {
+        return { ok: false, error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters.` };
+      }
+      try {
+        const { error } = await supabase.auth.updateUser({ password });
+        return error ? { ok: false, error: error.message } : { ok: true };
+      } catch {
+        return { ok: false, error: "Could not update the password. Request a new reset email and try again." };
+      }
+    },
+    [supabase],
   );
 
   const signOut = useCallback(() => {
-    writeLocal(SESSION_KEY, null);
-    setUser(null);
-    setStatus("signedOut");
-  }, []);
+    if (!supabase) return;
+    void supabase.auth.signOut();
+  }, [supabase]);
+
+  const finishPasswordRecovery = useCallback(() => setPasswordRecovery(false), []);
 
   const value = useMemo(
-    () => ({ user, status, signIn, signUp, signOut }),
-    [user, status, signIn, signUp, signOut],
+    () => ({
+      user,
+      status,
+      passwordRecovery,
+      signIn,
+      signUp,
+      signOut,
+      requestPasswordReset,
+      updatePassword,
+      finishPasswordRecovery,
+    }),
+    [user, status, passwordRecovery, signIn, signUp, signOut, requestPasswordReset, updatePassword, finishPasswordRecovery],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
