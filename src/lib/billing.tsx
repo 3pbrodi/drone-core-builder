@@ -167,7 +167,7 @@ export function BillingProvider({ children }: { children: ReactNode }) {
       setBilling((current) => {
         if (!current) return current;
         const now = new Date();
-        const price = interval === "yearly" ? PLAN_PRICES[plan].yearlyTotal : PLAN_PRICES[plan].monthly;
+        const price = interval === "yearly" ? PLAN_PRICES[plan]?.yearlyTotal ?? 0 : PLAN_PRICES[plan]?.monthly ?? 0;
         const invoices =
           plan === "free"
             ? current.invoices
