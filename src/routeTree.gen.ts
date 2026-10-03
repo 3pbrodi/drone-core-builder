@@ -84,9 +84,22 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/ai-build' | '/billing' | '/create-custom-build' | '/login' | '/pre-built' | '/templates'
+    | '/'
+    | '/ai-build'
+    | '/billing'
+    | '/create-custom-build'
+    | '/login'
+    | '/pre-built'
+    | '/templates'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/ai-build' | '/billing' | '/create-custom-build' | '/login' | '/pre-built' | '/templates'
+  to:
+    | '/'
+    | '/ai-build'
+    | '/billing'
+    | '/create-custom-build'
+    | '/login'
+    | '/pre-built'
+    | '/templates'
   id:
     | '__root__'
     | '/'
