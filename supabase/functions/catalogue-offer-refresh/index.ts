@@ -1,3 +1,4 @@
+import { catalogueRestFetch } from "../_shared/catalogue-rest-retry.ts";
 import { catalogueAdminKey } from "../_shared/catalogue-admin-auth.ts";
 import { checkOffersByMerchant } from "../_shared/catalogue-offer-scheduler.ts";
 
@@ -570,7 +571,7 @@ async function adminRest<T>(
   }
   if (prefer) headers.set("prefer", prefer);
 
-  const response = await fetch(
+  const response = await catalogueRestFetch(
     `${baseUrl}/rest/v1/${path.replace(/^\//, "")}`,
     { ...init, headers },
   );
