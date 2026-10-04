@@ -1,6 +1,9 @@
 # DroneCores Step 8D — Production identity, backup access and migration readiness
 
 **Assessed:** 2026-10-04 · **Decision: NOT READY FOR STEP 9** · **Production access: READ ONLY.**
+
+> **POST-AUDIT DRIFT (2026-10-04):** A later independent READ-ONLY recheck found a NEW Production-only migration `20261004132331_billing_email_update`. Production now has **21 applied migrations**, not the 20 recorded by the original Step 8D CI. The canonical repository still has 24 SQL migration files, without this billing migration. To incorporate all currently applied Production migrations and four missing catalogue migrations, the next complete target would be **25 versions**, pending safe repository reconciliation and renewed local rehearsal. The earlier 20→24 local CI remains valid ONLY for its historical starting point. No new real-Production backup or restore is available. **NOT READY FOR STEP 9**. See section 10 below.
+
 Verification branch: `verification/step8d-production-readiness-20261003`. Parent: Step 8 `95c475a5f3f0363fb4164e52f013bcf25c4411c9`. Step 7D `c83170fef31e7eef75d2ac556a5e84f2dab4ccda`, Step 7C `fc9644b5c0a2d3c563da20a98ef81471e55331a8`. Historical migrations, Production and all established branches remain untouched.
 
 ## 1. Git and migration starting point
@@ -75,3 +78,24 @@ Completed isolated CI run: https://github.com/3pbrodi/drone-core-builder/actions
 The independent read-only Production recheck **after** local CI exactly matched the start-of-Step8D results: 20 migrations, 25 products, 1 candidate, 24 runtime, 25 offers, 25 identity evidence, 98 technical evidence, 5 batches/40 rows (16 new/24 unresolved), 0 auth users, 3 plans, no P0 run/manifest, private USAGE for service_role only, active unchanged cron and active Edge v2/v9/v3/v8. No GitHub Pages push, no Production writes, no merge. Main's latest independently observed SHA was `3c9419da1a8a2e7e3bf45d37d2ec86977da314eb`; it was not modified in this step. Feature HEAD remained `bc0dec0e3551c966fae842c04fb414806671bfad`, and Step 8 HEAD remained `95c475a5f3f0363fb4164e52f013bcf25c4411c9`.
 
 This final report update changes **documentation only** after the passed executable-code CI commit. **NOT READY FOR STEP 9:** the exact same critical real-Production backup, independently restored copy, real-data four-migration rehearsal, 24-row snapshot preservation and actual rollback proof remain unavailable.
+
+## 10. Post-audit independent Production drift — 2026-10-04
+
+The latest independent read-only Supabase checks, conducted **after** the recorded successful Step 8D CI run, identified another migration already applied in Production. **No Step 8D operation applied it.** Its author and deployment path are not proven by the current evidence, and no attribution is made.
+
+| State | At original Step 8D CI | Latest read-only Production check |
+|---|---:|---:|
+| Applied migration ledger | 20 | **21** |
+| Products / candidates / published runtime | 25 / 1 / 24 | 25 / 1 / 24 |
+| Offers / identity evidence / technical evidence | 25 / 25 / 98 | 25 / 25 / 98 |
+| Import batches / rows / unresolved / new | 5 / 40 / 24 / 16 | 5 / 40 / 24 / 16 |
+| P0 run and manifest tables | Absent | Absent |
+| Auth/billing RLS policies | 11 | **12** |
+| Subscriptions | 0 | 0 |
+| Repo migration files on this branch | 24 | 24 |
+
+**New Production-only migration:** version `20261004132331`, name `billing_email_update`; historical ledger statement SHA not independently supplied, SQL MD5 `fabaf99abe3efe3cf6d87213254aa5a9`, statement length 505 bytes. Its stored SQL (verified read-only) revokes unrestricted subscription UPDATE, grants `authenticated` column-level UPDATE only on `billing_email`, adds an owner-only UPDATE RLS policy, and adds the `subscriptions_billing_email_format` CHECK constraint. Current introspection confirms the owner UPDATE policy and constraint exist; `authenticated` can UPDATE billing_email but not plan_id, and `anon` cannot update billing_email. The new SQL file does not exist on the current Step 8D verification branch or `main`.
+
+**Consequence:** The previously validated local 20→24 path is outdated for current Production. Reconcile the original NEW migration SQL with the repository on a separate isolated branch, preserving its historical contents; then test a fresh **21→25** disposable local upgrade from a faithful 21-migration starting point before preparing any future real-data rehearsal. The four missing catalogue versions remain `20260929175500`, `20260929175600`, `20260929184414` and `20261002180345`. The actual current ledger now also includes `20261004132331`. Never run `supabase db push` until the local and Production ledgers reconcile and all other hard gates are independently satisfied.
+
+The original Step 8D CI was successful against the immutable 24-file repository checkout, but **did not and could not** exercise this later Production-only billing migration. No updated real restored Production copy, full secure export or tested full rollback exists. This changes neither the strict safety requirement nor the final decision: **NOT READY FOR STEP 9**.

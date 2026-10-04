@@ -1,0 +1,54 @@
+{
+  "assessedDate": "2026-10-04",
+  "verificationBranch": "verification/step8d-production-readiness-20261003",
+  "priorAssessmentCommit": "480e8d57c0155b2294bfc28d31cc31d5f9721117",
+  "source": "fresh read-only Supabase project metadata, schema_migrations ledger and pg_catalog; no Production writes",
+  "priorLedgerCount": 20,
+  "currentLedgerCount": 21,
+  "priorTargetCount": 24,
+  "revisedPotentialTargetCount": 25,
+  "latestOnlyInProduction": {
+    "version": "20261004132331",
+    "name": "billing_email_update",
+    "sqlBytes": 505,
+    "sqlMd5": "fabaf99abe3efe3cf6d87213254aa5a9",
+    "repoSqlPresent": false,
+    "mainSqlPresent": false,
+    "effects": [
+      "revoke broad subscriptions UPDATE",
+      "grant authenticated UPDATE on subscriptions.billing_email only",
+      "owner-only UPDATE RLS policy",
+      "CHECK email syntax"
+    ],
+    "verifiedCurrentState": {
+      "authRlsPolicyCount": 12,
+      "newPolicyExists": true,
+      "emailFormatCheckExists": true,
+      "authenticatedBillingEmailUpdate": true,
+      "authenticatedPlanIdUpdate": false,
+      "anonBillingEmailUpdate": false,
+      "subscriptionsCount": 0
+    },
+    "authorProven": false
+  },
+  "liveCounters": {
+    "products": 25,
+    "candidates": 1,
+    "publishedRuntime": 24,
+    "offers": 25,
+    "identityEvidence": 25,
+    "technicalEvidence": 98,
+    "identityKeys": 43,
+    "importBatches": 5,
+    "importRows": 40,
+    "new": 16,
+    "unresolved": 24
+  },
+  "oldLocalCiRun": "https://github.com/3pbrodi/drone-core-builder/actions/runs/37195786245",
+  "local21To25TestCompleted": false,
+  "realProductionBackup": false,
+  "realProductionRestore": false,
+  "realDataUpgradeRehearsed": false,
+  "decision": "NOT READY FOR STEP 9",
+  "additionalBlocker": "new Production-only migration absent from repository and not included in prior 20-to-24 local CI"
+}
