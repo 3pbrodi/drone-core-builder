@@ -1,3 +1,4 @@
+import { catalogueRestFetch } from "../_shared/catalogue-rest-retry.ts";
 import { catalogueAdminKey } from "../_shared/catalogue-admin-auth.ts";
 import {
   enumerateJsonLdProductVariants,
@@ -65,7 +66,7 @@ async function adminRest<T>(path: string, init: RequestInit = {}, prefer?: strin
   if (init.body && !headers.has("content-type")) headers.set("content-type", "application/json");
   if (prefer) headers.set("prefer", prefer);
 
-  const response = await fetch(baseUrl + "/rest/v1/" + path.replace(/^\//, ""), {
+  const response = await catalogueRestFetch(baseUrl + "/rest/v1/" + path.replace(/^\//, ""), {
     ...init,
     headers,
   });
