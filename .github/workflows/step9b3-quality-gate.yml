@@ -25,4 +25,4 @@ jobs:
       - name: Typecheck corrected real manufacturer importer
         run: deno check supabase/functions/catalogue-import-runner/index.ts
       - name: Regression tests for real false positive examples
-        run: deno test --allow-none tests/catalogue-scope-quality.test.ts
+        run: deno test tests/catalogue-scope-quality.test.ts
