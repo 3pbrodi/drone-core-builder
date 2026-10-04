@@ -1,3 +1,5 @@
+import { catalogueRestFetch } from "../_shared/catalogue-rest-retry.ts";
+import { catalogueAdminKey } from "../_shared/catalogue-admin-auth.ts";
 import {
   enumerateJsonLdProductVariants,
   enumerateShopifyProductVariants,
@@ -50,14 +52,7 @@ const VALID_CATEGORIES = new Set<Category>([
 ]);
 
 function adminApiKey() {
-  const modern = Deno.env.get("SUPABASE_SECRET_KEYS");
-  if (modern) {
-    const parsed = JSON.parse(modern) as Record<string, string>;
-    if (parsed.default) return parsed.default;
-  }
-  const legacy = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  if (legacy) return legacy;
-  throw new Error("Supabase admin key unavailable.");
+  return catalogueAdminKey((name) => Deno.env.get(name));
 }
 
 async function adminRest<T>(path: string, init: RequestInit = {}, prefer?: string): Promise<T> {
@@ -71,7 +66,7 @@ async function adminRest<T>(path: string, init: RequestInit = {}, prefer?: strin
   if (init.body && !headers.has("content-type")) headers.set("content-type", "application/json");
   if (prefer) headers.set("prefer", prefer);
 
-  const response = await fetch(baseUrl + "/rest/v1/" + path.replace(/^\//, ""), {
+  const response = await catalogueRestFetch(baseUrl + "/rest/v1/" + path.replace(/^\//, ""), {
     ...init,
     headers,
   });

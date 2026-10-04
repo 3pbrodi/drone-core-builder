@@ -1,3 +1,6 @@
+import { catalogueRestFetch } from "../_shared/catalogue-rest-retry.ts";
+import { cataloguePublicKey } from "../_shared/catalogue-admin-auth.ts";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "content-type",
@@ -23,11 +26,11 @@ const categories = [
 
 async function rest(path: string) {
   const baseUrl = Deno.env.get("SUPABASE_URL");
-  const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
-  if (!baseUrl || !anonKey) throw new Error("Supabase public runtime configuration missing.");
+  if (!baseUrl) throw new Error("Supabase public runtime URL missing.");
+  const publicKey = cataloguePublicKey((name) => Deno.env.get(name));
 
-  const response = await fetch(`${baseUrl}/rest/v1/${path}`, {
-    headers: { apikey: anonKey, Accept: "application/json" },
+  const response = await catalogueRestFetch(`${baseUrl}/rest/v1/${path}`, {
+    headers: { apikey: publicKey, Accept: "application/json" },
   });
   if (!response.ok) {
     throw new Error(
