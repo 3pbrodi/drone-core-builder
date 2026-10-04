@@ -94,5 +94,52 @@
     "actual 24 public rows not compared across migration",
     "full real-data rollback not demonstrated",
     "unresolved historical import row triage and future change approval pending"
-  ]
+  ],
+  "finalVerification": {
+    "date": "2026-10-04",
+    "testedCodeCommit": "256c2c43cbeaf0f342a62b5c19678698ed5f6a57",
+    "ciRun": 37195786245,
+    "ciResult": "SUCCESS",
+    "checks": {
+      "unitTests": true,
+      "componentTests": true,
+      "importerVariantTests": true,
+      "eslint": true,
+      "denoCheck": true,
+      "tscNoEmit": true,
+      "viteBuild": true,
+      "local24MigrationReset": true,
+      "authRLS": true,
+      "manufacturerBootstrapTwice": true,
+      "localReadiness": true,
+      "p0Reliability": true,
+      "localStopNoBackup": true
+    },
+    "productionRepeatedBaselineUnchanged": true,
+    "productionVersions": 20,
+    "productCount": 25,
+    "candidates": 1,
+    "published": 24,
+    "offers": 25,
+    "identity": 25,
+    "technical": 98,
+    "batches": 5,
+    "rows": 40,
+    "new": 16,
+    "unresolved": 24,
+    "authUsers": 0,
+    "plans": 3,
+    "edgeVersionList": [
+      2,
+      9,
+      3,
+      8
+    ],
+    "cronUnchanged": true,
+    "realProductionExport": false,
+    "realProductionRestore": false,
+    "realDataMigrationsNotExecuted": true,
+    "realRestoreRollbackUntested": true,
+    "decision": "NOT READY FOR STEP 9"
+  }
 }
