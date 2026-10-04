@@ -1,0 +1,72 @@
+name: Step 9A disposable manufacturer audit
+
+on:
+  push:
+    branches:
+      - audit/step9a-manufacturer-dry-runs
+    paths:
+      - ".github/workflows/step9a-manufacturer-audit.yml"
+      - "tests/integration/catalogue-step9a-manufacturer-audit.sh"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  manufacturer-dry-runs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout the isolated audit branch
+        uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v3.0.1
+        with:
+          version: 2.118.0
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.7
+
+      - name: Run unit and type checks
+        run: |
+          deno check supabase/functions/catalogue-import-runner/index.ts
+          deno check supabase/functions/_shared/catalogue-admin-auth.ts
+          deno check supabase/functions/_shared/catalogue-rest-retry.ts
+
+      - name: Launch a disposable local Supabase database
+        run: |
+          supabase start
+          supabase db reset --local --yes
+
+      - name: Bootstrap ten official manufacturer adapters locally
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
+            -v ON_ERROR_STOP=1 \
+            -f tests/integration/catalogue-local-staging-bootstrap.sql
+          psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
+            -v ON_ERROR_STOP=1 \
+            -f tests/integration/catalogue-local-staging-readiness.sql
+
+      - name: Audit ten official manufacturer feeds with bounded cursor passes
+        env:
+          MAX_PAGES: "3"
+          PAGE_SIZE: "30"
+        run: bash tests/integration/catalogue-step9a-manufacturer-audit.sh
+
+      - name: Save audit report and sanitised page metrics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: step9a-disposable-manufacturer-audit
+          path: step9a-results/
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Destroy disposable local Supabase without backup
+        if: always()
+        run: supabase stop --no-backup
