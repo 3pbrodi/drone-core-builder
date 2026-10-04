@@ -1,0 +1,108 @@
+name: Step 9B.4 isolated 8-product QA and publication-gate test
+on:
+  push:
+    branches:
+      - qa/step9b4-eight-product-isolated-gate
+    paths:
+      - 'qa/step9b4-eight-source-offer-evidence.json'
+      - 'tests/integration/step9b4-*'
+      - '.github/workflows/step9b4-isolated-qa.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  disposable-eight-product-gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 32
+    steps:
+      - name: Checkout isolated QA branch
+        uses: actions/checkout@v4
+
+      - name: Download original 171-row pilot audit artifact
+        uses: actions/download-artifact@v4
+        with:
+          repository: 3pbrodi/drone-core-builder
+          run-id: 37213658740
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          name: step9b2-official-source-staging-evidence
+          path: original-pilot
+
+      - name: Set up pinned Supabase CLI
+        uses: supabase/setup-cli@v3.0.1
+        with:
+          version: 2.118.0
+
+      - name: Set up pinned Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.7
+
+      - name: Typecheck importer and run accessory regressions
+        run: |
+          deno check supabase/functions/catalogue-import-runner/index.ts
+          deno test tests/catalogue-scope-quality.test.ts
+
+      - name: Start fresh disposable local Supabase
+        run: |
+          supabase start
+          supabase db reset --local --yes
+
+      - name: Bootstrap ONLY local official-source adapters
+        env:
+          PGPASSWORD: postgres
+        run: |
+          test -z "${SUPABASE_ACCESS_TOKEN:-}"
+          test -z "${SUPABASE_DB_PASSWORD:-}"
+          psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
+            -X -v ON_ERROR_STOP=1 -f tests/integration/catalogue-local-staging-bootstrap.sql
+          psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
+            -X -v ON_ERROR_STOP=1 -f tests/integration/catalogue-local-staging-readiness.sql
+
+      - name: Prepare exact, source-traceable 8-item local QA inputs
+        run: |
+          python3 tests/integration/step9b4-prepare.py \
+            original-pilot qa/step9b4-eight-source-offer-evidence.json \
+            step9b4-results
+
+      - name: Stage eight and create exactly four unpublished QA candidates
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
+            -X -v ON_ERROR_STOP=1 \
+            -f step9b4-results/stage-and-create-four.sql \
+            >step9b4-results/staging.log
+          echo "PASS: 8 immutable manufacturer identities staged locally, 4 candidates remain pending review"
+
+      - name: Verify negative publication gates and duplicate replay
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
+            -X -At -v ON_ERROR_STOP=1 \
+            -f tests/integration/step9b4-verify-disposable.sql \
+            >step9b4-results/audit-output.txt
+          tail -1 step9b4-results/audit-output.txt | jq . \
+            >step9b4-results/db-audit.json
+          jq -e '.originalRows==8 and .candidateProducts==4 and
+            .unpublishedCandidates==4 and .heldRows==4 and
+            .exactReplay==4 and .published==0 and .publicRuntime==0
+            and .offers==0 and .pendingIdentityEvidence==4
+            and .pendingSpecEvidence>=10 and (.categories|length)==8
+            and ([.blockers[]|length]|all(.>0))' \
+            step9b4-results/db-audit.json
+          echo "PASS: exact replay and negative publication tests; ZERO retail offers or selectable products"
+
+      - name: Archive QA inputs, dedupe and negative-publication evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: step9b4-eight-product-disposable-gates
+          path: step9b4-results/
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Destroy local database without backup
+        if: always()
+        run: supabase stop --no-backup

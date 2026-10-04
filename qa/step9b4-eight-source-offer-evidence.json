@@ -1,0 +1,257 @@
+{
+  "pilotRunId": 37213658740,
+  "checkedDate": "2026-10-04",
+  "projectPolicy": "disposable_only_no_production",
+  "imagesLicensed": false,
+  "items": [
+    {
+      "pilotId": "4",
+      "adapter": "hqprop-sitemap-jsonld",
+      "category": "propellers",
+      "model": "HQProp ETHIX P2 Pickle 5.1x2.9x3 (2CW+2CCW)",
+      "identity": "exact_model_source",
+      "manufacturerSku": null,
+      "externalShopCode": "9313448340470",
+      "source": "https://www.hqprop.com/ethix-p2-pickle-prop-2cw2ccw-poly-carbonate-p0459.html",
+      "specs": {
+        "propeller_diameter_inches": 5.1
+      },
+      "offer": {
+        "merchant": "Rotorama",
+        "country": "CZ",
+        "url": "https://www.rotorama.de/product/ethix-p2-pickle",
+        "priceEUR": 3.69,
+        "sourceSaysStock": "in_stock",
+        "snapshotFreshness": "indexed_2_months_old",
+        "exactVariantMatch": true
+      },
+      "qaCandidate": true,
+      "blockers": [
+        "live_offer_recheck",
+        "image_license",
+        "human_identity_technical_review"
+      ]
+    },
+    {
+      "pilotId": "126",
+      "adapter": "tbs-category-html",
+      "category": "receiver",
+      "model": "TBS Crossfire Nano RX SE",
+      "identity": "SE antenna bundle exact; plain Nano RX must not merge",
+      "manufacturerSku": null,
+      "externalShopCode": "0741587426158",
+      "source": "https://www.team-blacksheep.com/products/prod:crossfire_nano_se",
+      "specs": {
+        "receiver_protocol": "Crossfire",
+        "receiver_signal_interface": "CRSF",
+        "receiver_frequency_min_mhz": 868,
+        "receiver_frequency_max_mhz": 915,
+        "receiver_min_voltage_v": 3.3,
+        "receiver_max_voltage_v": 8.4
+      },
+      "offer": {
+        "merchant": "RCTech",
+        "country": "DE",
+        "url": "https://www.rctech.de/tbs-crossfire-nano-rx-longrange-empfaenger-se",
+        "priceEUR": 29.9,
+        "sourceSaysStock": "in_stock",
+        "snapshotFreshness": "indexed_3_weeks_old",
+        "exactVariantMatch": true,
+        "shopSKU": "TBS_CROSS_NANO_SE"
+      },
+      "qaCandidate": true,
+      "blockers": [
+        "live_offer_recheck",
+        "image_license",
+        "human_identity_technical_review"
+      ]
+    },
+    {
+      "pilotId": "132",
+      "adapter": "tbs-category-html",
+      "category": "esc",
+      "model": "TBS Lucid 6S 60A 4-in-1 ESC",
+      "identity": "6S not 8S",
+      "manufacturerSku": null,
+      "externalShopCode": "0703674150797",
+      "source": "https://www.team-blacksheep.com/products/prod:lucid_4in1",
+      "specs": {
+        "min_battery_cells": 3,
+        "max_battery_cells": 6,
+        "esc_amps": 60,
+        "esc_protocol_documentation_only": "Bidirectional DShot 300/600 (does not establish ESC connector family)"
+      },
+      "offer": {
+        "merchant": "RCTech",
+        "country": "DE",
+        "url": "https://www.rctech.de/tbs-lucid-60a-6s-4-in-1-esc",
+        "priceEUR": 59.9,
+        "sourceSaysStock": "in_stock",
+        "snapshotFreshness": "indexed_1_week_old",
+        "exactVariantMatch": true,
+        "shopSKU": "TBS_LUCID_ESC"
+      },
+      "qaCandidate": true,
+      "blockers": [
+        "live_offer_recheck",
+        "image_license",
+        "human_identity_technical_review",
+        "esc_connector_family_not_evidenced"
+      ]
+    },
+    {
+      "pilotId": "134",
+      "adapter": "tbs-category-html",
+      "category": "flightController",
+      "model": "TBS Lucid H7 FC",
+      "identity": "quad FC not H7 Wing FC",
+      "manufacturerSku": null,
+      "externalShopCode": "0703674151350",
+      "source": "https://www.team-blacksheep.com/products/prod:lucid_h7",
+      "specs": {
+        "min_battery_cells": 2,
+        "max_battery_cells": 8,
+        "fc_camera_video_interfaces": [
+          "analog",
+          "digital"
+        ],
+        "fc_camera_power_voltages_v": [
+          5,
+          9
+        ],
+        "fc_receiver_signal_interfaces": [
+          "CRSF"
+        ],
+        "fc_receiver_power_voltages_v": [
+          5
+        ]
+      },
+      "offer": {
+        "merchant": "RCTech",
+        "country": "DE",
+        "url": "https://www.rctech.de/tbs-lucid-h7-fc",
+        "priceEUR": 69.9,
+        "sourceSaysStock": "conflicting_caches",
+        "snapshotFreshness": "two_day_result_in_stock_but_other_cache_out_of_stock",
+        "exactVariantMatch": true,
+        "shopSKU": "TBS_LUCID_H7"
+      },
+      "qaCandidate": false,
+      "blockers": [
+        "stock_conflict",
+        "technical_fc_required_fields_confirm",
+        "image_license"
+      ]
+    },
+    {
+      "pilotId": "159",
+      "adapter": "speedybee-sitemap-jsonld",
+      "category": "frame",
+      "model": "SpeedyBee Bee35 Frame O4P-SE",
+      "identity": "O4P-SE option vs generic Bee35 frame",
+      "manufacturerSku": "SB-BEE35FRM-O4P-SE",
+      "source": "https://www.speedybee.com/speedybee-bee35-3-5-inch-frame/",
+      "specs": {
+        "frame_size_inches": 3.5
+      },
+      "offer": {
+        "merchant": "RCTech",
+        "country": "DE",
+        "url": "https://www.rctech.de/speedybee-bee35-35-frame",
+        "priceEUR": 49.9,
+        "sourceSaysStock": "in_stock",
+        "snapshotFreshness": "indexed_2_weeks_old",
+        "exactVariantMatch": false,
+        "shopSKU": "SB-BEE35FRM"
+      },
+      "qaCandidate": false,
+      "blockers": [
+        "exact_variant_offer_mismatch",
+        "frame_mount_spec_unverified",
+        "image_license"
+      ]
+    },
+    {
+      "pilotId": "156",
+      "adapter": "speedybee-sitemap-jsonld",
+      "category": "motors",
+      "model": "SpeedyBee 1507 3600KV Master3X (1 piece)",
+      "identity": "one_motor_vs_4_pack",
+      "manufacturerSku": "SB-1507-3600KV-1",
+      "source": "https://www.speedybee.com/speedybee-1507-3600kv-motor-master3x-3-3-6-inch-fpv/",
+      "specs": {
+        "motor_size_code": 1507,
+        "motor_kv": 3600
+      },
+      "offer": {
+        "merchant": "n-Factory",
+        "country": "DE",
+        "url": "https://n-factory.de/SpeedyBee-Master3X-O4-36-drone-Building-kit",
+        "priceEUR": 71.95,
+        "sourceSaysStock": "unknown",
+        "snapshotFreshness": "indexed_3_weeks_old",
+        "exactVariantMatch": false,
+        "packSize": 4
+      },
+      "qaCandidate": false,
+      "blockers": [
+        "1_vs_4_pack_offer_mismatch",
+        "motor_mount_and_voltage_missing",
+        "image_license"
+      ]
+    },
+    {
+      "pilotId": "72",
+      "adapter": "foxeer-sitemap-jsonld",
+      "category": "camera",
+      "model": "Foxeer Mini Standard Razer 1200TVL",
+      "identity": "family SKU HS1236 multiple ratio/lens options",
+      "manufacturerSku": "HS1236",
+      "source": "https://www.foxeer.com/1200tvl-foxeer-mini-standard-razer-fpv-camera-pal-ntsc-switchable-4ms-latency-g-266",
+      "specs": {
+        "camera_video_interface": "analog",
+        "camera_min_voltage_v": 4.5,
+        "camera_max_voltage_v": 25
+      },
+      "offer": null,
+      "qaCandidate": false,
+      "blockers": [
+        "manufacturer_out_of_stock",
+        "lens_and_aspect_variant_unknown",
+        "no_exact_eu_offer",
+        "image_license"
+      ]
+    },
+    {
+      "pilotId": "NEU-CNHL-3S-1300",
+      "adapter": "cnhl-shopify-jsonld",
+      "category": "battery",
+      "model": "CNHL Black Series V2.0 1300mAh 3S 130C XT60 1-pack",
+      "identity": "3S not existing production 6S; one pack",
+      "manufacturerSku": "1301303BK",
+      "source": "https://chinahobbyline.com/collections/eu-warehouse/products/cnhl-black-series-1300mah-11-1v-3s-130c-lipo-battery-with-xt60-plug",
+      "specs": {
+        "battery_cells": 3,
+        "battery_capacity_mah": 1300,
+        "battery_discharge_c": 130,
+        "connector": "XT60"
+      },
+      "offer": {
+        "merchant": "Rotorama",
+        "country": "CZ",
+        "url": "https://www.rotorama.de/product/cnhl-1300mah-3s-130c",
+        "priceEUR": 14.39,
+        "sourceSaysStock": "in_stock",
+        "snapshotFreshness": "indexed_3_weeks_old",
+        "exactVariantMatch": true,
+        "packSize": 1
+      },
+      "qaCandidate": true,
+      "blockers": [
+        "live_offer_recheck",
+        "image_license",
+        "human_identity_technical_review"
+      ]
+    }
+  ]
+}
