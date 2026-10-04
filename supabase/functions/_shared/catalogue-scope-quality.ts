@@ -22,8 +22,8 @@ export function assessMainComponentScope(
   let corrected = category;
   if (
     category === "flightController" &&
-    /\b(?:4\s*in\s*1|4in1)\s*esc\b/i.test(model) &&
-    !/\b(?:flight\s*controller|fc\s*[&+]\s*esc|stack|aio)\b/i.test(model)
+    /\b(?:4\s*in\s*1|4in1)\s*esc\b/i.test(title) &&
+    !/\b(?:flight\s*controller|fc\s*[&+]\s*esc|stack|aio)\b/i.test(title)
   ) {
     corrected = "esc";
   }
