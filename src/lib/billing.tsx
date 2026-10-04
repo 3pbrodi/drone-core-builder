@@ -156,7 +156,9 @@ export function BillingProvider({ children }: { children: ReactNode }) {
     if (delay <= 0) expire();
     else {
       const timeoutId = window.setTimeout(expire, delay);
-      return () => window.clearTimeout(timeoutId);
+    if (delay <= 0) { expire(); return; }
+    const timeoutId = window.setTimeout(expire, delay);
+    return () => window.clearTimeout(timeoutId);
     }
   }, [user, billing?.cancelAtPeriodEnd, billing?.periodEndAt]);
 
