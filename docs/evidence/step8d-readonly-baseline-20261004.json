@@ -1,0 +1,98 @@
+{
+  "assessedDate": "2026-10-04",
+  "source": "connected Supabase Management API + read-only SQL, not restored Production",
+  "verifiedProduction": {
+    "id": "rtwreynffguvqdcogahx",
+    "name": "Dronecores catalogue dev",
+    "region": "eu-west-3",
+    "dbHost": "db.rtwreynffguvqdcogahx.supabase.co",
+    "postgresVersion": "17.6.1.166",
+    "organizationPlan": "free"
+  },
+  "repositoryConfiguredRef": "krjwlyfxziqxdotdhjea",
+  "userTextThirdRef": "krjwlyfxziqxdotdhje",
+  "userTextThirdRefTruncated": true,
+  "match": false,
+  "secondProjectVerified": false,
+  "secondRefAccess": "permission denied",
+  "completeProductionExportObtained": false,
+  "realProductionRestoreCompleted": false,
+  "realDatasetMigrationRehearsalCompleted": false,
+  "syntheticPriorRun": {
+    "ci": "https://github.com/3pbrodi/drone-core-builder/actions/runs/37128494830",
+    "passed": true,
+    "realProduction": false
+  },
+  "liveProduction": {
+    "migrationCount": 20,
+    "products": 25,
+    "candidates": 1,
+    "publishedRuntime": 24,
+    "offers": 25,
+    "identityEvidence": 25,
+    "technicalEvidence": 98,
+    "sourceLinks": 0,
+    "identityKeys": 43,
+    "newIdentityCollisionGroups": 0,
+    "importBatches": 5,
+    "importRows": 40,
+    "importNew": 16,
+    "importUnresolved": 24,
+    "importFailed": 0,
+    "importRunsExists": false,
+    "importRunItemsExists": false,
+    "authUsers": 0,
+    "profiles": 0,
+    "plans": 3,
+    "subscriptions": 0,
+    "paymentMethods": 0,
+    "invoices": 0,
+    "usageCounters": 0,
+    "savedBuilds": 0,
+    "storageBuckets": 0,
+    "storageObjects": 0,
+    "categoryEnum": [
+      "frame",
+      "motors",
+      "flightController",
+      "esc",
+      "propellers",
+      "battery",
+      "camera",
+      "receiver"
+    ],
+    "privateSchema": {
+      "serviceRole": {
+        "usage": true,
+        "create": false
+      },
+      "anonUsage": false,
+      "authenticatedUsage": false
+    },
+    "cron": {
+      "name": "catalogue-offer-refresh-midnight-berlin",
+      "schedule": "0 22,23 * * *",
+      "active": true
+    },
+    "edgeVersions": {
+      "catalogue-runtime": 2,
+      "catalogue-offer-refresh": 9,
+      "catalogue-image-refresh": 3,
+      "catalogue-import-runner": 8
+    }
+  },
+  "restoredProduction": null,
+  "prePostRealDataFingerprints": null,
+  "realMigrationApply": null,
+  "realRollbackTest": null,
+  "readiness": "NOT READY FOR STEP 9",
+  "blocking": [
+    "second project ref not independently identified",
+    "complete secure Production export inaccessible",
+    "actual Production restore impossible without export",
+    "real dataset four-migration replay not performed",
+    "actual 24 public rows not compared across migration",
+    "full real-data rollback not demonstrated",
+    "unresolved historical import row triage and future change approval pending"
+  ]
+}

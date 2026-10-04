@@ -1,0 +1,78 @@
+name: Step 8D disposable-only readiness verification
+on:
+  push:
+    branches:
+      - verification/step8d-production-readiness-20261003
+    paths:
+      - ".github/workflows/step8d-disposable-verification.yml"
+      - "tests/integration/step8d-*"
+      - "docs/step8d-*"
+      - "docs/evidence/step8d-*"
+permissions:
+  contents: read
+jobs:
+  verify-without-production:
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prove isolated branch and historical migration integrity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF_NAME" = verification/step8d-production-readiness-20261003
+          test -z "$(git status --porcelain)"
+          test -z "$(env | grep -E '^(SUPABASE_ACCESS_TOKEN|SUPABASE_DB_PASSWORD|DATABASE_URL)=' || true)"
+          test "$(find supabase/migrations -maxdepth 1 -name '*.sql' | wc -l)" -eq 24
+          test "$(md5sum supabase/migrations/20261002190436_auth_billing_foundation.sql | awk '{print $1}')" = 95e66762a514d72bad7d7c6cf5dc58cd
+          git diff --check HEAD^ HEAD
+          mkdir -p step8d-results
+      - uses: supabase/setup-cli@v3.0.1
+        with:
+          version: 2.118.0
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.7
+      - name: Existing TypeScript, unit, category, variant, lint, Deno and build
+        shell: bash
+        run: |
+          set -euo pipefail
+          bun install --frozen-lockfile
+          bun test
+          bun test tests/component-migration.test.ts tests/catalogue-import-variants.test.ts
+          bunx eslint supabase/functions/_shared/catalogue-import-core.ts tests/catalogue-import-variants.test.ts
+          deno check supabase/functions/catalogue-import-runner/index.ts
+          bunx tsc --noEmit
+          bun run build
+          echo 'PASS existing unit/category/variant/lint/deno/types/build' > step8d-results/code-tests.txt
+      - name: Fresh LOCAL Supabase with the canonical 24 migrations
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(env | grep -E '^(SUPABASE_ACCESS_TOKEN|SUPABASE_DB_PASSWORD|DATABASE_URL)=' || true)"
+          supabase start
+          eval "$(supabase status -o env)"
+          test "$API_URL" = http://127.0.0.1:54321
+          supabase db reset --local --yes
+          export PGPASSWORD=postgres
+          PG=postgresql://postgres:postgres@127.0.0.1:54322/postgres
+          psql "$PG" -X -v ON_ERROR_STOP=1 -f tests/integration/step7b-schema-audit.sql > step8d-results/local-schema.txt
+          psql "$PG" -X -v ON_ERROR_STOP=1 -f tests/integration/step7b-auth-rls.sql > step8d-results/local-auth.txt
+          for n in 1 2; do psql "$PG" -X -v ON_ERROR_STOP=1 -f tests/integration/catalogue-local-staging-bootstrap.sql > "step8d-results/bootstrap-$n.txt"; done
+          psql "$PG" -X -v ON_ERROR_STOP=1 -f tests/integration/catalogue-local-staging-readiness.sql > step8d-results/readiness.txt
+          psql "$PG" -X -v ON_ERROR_STOP=1 -f tests/integration/catalogue-import-reliability.sql > step8d-results/local-p0.txt
+          echo 'PASS local 24-migration schema, auth/RLS, bootstrap and P0 regression; NO REAL PRODUCTION RESTORE' > step8d-results/local-summary.txt
+      - name: Archive only safe local test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: step8d-disposable-only-checks-no-production-data
+          path: step8d-results/
+          if-no-files-found: warn
+          retention-days: 30
+      - name: Destroy disposable local database
+        if: always()
+        run: if command -v supabase >/dev/null; then supabase stop --no-backup || true; fi
