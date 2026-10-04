@@ -1,3 +1,4 @@
+import { catalogueRestFetch } from "../_shared/catalogue-rest-retry.ts";
 import { catalogueAdminKey } from "../_shared/catalogue-admin-auth.ts";
 const JSON_HEADERS = { "Content-Type": "application/json; charset=utf-8" };
 const EXPECTED_TOKEN_SHA256 = "971ed0ddc041ff1f1e96c37253fbc539e9c043a2419281de16a10488a30848c1";
@@ -54,7 +55,7 @@ async function adminRest<T>(
   if (init.body && !headers.has("content-type")) headers.set("content-type", "application/json");
   if (prefer) headers.set("prefer", prefer);
 
-  const response = await fetch(
+  const response = await catalogueRestFetch(
     `${baseUrl}/rest/v1/${path.replace(/^\//, "")}`,
     { ...init, headers },
   );
