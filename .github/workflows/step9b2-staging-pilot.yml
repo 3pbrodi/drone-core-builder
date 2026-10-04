@@ -1,0 +1,69 @@
+name: Step 9B.2 disposable 130-part staging pilot
+
+on:
+  push:
+    branches:
+      - pilot/step9b2-disposable-130-products
+    paths:
+      - ".github/workflows/step9b2-staging-pilot.yml"
+      - "tests/integration/catalogue-step9b2-local-pilot.sh"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  local-staging-pilot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - name: Checkout isolated pilot branch
+        uses: actions/checkout@v4
+
+      - name: Check script syntax
+        run: bash -n tests/integration/catalogue-step9b2-local-pilot.sh
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v3.0.1
+        with:
+          version: 2.118.0
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.7
+
+      - name: Check exact importer source
+        run: deno check supabase/functions/catalogue-import-runner/index.ts
+
+      - name: Launch disposable local Supabase
+        run: |
+          supabase start
+          supabase db reset --local --yes
+
+      - name: Bootstrap official manufacturer adapters without production data
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
+            -v ON_ERROR_STOP=1 \
+            -f tests/integration/catalogue-local-staging-bootstrap.sql
+          psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
+            -v ON_ERROR_STOP=1 \
+            -f tests/integration/catalogue-local-staging-readiness.sql
+
+      - name: Import official parts into disposable staging without creating candidates
+        run: bash tests/integration/catalogue-step9b2-local-pilot.sh
+
+      - name: Preserve local pilot normalized data and safety report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: step9b2-official-source-staging-evidence
+          path: step9b2-results/
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Destroy local Supabase without backup
+        if: always()
+        run: supabase stop --no-backup
