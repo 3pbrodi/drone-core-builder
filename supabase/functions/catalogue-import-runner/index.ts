@@ -1,5 +1,6 @@
 import { catalogueRestFetch } from "../_shared/catalogue-rest-retry.ts";
 import { catalogueAdminKey } from "../_shared/catalogue-admin-auth.ts";
+import { assessMainComponentScope } from "../_shared/catalogue-scope-quality.ts";
 import {
   enumerateJsonLdProductVariants,
   enumerateShopifyProductVariants,
@@ -322,6 +323,8 @@ function buildNormalizedBase(input: {
 }) {
   const rules = categoryRules(input.config);
   const category = categoryFromRules(input.identityText, rules);
+  // Exclude unmistakable accessories and correct standalone 4-in-1 ESCs.
+  const componentScope = assessMainComponentScope(category, input.name);
   const eligibilityPatterns = Array.isArray(input.config.eligibilityPatternsAny)
     ? input.config.eligibilityPatternsAny.map(String)
     : [];
@@ -341,7 +344,7 @@ function buildNormalizedBase(input: {
 
   const normalized: Record<string, unknown> = {
     id: idBase,
-    category,
+    category: componentScope.category,
     manufacturer: input.manufacturer,
     model: input.model || input.name || input.externalId,
     variant: input.variant ?? null,
@@ -365,10 +368,15 @@ function buildNormalizedBase(input: {
   };
 
   const errors: string[] = [];
-  if (!eligible || contentExcluded) errors.push("Product did not match this adapter's drone/FPV eligibility rules.");
+  if (!eligible || contentExcluded || componentScope.excluded) {
+    errors.push("Product did not match this adapter's drone/FPV eligibility rules.");
+  }
+  if (componentScope.reason) {
+    errors.push("Excluded main-component category: " + componentScope.reason);
+  }
   if (!input.name) errors.push("Missing exact product name.");
   if (!input.manufacturer) errors.push("Missing manufacturer.");
-  if (!category) errors.push("Category could not be classified.");
+  if (!componentScope.category) errors.push("Category could not be classified.");
   if (!input.sku && !input.mpn) errors.push("No SKU/MPN available; dedupe will fall back to source/model identity.");
   if (!input.imageUrl) errors.push("No manufacturer image discovered.");
 
