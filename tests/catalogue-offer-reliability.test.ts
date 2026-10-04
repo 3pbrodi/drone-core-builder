@@ -2,6 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { catalogueAdminKey, cataloguePublicKey } from "../supabase/functions/_shared/catalogue-admin-auth.ts";
 import { checkOffersByMerchant } from "../supabase/functions/_shared/catalogue-offer-scheduler.ts";
+import { catalogueRestFetch } from "../supabase/functions/_shared/catalogue-rest-retry.ts";
 
 const env = (values: Record<string, string>) =>
   (name: string) => values[name];
@@ -82,6 +83,74 @@ describe("catalogue runtime publishable key resolution", () => {
       })),
       "local-anon",
     );
+  });
+});
+
+describe("transient Supabase PGRST303 retry", () => {
+  const skew = () => new Response(
+    JSON.stringify({ code: "PGRST303", message: "JWT issued at future" }),
+    { status: 401, headers: { "content-type": "application/json" } },
+  );
+  const immediate = async (_ms: number) => {};
+
+  it("retries only the precise clock-skew error on a GET", async () => {
+    let calls = 0;
+    const response = await catalogueRestFetch(
+      "https://example.supabase.co/rest/v1/catalogue_products",
+      {},
+      async () => (++calls === 1 ? skew() : new Response("[]", { status: 200 })),
+      [0],
+      immediate,
+    );
+    assert.equal(response.status, 200);
+    assert.equal(calls, 2);
+  });
+
+  it("does not retry writes even if a response reports JWT clock skew", async () => {
+    let calls = 0;
+    const response = await catalogueRestFetch(
+      "https://example.supabase.co/rest/v1/catalogue_offers",
+      { method: "POST", body: "{}" },
+      async () => { calls++; return skew(); },
+      [0, 0],
+      immediate,
+    );
+    assert.equal(response.status, 401);
+    assert.equal(calls, 1);
+  });
+
+  it("does not retry other 401s, server errors or unparseable errors", async () => {
+    for (const result of [
+      new Response(JSON.stringify({ code: "PGRST301", message: "Invalid JWT" }), { status: 401 }),
+      new Response("server error", { status: 500 }),
+      new Response("not json", { status: 401 }),
+    ]) {
+      let calls = 0;
+      const response = await catalogueRestFetch(
+        "https://example.supabase.co/rest/v1/catalogue_products",
+        {},
+        async () => { calls++; return result; },
+        [0, 0],
+        immediate,
+      );
+      assert.equal(response.status, result.status);
+      assert.equal(calls, 1);
+    }
+  });
+
+  it("stops after bounded attempts if the provider error persists", async () => {
+    let calls = 0;
+    const waits: number[] = [];
+    const response = await catalogueRestFetch(
+      "https://example.supabase.co/rest/v1/catalogue_products",
+      {},
+      async () => { calls++; return skew(); },
+      [1, 3],
+      async (ms) => { waits.push(ms); },
+    );
+    assert.equal(response.status, 401);
+    assert.equal(calls, 3);
+    assert.deepEqual(waits, [1, 3]);
   });
 });
 
