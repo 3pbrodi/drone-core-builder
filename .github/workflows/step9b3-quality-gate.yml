@@ -1,0 +1,28 @@
+name: Step 9B.3 catalogue scope quality gate
+on:
+  push:
+    branches:
+      - qa/step9b3-balanced-shortlist
+    paths:
+      - 'supabase/functions/_shared/catalogue-scope-quality.ts'
+      - 'supabase/functions/catalogue-import-runner/index.ts'
+      - 'tests/catalogue-scope-quality.test.ts'
+      - '.github/workflows/step9b3-quality-gate.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  static-catalogue-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout isolated QA branch
+        uses: actions/checkout@v4
+      - name: Install pinned Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.7
+      - name: Typecheck corrected real manufacturer importer
+        run: deno check supabase/functions/catalogue-import-runner/index.ts
+      - name: Regression tests for real false positive examples
+        run: deno test --allow-none tests/catalogue-scope-quality.test.ts
