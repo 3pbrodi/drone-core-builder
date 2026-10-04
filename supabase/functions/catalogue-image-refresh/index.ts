@@ -1,3 +1,4 @@
+import { catalogueAdminKey } from "../_shared/catalogue-admin-auth.ts";
 const JSON_HEADERS = { "Content-Type": "application/json; charset=utf-8" };
 const EXPECTED_TOKEN_SHA256 = "971ed0ddc041ff1f1e96c37253fbc539e9c043a2419281de16a10488a30848c1";
 
@@ -34,14 +35,7 @@ type CandidateImage = {
 };
 
 function adminApiKey() {
-  const modern = Deno.env.get("SUPABASE_SECRET_KEYS");
-  if (modern) {
-    const parsed = JSON.parse(modern) as Record<string, string>;
-    if (parsed.default) return parsed.default;
-  }
-  const legacy = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  if (legacy) return legacy;
-  throw new Error("Supabase admin key unavailable.");
+  return catalogueAdminKey((name) => Deno.env.get(name));
 }
 
 async function adminRest<T>(
