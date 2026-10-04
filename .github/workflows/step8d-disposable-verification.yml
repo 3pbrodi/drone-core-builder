@@ -16,6 +16,8 @@ jobs:
     timeout-minutes: 70
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
       - name: Prove isolated branch and historical migration integrity
         shell: bash
         run: |
