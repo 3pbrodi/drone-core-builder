@@ -112,7 +112,7 @@ echo "PASS: local-only importer authenticated, no production credentials used"
 # Targets sum to 132 potential stageable rows. Sources remain independent
 # resumable logical runs. "createCandidates=false" stages + classifies ONLY.
 SOURCES=(hqprop-sitemap-jsonld foxeer-sitemap-jsonld tbs-category-html speedybee-sitemap-jsonld)
-TARGETS=(45 40 30 17)
+TARGETS=(65 35 30 17)
 LIMIT=18
 MAX_CALLS_PER_SOURCE=23
 : > "$OUT/steps.jsonl"
@@ -126,6 +126,16 @@ get_stageable() {
     where a.adapter_key='$adapter'
       and r.status='validated' and r.dedupe_status='new'
       and coalesce(jsonb_array_length(r.validation_errors),0)=0;"
+}
+get_staged() {
+  local adapter="$1"
+  psql_local -At -c "
+    select count(*) from public.catalogue_import_rows r
+    join public.catalogue_import_batches b on b.id=r.batch_id
+    join public.catalogue_source_adapters a on a.id=b.adapter_id
+    where a.adapter_key='$adapter'
+      and r.status in ('validated','needs_review')
+      and r.dedupe_status='new';"
 }
 for i in 0 1 2 3; do
   adapter="${SOURCES[$i]}"
@@ -164,14 +174,15 @@ for i in 0 1 2 3; do
       fi
       echo "PILOT_DISCOVERY source=$adapter call=$call complete=$(jq -r '.discovery.complete' "$tmp")"
     else
-      current="$(get_stageable "$adapter")"
-      echo "PILOT_STAGE source=$adapter call=$call validated=$current target=$target"
+      current="$(get_staged "$adapter")"
+      clean="$(get_stageable "$adapter")"
+      echo "PILOT_STAGE source=$adapter call=$call staged=$current clean=$clean target=$target"
       if [[ "$current" -ge "$target" ]]; then
         rm -f "$tmp"
         break
       fi
       if jq -e '.processing.phase=="idle" and (.processing.state.hasMore==false or .state.hasMore==false)' "$tmp" >/dev/null; then
-        echo "PILOT_SOURCE_EXHAUSTED source=$adapter validated=$current"
+        echo "PILOT_SOURCE_EXHAUSTED source=$adapter staged=$current"
         rm -f "$tmp"
         break
       fi
@@ -179,7 +190,7 @@ for i in 0 1 2 3; do
     rm -f "$tmp"
     sleep 2
   done
-  echo "PILOT_SOURCE_SUMMARY source=$adapter validated=$(get_stageable "$adapter") target=$target manifestComplete=$finished_discovery"
+  echo "PILOT_SOURCE_SUMMARY source=$adapter staged=$(get_staged "$adapter") clean=$(get_stageable "$adapter") target=$target manifestComplete=$finished_discovery"
 done
 
 # Preserve the real, reviewable STAGING outcome before destroying local DB.
@@ -188,6 +199,8 @@ select coalesce(jsonb_agg(row_to_json(t) order by t.adapter), '[]'::jsonb)
 from (
  select a.adapter_key as adapter,s.name as manufacturer,
   count(r.id) as staged,
+  count(r.id) filter(where r.status in ('validated','needs_review')
+    and r.dedupe_status='new') as staged_potential,
   count(r.id) filter(where r.status='validated' and r.dedupe_status='new'
     and coalesce(jsonb_array_length(r.validation_errors),0)=0) as eligible_new,
   count(r.id) filter(where r.dedupe_status='conflict') as conflicts,
@@ -207,9 +220,10 @@ psql_local -At -c "
 select coalesce(jsonb_agg(row_to_json(t) order by t.category),'[]'::jsonb)
 from (
  select r.normalized_data->>'category' as category,
-  count(*) as validated_new
+  count(*) filter (where r.status='validated') as validated_new,
+  count(*) filter (where r.status='needs_review') as requires_review
  from public.catalogue_import_rows r
- where r.status='validated' and r.dedupe_status='new'
+ where r.status in ('validated','needs_review') and r.dedupe_status='new'
  group by 1
 ) t;" | jq . > "$OUT/category-summary.json"
 psql_local -At -c "
@@ -230,6 +244,37 @@ from (
   join public.catalogue_sources s on s.id=b.source_id
   where r.status='validated' and r.dedupe_status='new'
 ) t;" | jq . > "$OUT/staged-validated-items.json"
+# Preserve flagged official-source variants with exact, reversible review reasons.
+psql_local -At -c "
+select coalesce(jsonb_agg(row_to_json(t) order by t.manufacturer,t.product_key),'[]'::jsonb)
+from (
+ select s.name as manufacturer, r.id as import_row_id,
+  r.normalized_data->>'id' as product_key,
+  r.normalized_data->>'category' as category,
+  r.normalized_data->>'model' as model,
+  r.normalized_data->>'variant' as variant,
+  r.normalized_data->>'manufacturer_sku' as manufacturer_sku,
+  r.normalized_data->>'mpn' as mpn,
+  r.normalized_data->>'source_url' as source_url,
+  r.normalized_data as normalized,
+  r.validation_errors,
+  r.dedupe_status
+ from public.catalogue_import_rows r
+ join public.catalogue_import_batches b on b.id=r.batch_id
+ join public.catalogue_sources s on s.id=b.source_id
+ where r.status='needs_review' and r.dedupe_status='new'
+) t;" | jq . > "$OUT/staged-review-required-items.json"
+psql_local -At -c "
+select coalesce(jsonb_agg(row_to_json(t) order by t.manufacturer,t.reason),'[]'::jsonb)
+from (
+ select s.name as manufacturer, x.reason, count(*) as affected_rows
+ from public.catalogue_import_rows r
+ join public.catalogue_import_batches b on b.id=r.batch_id
+ join public.catalogue_sources s on s.id=b.source_id
+ cross join lateral jsonb_array_elements_text(r.validation_errors) x(reason)
+ where r.status='needs_review' and r.dedupe_status='new'
+ group by s.name,x.reason
+) t;" | jq . > "$OUT/review-reasons.json"
 psql_local -At -c "
 with qualified as (
   select r.id, r.normalized_data as n,
@@ -239,7 +284,7 @@ with qualified as (
     regexp_replace(lower(coalesce(r.normalized_data->>'variant','')),'[^[:alnum:]]','','g') as variant,
     regexp_replace(lower(coalesce(r.normalized_data->>'manufacturer_sku','')),'[^[:alnum:]]','','g') as sku
   from public.catalogue_import_rows r
-  where r.status='validated' and r.dedupe_status='new'
+  where r.status in ('validated','needs_review') and r.dedupe_status='new'
 ), matches as (
   select maker,cat,model,variant,count(*) as duplicated
   from qualified group by maker,cat,model,variant having count(*)>1
@@ -255,21 +300,24 @@ jq -e '.products==0 and .selectable==0 and .offers==0 and
     echo "SAFETY FAILURE: staged import created unexpected products or no runs" >&2
     exit 1
   }
-actual="$(jq '[.[].eligible_new] | add // 0' "$OUT/source-summary.json")"
+actual="$(jq '[.[].staged_potential] | add // 0' "$OUT/source-summary.json")"
+clean_total="$(jq '[.[].eligible_new] | add // 0' "$OUT/source-summary.json")"
+review_total="$(jq '[.[].needs_review] | add // 0' "$OUT/source-summary.json")"
 jq -n --slurpfile summary "$OUT/source-summary.json" \
   --slurpfile categories "$OUT/category-summary.json" \
   --slurpfile before "$OUT/before.json" --slurpfile after "$OUT/after.json" \
   --slurpfile collisions "$OUT/potential-variant-collisions.json" \
-  '{pilotName:"step9b2-disposable-staging",selectedTarget:132,
+  --slurpfile reasons "$OUT/review-reasons.json" \
+  '{pilotName:"step9b2-disposable-staging",selectedTarget:147,
     sourceResults:$summary[0],categoryResults:$categories[0],
     before:$before[0],after:$after[0],
-    potentialVariantCollisions:$collisions[0],publishedProducts:0}' \
+    potentialVariantCollisions:$collisions[0],reviewReasons:$reasons[0],publishedProducts:0}' \
   > "$OUT/report.json"
-echo "PILOT_FINAL validatedNew=$actual target=132"
+echo "PILOT_FINAL stagedForReview=$actual clean=$clean_total reviewRequired=$review_total target=147"
 cat "$OUT/source-summary.json"
 echo "PILOT_SAFETY_PASS: zero products, candidates, offers, evidence, published rows"
 if [[ "$actual" -lt 100 || "$actual" -gt 200 ]]; then
   echo "PILOT_PARTIAL: verified staging count $actual outside planned 100–200 range" >&2
   exit 1
 fi
-echo "PILOT_SUCCESS: $actual official-source rows staged + classified in disposable DB"
+echo "PILOT_SUCCESS: $actual official-source rows staged and classified; $clean_total clean, $review_total flagged for review"
