@@ -17,11 +17,11 @@
 3. Offer-refresh merchant requests are sequential within each merchant, with at most two merchants processed concurrently. An HTTP 403/429 opens a circuit breaker for that merchant for the remainder of the run. Skipped offers remain unchanged and their failure is auditable.
 4. Regression tests cover hosted and local key resolution, malformed configuration, result ordering, 403/429 circuit breaking, unaffected merchants, and empty catalogues.
 
-These changes were committed only to `fix/offer-refresh-reliability-20261004`. No production migration, production secret change, Edge deployment, manual refresh, offer change, or main merge has occurred.
+These changes were committed to `fix/offer-refresh-reliability-20261004` and subsequently deployed with explicit owner approval. No production migration, production secret change, manual apply refresh, offer change, mass import, or main merge has occurred.
 
-## Required approval and production rollout
+## Approved rollout and remaining actions
 
-**Do not deploy before explicit owner approval.**
+The owner explicitly approved deployment of the four Edge Functions. The deployments and read-only smoke tests described below have been completed. A manual **apply** refresh, production data import, and merging branches remain outside that approval.
 
 1. In Supabase project `rtwreynffguvqdcogahx`, open **Project Settings > API Keys**. Confirm an enabled modern **secret** API key named `default` exists; create one if absent. Modern publishable and secret keys are different types. Never paste either secret key into a chat, issue, source file, or PR.
 2. Confirm the hosted Edge Function environment supplies `SUPABASE_SECRET_KEYS` (JSON object with the `default` key) and `SUPABASE_PUBLISHABLE_KEYS`. Supabase normally injects them for keys configured in the project. Keep the existing private Vault dispatch token unchanged.
@@ -37,4 +37,21 @@ Rate-limiting is a merchant access decision. The circuit breaker avoids repeated
 
 ## Verification performed
 
-The shared helper modules passed strict TypeScript checking in an isolated local test harness. Nine targeted Node tests passed. The complete repository Bun suite, Deno Edge Function checks, CI integration workflow, and the hosted deployment remain outstanding and must be run before a production rollout.
+The extended branch passed the GitHub CI suite, including Bun unit tests, Deno checks of all four Edge Functions, TypeScript and production build (run 37209182218). Targeted tests cover the merchant circuit breaker and bounded read-only retry of transient PGRST303 errors. Production deploys were verified after owner approval, with read-only post-deployment smoke tests.
+
+## Deployment and smoke-test results — 2026-10-04
+
+A first offer-refresh deployment (v10) still encountered `PGRST303 JWT issued at future` when called with a modern secret API key. This is consistent with [Supabase's documented internal clock-skew issue](https://github.com/supabase/supabase/issues/50651). We therefore added a narrowly scoped retry for **GET/HEAD only**; write requests are never automatically replayed.
+
+The following functions are now **ACTIVE**, with their pre-existing `verify_jwt=false` configuration and existing custom authentication preserved:
+
+| Function | Deployed version | Validation |
+| --- | --- | --- |
+| `catalogue-offer-refresh` | 11 | HTTP 200 dry-run; 24 targets, 17 verified, seven merchant failures |
+| `catalogue-image-refresh` | 4 | Deployed; HTTP 401 for a request without the private token |
+| `catalogue-runtime` | 3 | HTTP 200; `status=ready`, 24 products, `validation.ok=true` |
+| `catalogue-import-runner` | 9 | Deployed; HTTP 401 for a request without the private token |
+
+The dry-run and access-control checks performed **no product, offer, or import writes**. The database continued to contain 25 products (24 selectable), 25 offers, 40 staged import rows, and five persisted offer-refresh runs; the latest persisted run still has Berlin local date 2026-10-02. No migrations, main merge, manually applied price refresh, or mass import were performed.
+
+**Next checks:** observe the next scheduled Berlin-midnight run and confirm both `cron.job_run_details` and its `net._http_response` result. Seven merchant observations still need supported feeds/permission or verified alternative sources: HTTP 429 for five iFlight Europe offers and one BSS Webshop offer, and an unverified exact-product price/stock pair at RCTech. Persistent PGRST303 after bounded retries warrants a Supabase support ticket with request timestamps/IDs; the client-side retry does not repair infrastructure clock skew.
