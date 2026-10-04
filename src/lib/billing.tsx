@@ -153,13 +153,12 @@ export function BillingProvider({ children }: { children: ReactNode }) {
       });
     };
     const delay = expireAt - Date.now();
-    if (delay <= 0) expire();
-    else {
-      const timeoutId = window.setTimeout(expire, delay);
-    if (delay <= 0) { expire(); return; }
+    if (delay <= 0) {
+      expire();
+      return;
+    }
     const timeoutId = window.setTimeout(expire, delay);
     return () => window.clearTimeout(timeoutId);
-    }
   }, [user, billing?.cancelAtPeriodEnd, billing?.periodEndAt]);
 
   const changePlan = useCallback(
