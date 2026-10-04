@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { catalogueAdminKey } from "../supabase/functions/_shared/catalogue-admin-auth.ts";
+import { catalogueAdminKey, cataloguePublicKey } from "../supabase/functions/_shared/catalogue-admin-auth.ts";
 import { checkOffersByMerchant } from "../supabase/functions/_shared/catalogue-offer-scheduler.ts";
 
 const env = (values: Record<string, string>) =>
@@ -51,6 +51,36 @@ describe("catalogue worker secret key resolution", () => {
         SUPABASE_SERVICE_ROLE_KEY: "local-only-jwt",
       })),
       /modern sb_secret_/,
+    );
+  });
+});
+
+describe("catalogue runtime publishable key resolution", () => {
+  it("uses the modern publishable key for the public runtime", () => {
+    assert.equal(
+      cataloguePublicKey(env({
+        SUPABASE_URL: "https://example.supabase.co",
+        SUPABASE_PUBLISHABLE_KEYS: JSON.stringify({ default: "sb_publishable_modern" }),
+        SUPABASE_ANON_KEY: "legacy-anon",
+      })),
+      "sb_publishable_modern",
+    );
+  });
+
+  it("rejects hosted legacy anon JWTs but permits disposable local fallback", () => {
+    assert.throws(
+      () => cataloguePublicKey(env({
+        SUPABASE_URL: "https://example.supabase.co",
+        SUPABASE_ANON_KEY: "legacy-anon",
+      })),
+      /requires a Supabase publishable API key/,
+    );
+    assert.equal(
+      cataloguePublicKey(env({
+        SUPABASE_URL: "http://127.0.0.1:54321",
+        SUPABASE_ANON_KEY: "local-anon",
+      })),
+      "local-anon",
     );
   });
 });
