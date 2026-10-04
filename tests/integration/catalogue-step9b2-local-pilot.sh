@@ -119,11 +119,11 @@ MAX_CALLS_PER_SOURCE=23
 : > "$OUT/errors.jsonl"
 get_stageable() {
   local adapter="$1"
-  psql_local -At -v adapter="$adapter" -c "
+  psql_local -At -c "
     select count(*) from public.catalogue_import_rows r
     join public.catalogue_import_batches b on b.id=r.batch_id
     join public.catalogue_source_adapters a on a.id=b.adapter_id
-    where a.adapter_key=:'adapter'
+    where a.adapter_key='$adapter'
       and r.status='validated' and r.dedupe_status='new'
       and coalesce(jsonb_array_length(r.validation_errors),0)=0;"
 }
