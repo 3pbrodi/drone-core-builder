@@ -92,17 +92,18 @@ function BillingContent() {
     return <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">Loading your billing…</div>;
   }
 
+  const current = billing;
   const usage = billing.usage;
   const limits = PLAN_LIMITS[billing.plan];
   const endLabel = dateLabel(billing.periodEndAt);
 
   function selectPlan(plan: PlanId) {
-    if (plan === billing.plan && (plan === "free" || interval === billing.interval)) return;
+    if (plan === current.plan && (plan === "free" || interval === current.interval)) return;
     if (plan === "free") {
       setCancelOpen(true);
       return;
     }
-    if (!billing.card) {
+    if (!current.card) {
       setNotice({ type: "error", message: "Add the demo VISA card before choosing a paid plan." });
       return;
     }
@@ -112,7 +113,7 @@ function BillingContent() {
   }
 
   function startEmailEdit() {
-    setEmail(billing.billingEmail);
+    setEmail(current.billingEmail);
     setEmailError("");
     setEditingEmail(true);
   }
