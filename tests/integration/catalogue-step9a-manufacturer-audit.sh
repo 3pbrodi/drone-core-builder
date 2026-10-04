@@ -34,8 +34,9 @@ cleanup() {
 trap cleanup EXIT
 umask 077
 openssl rand -hex 32 > "$TOKEN_FILE"
-TOKEN_HASH="$(sha256sum "$TOKEN_FILE" | cut -d' ' -f1)"
 TOKEN="$(cat "$TOKEN_FILE")"
+# Hash the HTTP header value, not the newline-terminated file bytes.
+TOKEN_HASH="$(printf '%s' "$TOKEN" | sha256sum | cut -d' ' -f1)"
 
 # Local code only: the actual official-source HTTP fetches write no catalogues
 # and importer metadata writes remain inside this disposable local DB.
