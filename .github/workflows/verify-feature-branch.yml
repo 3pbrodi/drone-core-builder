@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - feature/shared-drone-configurator
-      - fix/offer-refresh-reliability-20261004
   pull_request:
     branches:
       - main
