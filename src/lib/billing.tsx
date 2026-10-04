@@ -176,7 +176,7 @@ export function BillingProvider({ children }: { children: ReactNode }) {
                 {
                   id: `DEMO-${String(current.nextInvoiceNumber).padStart(4, "0")}`,
                   date: now.toISOString(),
-                  description: `${plan[0].toUpperCase()}${plan.slice(1)} plan, ${interval}`,
+                  description: `${plan.charAt(0).toUpperCase()}${plan.slice(1)} plan, ${interval}`,
                   amount: price,
                   status: "Paid" as const,
                 },
