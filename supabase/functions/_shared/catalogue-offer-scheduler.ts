@@ -27,6 +27,7 @@ export async function checkOffersByMerchant<
   const worker = async () => {
     while (nextBucket < buckets.length) {
       const bucket = buckets[nextBucket++];
+      if (!bucket) break;
       let blockedStatus: 403 | 429 | null = null;
       for (const { index, target } of bucket) {
         if (blockedStatus !== null) {
