@@ -83,6 +83,7 @@ export interface FileRoutesByTo {
   '/create-custom-build': typeof CreateCustomBuildRoute
   '/login': typeof LoginRoute
   '/pre-built': typeof PreBuiltRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/start': typeof StartRoute
   '/templates': typeof TemplatesRoute
 }
@@ -94,6 +95,7 @@ export interface FileRoutesById {
   '/create-custom-build': typeof CreateCustomBuildRoute
   '/login': typeof LoginRoute
   '/pre-built': typeof PreBuiltRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/start': typeof StartRoute
   '/templates': typeof TemplatesRoute
 }
@@ -117,6 +119,7 @@ export interface FileRouteTypes {
     | '/create-custom-build'
     | '/login'
     | '/pre-built'
+    | '/reset-password'
     | '/start'
     | '/templates'
   id:
@@ -127,6 +130,7 @@ export interface FileRouteTypes {
     | '/create-custom-build'
     | '/login'
     | '/pre-built'
+    | '/reset-password'
     | '/start'
     | '/templates'
   fileRoutesById: FileRoutesById

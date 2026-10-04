@@ -153,11 +153,12 @@ export function BillingProvider({ children }: { children: ReactNode }) {
       });
     };
     const delay = expireAt - Date.now();
-    if (delay <= 0) expire();
-    else {
-      const timeoutId = window.setTimeout(expire, delay);
-      return () => window.clearTimeout(timeoutId);
+    if (delay <= 0) {
+      expire();
+      return;
     }
+    const timeoutId = window.setTimeout(expire, delay);
+    return () => window.clearTimeout(timeoutId);
   }, [user, billing?.cancelAtPeriodEnd, billing?.periodEndAt]);
 
   const changePlan = useCallback(
@@ -175,7 +176,7 @@ export function BillingProvider({ children }: { children: ReactNode }) {
                 {
                   id: `DEMO-${String(current.nextInvoiceNumber).padStart(4, "0")}`,
                   date: now.toISOString(),
-                  description: `${plan[0].toUpperCase()}${plan.slice(1)} plan, ${interval}`,
+                  description: `${plan.charAt(0).toUpperCase()}${plan.slice(1)} plan, ${interval}`,
                   amount: price,
                   status: "Paid" as const,
                 },

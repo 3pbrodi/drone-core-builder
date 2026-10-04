@@ -14,7 +14,7 @@ export const MIN_PASSWORD_LENGTH = 8;
 
 export type AuthUser = { id: string; email: string; name: string };
 export type AuthStatus = "loading" | "signedIn" | "signedOut";
-export type AuthResult = { ok: true; user?: AuthUser; needsConfirmation?: boolean } | { ok: false; error: string };
+export type AuthResult = { ok: true; user?: AuthUser | undefined; needsConfirmation?: boolean } | { ok: false; error: string };
 
 type AuthContextValue = {
   user: AuthUser | null;
@@ -32,7 +32,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 function toAuthUser(user: SupabaseUser): AuthUser {
   const email = user.email ?? "";
-  const metadataName = user.user_metadata?.name;
+  const metadataName = user.user_metadata?.["name"];
   const name =
     typeof metadataName === "string" && metadataName.trim()
       ? metadataName.trim()
@@ -47,7 +47,7 @@ function unavailable(): AuthResult {
   };
 }
 
-function signInError(error: { code?: string; message?: string }): string {
+function signInError(error: { code?: string | undefined; message?: string | undefined }): string {
   if (error.code === "email_not_confirmed") {
     return "Please confirm your email first. Check your inbox.";
   }
