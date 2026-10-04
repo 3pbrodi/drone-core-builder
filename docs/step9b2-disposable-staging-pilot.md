@@ -39,3 +39,29 @@ Once the pilot has finished, reconcile the exact counts and blockers from the wo
 The initial live pilot [run 37213054912](https://github.com/3pbrodi/drone-core-builder/actions/runs/37213054912) correctly exercised local manifests, staging, dedupe, and the no-publication security gates. It staged **228** records, exceeding the planned 100–200 range because it incorrectly stopped at *clean* rows only. HQProp: 53 clean. Team BlackSheep: 33 clean. Foxeer: 125 staged, all marked `needs_review`. SpeedyBee: 17 staged, all marked `needs_review`. The latter two mostly depend on manufacturer pages without a stable item SKU/MPN or complete product-image metadata, so the importer appropriately does not automatically certify them. Their exact warning breakdown was not retained by the original summary, hence the improved source-review artifact in this rerun. No product candidates, offers or product publications were created; no exact identity collisions were reported among the 86 clean rows. The first job failed **only** its strict staging-count quality gate, not its isolation and write-safety assertions.
 
 The corrected [bounded rerun](https://github.com/3pbrodi/drone-core-builder/actions/runs/37213658740) stops by the number of new, stageable entries, regardless of whether they need further review. This preserves the intended 100–200 total without hiding the source-quality issues. The exact accepted rows, missing SKU/MPN warnings, unverified images, category distribution and same-model/variant ambiguities must be examined from the rerun artifact before any product promotion.
+
+## Final live staging result — successful corrected run 37213658740
+
+[Successful GitHub Actions run](https://github.com/3pbrodi/drone-core-builder/actions/runs/37213658740) | [Full pilot artifact](https://github.com/3pbrodi/drone-core-builder/actions/runs/37213658740/artifacts/11307617746)
+
+The corrected workflow passed every step (Bash syntax, Deno typecheck, clean 23-migration database, ten-adapter bootstrap, manufacturer live staging, no-publication assertions, artifact archival, disposable environment teardown). In the disposable DB it created **four importer runs, 14 stage batches, and 171 real official-source import rows**, meeting the 100–200 requirement: **104 cleanly parsed and deduplicated as new, 67 marked needs_review**. No canonical product, candidate, offer, identity/spec evidence, publication event, or selectable product was created. Independent production checks after the test still showed 24 selectable products, 25 total catalogue product records, 25 offers and 40 production import rows; no production writes or deployment occurred.
+
+| Source | Total staged | No import warnings | Needs review |
+| --- | ---: | ---: | ---: |
+| HQProp | 71 | 71 | 0 |
+| Foxeer | 50 | 0 | 50 |
+| Team BlackSheep | 33 | 33 | 0 |
+| SpeedyBee | 17 | 0 | 17 |
+| **Total** | **171** | **104** | **67** |
+
+The **specific warnings** in the 67 review-required entries were: Foxeer 50 missing SKU/MPN (49 also missing discoverable manufacturer images); SpeedyBee 17 missing SKU/MPN. Missing SKU/MPN is a manufacturer/source-data limitation, not evidence that the product is fictitious; keep source-page identity and require independent variant confirmation before promotion. All 171 exported rows have a distinct importer-generated product key and nonempty exact source URL/category, but **distinct generated IDs do not prove distinct real-world products**.
+
+Staged category distribution (clean / review): batteries 2/0, cameras 2/1, ESC 10/2, flight controllers 6/8, frames 0/3, motors 1/4, propellers 73/49, receivers 10/0. All eight categories appear in raw staging; however no frame was free of import warnings and propellers dominate this pilot. A larger or more balanced verified catalogue requires stronger frame and camera sources.
+
+**Manual review findings — do not silently merge/promote**:
+
+1. Foxeer/DALPROP lists two different manufacturer URLs under the same model and empty variant label: https://www.foxeer.com/dalprop-quadblade-q4040-propeller-g-83 and https://www.foxeer.com/dalprop-quadblade-q4040-propeller-g-85. They have separate importer IDs but identical category/manufacturer/model/variant identity. Keep both **unapproved**, investigate exact SKU/color/pack-size distinction and merge or retain only after official evidence.
+2. The staged SpeedyBee URL https://www.speedybee.com/speedybee-carbon-fiber-arm-for-fs225-v2-frame-1-pcs/ is a **replacement arm**, not a complete frame. Flag it for exclusion from the current configurator's frame category; do not treat this raw row as an eligible finished frame. Review adapter accessory filtering separately before scaling.
+3. Existing official-image source references are **not** a license to republish images. All exact-model image associations and technical specifications remain subject to human/source review; EU/EUR offers and current stock are also required before production publication.
+
+The pilot database was intentionally destroyed without backup after saving the artifact. The artifact contains all 104 clean-row normalized payloads and all 67 review-required payloads **with exact validation reasons**, category and source summaries, the detected model/variant collision, import phase trace, and pre/post no-publication snapshots. The persistent output for the next review phase is the versioned test harness + archived GitHub artifact, not a second hosted Supabase project.
