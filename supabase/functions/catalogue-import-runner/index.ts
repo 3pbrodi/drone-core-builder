@@ -1,3 +1,4 @@
+import { catalogueAdminKey } from "../_shared/catalogue-admin-auth.ts";
 import {
   enumerateJsonLdProductVariants,
   enumerateShopifyProductVariants,
@@ -50,14 +51,7 @@ const VALID_CATEGORIES = new Set<Category>([
 ]);
 
 function adminApiKey() {
-  const modern = Deno.env.get("SUPABASE_SECRET_KEYS");
-  if (modern) {
-    const parsed = JSON.parse(modern) as Record<string, string>;
-    if (parsed.default) return parsed.default;
-  }
-  const legacy = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  if (legacy) return legacy;
-  throw new Error("Supabase admin key unavailable.");
+  return catalogueAdminKey((name) => Deno.env.get(name));
 }
 
 async function adminRest<T>(path: string, init: RequestInit = {}, prefer?: string): Promise<T> {
