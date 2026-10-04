@@ -37,3 +37,13 @@ The current public promotion function does not independently establish an image 
 Initial isolated integration run: https://github.com/3pbrodi/drone-core-builder/actions/runs/37217607166
 
 Source and exact-variant offer research snapshots: `qa/step9b4-eight-source-offer-evidence.json`. The maintained human-friendly XLSX/CSV decision tables are attached to the ChatGPT session rather than included as GitHub private production data.
+
+## Completed first local integration and corrected connector semantics
+
+[First successful disposable run 37217607166](https://github.com/3pbrodi/drone-core-builder/actions/runs/37217607166) passed its entire 17-step job including archived manufacturer fixture download, importer regression tests, 23 local migrations, original local official-adapter bootstrap, eight source-backed staging records, exactly four **unverified/nonselectable** local candidate creations, negative publication tests for all four, cross-run duplicate replay, QA artifact archival and local database teardown.
+
+The machine-readable SQL audit confirmed **8 initial import rows / 8 component categories / 4 unpublished candidates / 4 held rows / 4 matched exact identities on second import / 0 published / 0 public runtime / 0 offers / 4 pending identity evidence / 13 pending (not verified) specification evidence**, with nonempty publication blockers for all four candidate IDs. All assertions passed.
+
+A subsequent audit detected one overly optimistic schema mapping: **DShot300/600 is a signal protocol, not an ESC connector family**. The isolated research fixture now records DShot **only** as documentation and explicitly flags the connector family as unevidenced. This removes one unverified required-field input rather than making up connector data. The strict publication gate remains blocked without its separate reviewed evidence. [Corrected rerun 37217845355](https://github.com/3pbrodi/drone-core-builder/actions/runs/37217845355).
+
+An independent, strictly read-only Production snapshot after the first successful test showed the unchanged **25 total products, 24 published/selectable products, 25 offers, 40 existing import rows and 0 outstanding importer reviews**. No Production data/DDL/Edge Function/UI/workflows/secret changes were performed by the pilot.
