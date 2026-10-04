@@ -79,7 +79,7 @@
         "min_battery_cells": 3,
         "max_battery_cells": 6,
         "esc_amps": 60,
-        "esc_input": "DShot300/600"
+        "esc_protocol_documentation_only": "Bidirectional DShot 300/600 (does not establish ESC connector family)"
       },
       "offer": {
         "merchant": "RCTech",
@@ -95,7 +95,8 @@
       "blockers": [
         "live_offer_recheck",
         "image_license",
-        "human_identity_technical_review"
+        "human_identity_technical_review",
+        "esc_connector_family_not_evidenced"
       ]
     },
     {
