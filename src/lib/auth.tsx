@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 /**
  * Demo-only client-side auth. Accounts live in this browser's localStorage.
@@ -67,17 +68,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<AuthStatus>("loading");
 
   useEffect(() => {
+    let cloudUser: AuthUser | null = null;
     const sync = () => {
-      const u = loadSession();
+      const u = loadSession() ?? cloudUser;
       setUser(u);
       setStatus(u ? "signedIn" : "signedOut");
     };
-    sync();
+    const toUser = (s: { user: { id: string; email?: string; user_metadata?: Record<string, unknown> } } | null): AuthUser | null => {
+      if (!s?.user) return null;
+      const email = s.user.email ?? "";
+      const meta = s.user.user_metadata ?? {};
+      const name = String(meta.full_name ?? meta.name ?? email.split("@")[0] ?? "Pilot");
+      return { id: s.user.id, email, name };
+    };
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+      cloudUser = toUser(session);
+      sync();
+    });
+    supabase.auth.getSession().then(({ data }) => {
+      cloudUser = toUser(data.session);
+      sync();
+    }).catch(() => sync());
     const onStorage = (e: StorageEvent) => {
       if (e.key === null || e.key === SESSION_KEY || e.key === USERS_KEY) sync();
     };
     window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      sub.subscription.unsubscribe();
+    };
   }, []);
 
   const startSession = (u: StoredUser): Result => {
@@ -127,6 +146,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(() => {
     write(SESSION_KEY, null);
+    void supabase.auth.signOut().catch(() => {});
     setUser(null);
     setStatus("signedOut");
   }, []);

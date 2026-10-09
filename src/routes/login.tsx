@@ -4,6 +4,7 @@ import { Eye, EyeOff } from "lucide-react";
 import { z } from "zod";
 import { LogoMark } from "@/components/SiteHeader";
 import { MIN_PASSWORD_LENGTH, useAuth } from "@/lib/auth";
+import { lovable } from "@/integrations/lovable/index";
 
 const searchSchema = z.object({
   redirect: z.enum(["/billing", "/create-custom-build"]).optional().catch(undefined),
@@ -115,18 +116,30 @@ function LoginPage() {
           ) : (
             <>
               <div className="mt-8 grid grid-cols-2 gap-3">
-                {["Google", "GitHub"].map((p) => (
-                  <button
-                    key={p}
-                    disabled
-                    className="flex h-12 items-center justify-center gap-2 rounded-xl border border-border bg-background text-sm font-medium text-muted-foreground opacity-70"
-                  >
-                    {p}
-                    <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-semibold uppercase text-secondary-foreground">
-                      Soon
-                    </span>
-                  </button>
-                ))}
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={async () => {
+                    setErrors({});
+                    if (search.redirect) sessionStorage.setItem("dronecores.after", search.redirect);
+                    const res = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin });
+                    if (res.error) return setErrors({ form: "Google sign-in failed. Please try again." });
+                    if (res.redirected) return;
+                    navigate({ to: search.redirect ?? "/" });
+                  }}
+                  className="flex h-12 items-center justify-center gap-2 rounded-xl border border-border bg-background text-sm font-medium text-foreground transition hover:bg-muted"
+                >
+                  Google
+                </button>
+                <button
+                  disabled
+                  className="flex h-12 items-center justify-center gap-2 rounded-xl border border-border bg-background text-sm font-medium text-muted-foreground opacity-70"
+                >
+                  GitHub
+                  <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-semibold uppercase text-secondary-foreground">
+                    Soon
+                  </span>
+                </button>
               </div>
               <div className="my-6 flex items-center gap-3 text-xs text-muted-foreground">
                 <span className="h-px flex-1 bg-border" />
