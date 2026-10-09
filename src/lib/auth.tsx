@@ -78,7 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!s?.user) return null;
       const email = s.user.email ?? "";
       const meta = s.user.user_metadata ?? {};
-      const name = String(meta.full_name ?? meta.name ?? email.split("@")[0] ?? "Pilot");
+      const name = String(meta["full_name"] ?? meta["name"] ?? email.split("@")[0] ?? "Pilot");
       return { id: s.user.id, email, name };
     };
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
