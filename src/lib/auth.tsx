@@ -81,21 +81,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const name = String(meta["full_name"] ?? meta["name"] ?? email.split("@")[0] ?? "Pilot");
       return { id: s.user.id, email, name };
     };
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
-      cloudUser = toUser(session);
+    let unsubscribe = () => {};
+    try {
+      const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+        cloudUser = toUser(session);
+        sync();
+      });
+      unsubscribe = () => sub.subscription.unsubscribe();
+      supabase.auth.getSession().then(({ data }) => {
+        cloudUser = toUser(data.session);
+        sync();
+      }).catch(() => sync());
+    } catch (err) {
+      console.warn("[auth] Cloud sign-in unavailable:", err);
       sync();
-    });
-    supabase.auth.getSession().then(({ data }) => {
-      cloudUser = toUser(data.session);
-      sync();
-    }).catch(() => sync());
+    }
     const onStorage = (e: StorageEvent) => {
       if (e.key === null || e.key === SESSION_KEY || e.key === USERS_KEY) sync();
     };
     window.addEventListener("storage", onStorage);
     return () => {
       window.removeEventListener("storage", onStorage);
-      sub.subscription.unsubscribe();
+      unsubscribe();
     };
   }, []);
 
@@ -146,7 +153,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(() => {
     write(SESSION_KEY, null);
-    void supabase.auth.signOut().catch(() => {});
+    try {
+      void supabase.auth.signOut().catch(() => {});
+    } catch {
+      /* cloud not configured */
+    }
     setUser(null);
     setStatus("signedOut");
   }, []);
