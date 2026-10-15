@@ -3,7 +3,7 @@ import { catalogueAdminKey } from "../_shared/catalogue-admin-auth.ts";
 import { checkOffersByMerchant } from "../_shared/catalogue-offer-scheduler.ts";
 import {
   parseRctechListingFallback,
-  rctechManufacturerFallbackUrl,
+  rctechFallbackUrls,
 } from "../_shared/catalogue-rctech-fallback.ts";
 
 const jsonHeaders = { "Content-Type": "application/json; charset=utf-8" };
@@ -467,8 +467,7 @@ async function checkTarget(target: Target): Promise<CheckResult> {
     // only to the merchant's own manufacturer listing and only when the exact
     // product URL slug is present in that listing.
     if (!parsed && normalizeText(target.merchantName).includes("rctech de")) {
-      const fallbackUrl = rctechManufacturerFallbackUrl(target.manufacturerName);
-      if (fallbackUrl) {
+      for (const fallbackUrl of rctechFallbackUrls(target)) {
         const fallbackController = new AbortController();
         const fallbackTimeout = setTimeout(() => fallbackController.abort(), 12000);
         try {
@@ -493,6 +492,7 @@ async function checkTarget(target: Target): Promise<CheckResult> {
             parsed =
               parseStructuredOffer(target, fallbackHtml) ??
               parseRctechListingFallback(target, fallbackHtml);
+            if (parsed) break;
           }
         } finally {
           clearTimeout(fallbackTimeout);
