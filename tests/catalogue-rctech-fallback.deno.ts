@@ -1,7 +1,7 @@
 import { assertEquals } from "jsr:@std/assert@1.0.16";
 import {
   parseRctechListingFallback,
-  rctechManufacturerFallbackUrl,
+  rctechFallbackUrls,
 } from "../supabase/functions/_shared/catalogue-rctech-fallback.ts";
 
 Deno.test("RCTech GEPRC listing fallback reads exact target card", () => {
@@ -10,14 +10,17 @@ Deno.test("RCTech GEPRC listing fallback reads exact target card", () => {
       <span>Auf Lager</span>
       <a href="/other-frame">Other Frame</a><strong>59,90 €</strong>
     </div>
-    <div class="productbox">
-      <span>Ausverkauft</span>
-      <a href="/geprc-mk5-o4-pro-dc-frame"><img alt="GEPRC MK5"></a>
-      <a href="/geprc-mk5-o4-pro-dc-frame">GEPRC MK5 O4 Pro DC Frame</a>
-      <span>Artikelnummer: GP107631</span>
-      <strong>89,90 €</strong>
-      <span>Momentan nicht verfügbar</span>
-    </div>
+    <form id="buy_form_7533">
+      <div class="productbox">
+        <span>Ausverkauft</span>
+        <a href="/geprc-mk5-o4-pro-dc-frame"><img alt="GEPRC MK5"></a>
+        ${"<source srcset='/media/geprc-mk5-o4-pro-dc-frame~x.webp'>".repeat(40)}
+        <a href="/geprc-mk5-o4-pro-dc-frame">GEPRC MK5 O4 Pro DC Frame</a>
+        <span>Artikelnummer: GP107631</span>
+        <strong>89,90 €</strong>
+        <span>Momentan nicht verfügbar</span>
+      </div>
+    </form>
     <div class="productbox">
       <span>Auf Lager</span><a href="/next-frame">Next Frame</a><strong>99,90 €</strong>
     </div>`;
@@ -66,7 +69,24 @@ Deno.test("RCTech fallback refuses pages without the exact product link", () => 
 });
 
 Deno.test("RCTech manufacturer fallback URLs are explicit and fail closed", () => {
-  assertEquals(rctechManufacturerFallbackUrl("GEPRC"), "https://www.rctech.de/geprc");
-  assertEquals(rctechManufacturerFallbackUrl("Tattu"), "https://www.rctech.de/gensace");
-  assertEquals(rctechManufacturerFallbackUrl("Unknown"), null);
+  assertEquals(rctechFallbackUrls({
+    productName: "GEPRC GEP-MK5 O4 Pro DC Frame",
+    model: "GEP-MK5 O4 Pro DC Frame",
+    manufacturerName: "GEPRC",
+    productUrl: "https://www.rctech.de/geprc-mk5-o4-pro-dc-frame",
+  }), ["https://www.rctech.de/geprc"]);
+  assertEquals(rctechFallbackUrls({
+    productName: "Tattu R-Line V5.0 1550mAh 6S 150C XT60",
+    model: "R-Line Version 5.0 1550mAh 6S 150C",
+    manufacturerName: "Tattu",
+    productUrl: "https://www.rctech.de/tattu-r-line-6s-1550-mah-150c-v5-lipo-akku",
+  }), [
+    "https://www.rctech.de/gensace__1550-mah",
+    "https://www.rctech.de/gensace",
+  ]);
+  assertEquals(rctechFallbackUrls({
+    productName: "Unknown",
+    manufacturerName: "Unknown",
+    productUrl: "https://www.rctech.de/unknown",
+  }), []);
 });
