@@ -108,18 +108,29 @@ export function parseRctechListingFallback(
   const text = visibleText(segment);
   if (!identityMatches(target, text)) return null;
 
-  const price = parseEuro(text);
+  // With a real JTL form, the card boundary is authoritative. Simplified
+  // markup without a form is only a conservative fallback: never take a price
+  // that appears before the exact target link, because it may belong to the
+  // previous product card.
+  const anchorInSegment = segment.toLowerCase().indexOf(needle);
+  const priceText = formStart >= 0
+    ? text
+    : visibleText(segment.slice(Math.max(0, anchorInSegment)));
+  const price = parseEuro(priceText);
   if (price === null) return null;
 
   let stock: RctechListingObservation["stock"] | null = null;
+  const stockText = formStart >= 0
+    ? text
+    : visibleText(segment.slice(Math.max(0, anchorInSegment - 500)));
   if (
     /schema[.]org\/outofstock/i.test(segment) ||
-    /momentan nicht verf[uü]gbar|nicht verf[uü]gbar|ausverkauft|artikel vergriffen/i.test(text)
+    /momentan nicht verf[uü]gbar|nicht verf[uü]gbar|ausverkauft|artikel vergriffen/i.test(stockText)
   ) {
     stock = "out_of_stock";
   } else if (
     /schema[.]org\/instock/i.test(segment) ||
-    /sofort verf[uü]gbar|\bauf lager\b/i.test(text)
+    /sofort verf[uü]gbar|\bauf lager\b/i.test(stockText)
   ) {
     stock = "in_stock";
   }
