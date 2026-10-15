@@ -47,6 +47,11 @@ jobs:
           deno check supabase/functions/catalogue-image-refresh/index.ts
           deno check supabase/functions/catalogue-runtime/index.ts
 
+      - name: Run catalogue Deno regressions
+        run: |
+          deno test tests/catalogue-scope-quality.test.ts
+          deno test tests/catalogue-rctech-fallback.test.ts
+
       - name: TypeScript
         run: bunx tsc --noEmit
 
