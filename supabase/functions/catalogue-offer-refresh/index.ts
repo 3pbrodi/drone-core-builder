@@ -2,6 +2,7 @@ import { catalogueRestFetch } from "../_shared/catalogue-rest-retry.ts";
 import { catalogueAdminKey } from "../_shared/catalogue-admin-auth.ts";
 import { checkOffersByMerchant } from "../_shared/catalogue-offer-scheduler.ts";
 import {
+  parseRctechExactProductFallback,
   parseRctechListingFallback,
   rctechFallbackUrls,
 } from "../_shared/catalogue-rctech-fallback.ts";
@@ -460,7 +461,10 @@ async function checkTarget(target: Target): Promise<CheckResult> {
     const html = await response.text();
     let parsed =
       parseStructuredOffer(target, html) ??
-      parseMerchantTextFallback(target, html);
+      parseMerchantTextFallback(target, html) ??
+      (normalizeText(target.merchantName).includes("rctech de")
+        ? parseRctechExactProductFallback(target, html)
+        : null);
 
     // RCTech's JTL product endpoint can return a valid 200 response whose
     // server-rendered shell omits a usable price/availability pair. Fall back
@@ -491,6 +495,7 @@ async function checkTarget(target: Target): Promise<CheckResult> {
             const fallbackHtml = await fallbackResponse.text();
             parsed =
               parseStructuredOffer(target, fallbackHtml) ??
+              parseRctechExactProductFallback(target, fallbackHtml) ??
               parseRctechListingFallback(target, fallbackHtml);
             if (parsed) break;
           }
