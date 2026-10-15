@@ -92,8 +92,67 @@ export function parseRctechExactProductFallback(
   }
   if (!/(^|[.])rctech[.]de$/i.test(targetUrl.hostname)) return null;
 
-  const attr = (name: string) => {
-    const escaped = name.replace(/[.*+?^{}()|[\]\\]/g, "\\/**
+  const metaValue = (wanted: string) => {
+    const wantedKey = wanted.toLowerCase();
+    for (const match of html.matchAll(/<meta\b[^>]*>/gi)) {
+      const tag = match[0];
+      const attrs = new Map<string, string>();
+      for (const attr of tag.matchAll(/([:\w-]+)\s*=\s*["']([^"']*)["']/gi)) {
+        attrs.set(attr[1].toLowerCase(), attr[2]);
+      }
+      const key = (
+        attrs.get("property") ??
+        attrs.get("name") ??
+        attrs.get("itemprop") ??
+        ""
+      ).toLowerCase();
+      if (key === wantedKey) return attrs.get("content") ?? null;
+    }
+    return null;
+  };
+
+  const exactUrl = metaValue("og:url") ?? metaValue("url");
+  if (!exactUrl) return null;
+  let observedUrl: URL;
+  try {
+    observedUrl = new URL(exactUrl, targetUrl.origin);
+  } catch {
+    return null;
+  }
+  const normalizePath = (url: URL) => url.pathname.replace(/\/+$/g, "");
+  if (
+    observedUrl.hostname.toLowerCase() !== targetUrl.hostname.toLowerCase() ||
+    normalizePath(observedUrl) !== normalizePath(targetUrl)
+  ) return null;
+
+  const title =
+    metaValue("og:title") ??
+    html.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i)?.[1] ??
+    "";
+  const titleText = visibleText(title);
+  if (!identityMatches(target, titleText)) return null;
+
+  const price = parseEuro(titleText);
+  if (price === null) return null;
+
+  let stock: RctechListingObservation["stock"] | null = null;
+  if (
+    /schema[.]org\/outofstock/i.test(html) ||
+    /artikel vergriffen|momentan nicht verf[uü]gbar|nicht verf[uü]gbar|ausverkauft/i.test(html)
+  ) {
+    stock = "out_of_stock";
+  } else if (
+    /schema[.]org\/instock/i.test(html) ||
+    /sofort verf[uü]gbar|auf lager/i.test(html)
+  ) {
+    stock = "in_stock";
+  }
+  if (!stock) return null;
+
+  return { price, currency: "EUR", stock, parserSource: "rctech_listing" };
+}
+
+/**
  * Parse one exact JTL product card. RCTech wraps each listing product in a
  * buy-form; using that boundary avoids reading a neighbour's price/stock.
  */");
