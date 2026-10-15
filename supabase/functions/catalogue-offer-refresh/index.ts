@@ -1,6 +1,10 @@
 import { catalogueRestFetch } from "../_shared/catalogue-rest-retry.ts";
 import { catalogueAdminKey } from "../_shared/catalogue-admin-auth.ts";
 import { checkOffersByMerchant } from "../_shared/catalogue-offer-scheduler.ts";
+import {
+  parseRctechListingFallback,
+  rctechManufacturerFallbackUrl,
+} from "../_shared/catalogue-rctech-fallback.ts";
 
 const jsonHeaders = { "Content-Type": "application/json; charset=utf-8" };
 const EXPECTED_REFRESH_TOKEN_SHA256 =
@@ -454,9 +458,47 @@ async function checkTarget(target: Target): Promise<CheckResult> {
     }
 
     const html = await response.text();
-    const parsed =
+    let parsed =
       parseStructuredOffer(target, html) ??
       parseMerchantTextFallback(target, html);
+
+    // RCTech's JTL product endpoint can return a valid 200 response whose
+    // server-rendered shell omits a usable price/availability pair. Fall back
+    // only to the merchant's own manufacturer listing and only when the exact
+    // product URL slug is present in that listing.
+    if (!parsed && normalizeText(target.merchantName).includes("rctech de")) {
+      const fallbackUrl = rctechManufacturerFallbackUrl(target.manufacturerName);
+      if (fallbackUrl) {
+        const fallbackController = new AbortController();
+        const fallbackTimeout = setTimeout(() => fallbackController.abort(), 12000);
+        try {
+          const fallbackResponse = await fetch(fallbackUrl, {
+            redirect: "follow",
+            signal: fallbackController.signal,
+            headers: {
+              "accept": "text/html,application/xhtml+xml",
+              "accept-language": "de-DE,de;q=0.9,en;q=0.6",
+              "user-agent":
+                "Mozilla/5.0 (compatible; DroneCoresCatalogueVerifier/1.0; +https://dronecores.com)",
+            },
+          });
+          const fallbackType = fallbackResponse.headers.get("content-type") || "";
+          const fallbackLength = Number(fallbackResponse.headers.get("content-length") || "0");
+          if (
+            fallbackResponse.ok &&
+            fallbackType.toLowerCase().includes("text/html") &&
+            fallbackLength <= 5_000_000
+          ) {
+            const fallbackHtml = await fallbackResponse.text();
+            parsed =
+              parseStructuredOffer(target, fallbackHtml) ??
+              parseRctechListingFallback(target, fallbackHtml);
+          }
+        } finally {
+          clearTimeout(fallbackTimeout);
+        }
+      }
+    }
 
     if (!parsed) {
       return {
