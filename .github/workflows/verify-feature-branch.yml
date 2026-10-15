@@ -49,8 +49,8 @@ jobs:
 
       - name: Run catalogue Deno regressions
         run: |
-          deno test tests/catalogue-scope-quality.test.ts
-          deno test tests/catalogue-rctech-fallback.test.ts
+          deno test tests/catalogue-scope-quality.deno.ts
+          deno test tests/catalogue-rctech-fallback.deno.ts
 
       - name: TypeScript
         run: bunx tsc --noEmit
