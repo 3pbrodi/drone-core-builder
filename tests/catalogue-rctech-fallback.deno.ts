@@ -1,5 +1,6 @@
 import { assertEquals } from "jsr:@std/assert@1.0.16";
 import {
+  parseRctechExactProductFallback,
   parseRctechListingFallback,
   rctechFallbackUrls,
 } from "../supabase/functions/_shared/catalogue-rctech-fallback.ts";
@@ -35,6 +36,38 @@ Deno.test("RCTech GEPRC listing fallback reads exact target card", () => {
     stock: "out_of_stock",
     parserSource: "rctech_listing",
   });
+});
+
+Deno.test("RCTech exact Tattu product metadata combines exact URL price and schema stock", () => {
+  const html = `
+    <meta property="og:url" content="https://www.rctech.de/tattu-r-line-6s-1550-mah-150c-v5-lipo-akku">
+    <meta property="og:title" content="Tattu R-Line 6S 1550 mAh 150C V5 LiPo Akku - RCTech.de FPV Shop, 42,90 €">
+    <link itemprop="availability" href="https://schema.org/OutOfStock">
+    <span class="status">Artikel vergriffen</span>`;
+  assertEquals(parseRctechExactProductFallback({
+    productName: "Tattu R-Line V5.0 1550mAh 6S 150C XT60",
+    model: "R-Line Version 5.0 1550mAh 6S 150C",
+    manufacturerName: "Tattu",
+    productUrl: "https://www.rctech.de/tattu-r-line-6s-1550-mah-150c-v5-lipo-akku",
+  }, html), {
+    price: 42.9,
+    currency: "EUR",
+    stock: "out_of_stock",
+    parserSource: "rctech_listing",
+  });
+});
+
+Deno.test("RCTech exact metadata refuses a different canonical product", () => {
+  const html = `
+    <meta property="og:url" content="https://www.rctech.de/tattu-r-line-6s-1480-mah-150c-v5-lipo-akku">
+    <meta property="og:title" content="Tattu R-Line 6S 1480 mAh 150C V5 LiPo Akku, 35,90 €">
+    <link itemprop="availability" href="https://schema.org/InStock">`;
+  assertEquals(parseRctechExactProductFallback({
+    productName: "Tattu R-Line V5.0 1550mAh 6S 150C XT60",
+    model: "R-Line Version 5.0 1550mAh 6S 150C",
+    manufacturerName: "Tattu",
+    productUrl: "https://www.rctech.de/tattu-r-line-6s-1550-mah-150c-v5-lipo-akku",
+  }, html), null);
 });
 
 Deno.test("RCTech Tattu listing fallback keeps target distinct from neighboring batteries", () => {
