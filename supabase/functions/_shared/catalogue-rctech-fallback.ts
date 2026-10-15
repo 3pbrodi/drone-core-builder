@@ -75,10 +75,9 @@ function targetSlug(target: RctechListingTarget) {
 }
 
 /**
- * Some RCTech product pages expose the exact canonical URL and price only in
- * OpenGraph/title metadata, while stock remains schema.org availability later
- * in the same document. Accept this only when the canonical/og URL exactly
- * matches the offer URL and the title independently matches the target.
+ * Parse exact RCTech product metadata only when the page's own OG URL matches
+ * the configured offer URL. This is used for JTL pages where the EUR price is
+ * in og:title but availability appears separately as schema.org markup.
  */
 export function parseRctechExactProductFallback(
   target: RctechListingTarget,
@@ -144,70 +143,6 @@ export function parseRctechExactProductFallback(
   } else if (
     /schema[.]org\/instock/i.test(html) ||
     /sofort verf[uü]gbar|auf lager/i.test(html)
-  ) {
-    stock = "in_stock";
-  }
-  if (!stock) return null;
-
-  return { price, currency: "EUR", stock, parserSource: "rctech_listing" };
-}
-
-/**
- * Parse one exact JTL product card. RCTech wraps each listing product in a
- * buy-form; using that boundary avoids reading a neighbour's price/stock.
- */");
-    const patterns = [
-      new RegExp(
-        `<meta\\b[^>]*(?:property|name|itemprop)=["']${escaped}["'][^>]*content=["']([^"']+)["'][^>]*>`,
-        "i",
-      ),
-      new RegExp(
-        `<meta\\b[^>]*content=["']([^"']+)["'][^>]*(?:property|name|itemprop)=["']${escaped}["'][^>]*>`,
-        "i",
-      ),
-    ];
-    for (const pattern of patterns) {
-      const match = html.match(pattern);
-      if (match?.[1]) return match[1];
-    }
-    return null;
-  };
-
-  const exactUrl = attr("og:url") ?? attr("url");
-  if (!exactUrl) return null;
-  let observedUrl: URL;
-  try {
-    observedUrl = new URL(exactUrl, targetUrl.origin);
-  } catch {
-    return null;
-  }
-  const normalizePath = (url: URL) => url.pathname.replace(/\/+$/g, "");
-  if (
-    observedUrl.hostname.toLowerCase() !== targetUrl.hostname.toLowerCase() ||
-    normalizePath(observedUrl) !== normalizePath(targetUrl)
-  ) return null;
-
-  const title =
-    attr("og:title") ??
-    html.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i)?.[1] ??
-    "";
-  const titleText = visibleText(title);
-  if (!identityMatches(target, titleText)) return null;
-
-  const price = parseEuro(titleText);
-  if (price === null) return null;
-
-  let stock: RctechListingObservation["stock"] | null = null;
-  if (
-    /schema[.]org\/outofstock/i.test(html) ||
-    /artikel vergriffen|momentan nicht verf[uü]gbar|nicht verf[uü]gbar|ausverkauft/i.test(
-      visibleText(html),
-    )
-  ) {
-    stock = "out_of_stock";
-  } else if (
-    /schema[.]org\/instock/i.test(html) ||
-    /sofort verf[uü]gbar|\bauf lager\b/i.test(visibleText(html))
   ) {
     stock = "in_stock";
   }
