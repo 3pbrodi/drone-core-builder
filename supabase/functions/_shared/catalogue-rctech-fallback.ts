@@ -86,30 +86,31 @@ export function parseRctechListingFallback(
 
   const lower = html.toLowerCase();
   const needle = "/" + slug.toLowerCase();
-  const at = lower.indexOf(needle);
-  if (at < 0) return null;
+  const first = lower.indexOf(needle);
+  if (first < 0) return null;
 
-  // Start a little before the exact product link so an "Auf Lager/Ausverkauft"
-  // badge that precedes the title remains visible. Stop before distant products
-  // can contribute unrelated price/stock text.
-  const start = Math.max(0, at - 1400);
-  let end = Math.min(html.length, at + 5200);
-  const nextHref = lower.indexOf('href="', at + needle.length);
-  if (nextHref > at && nextHref < end) {
-    const nextSlugish = lower.indexOf("/", nextHref);
-    if (nextSlugish > at && nextSlugish < end) end = Math.max(at + 900, nextHref);
+  // JTL product cards usually repeat the same product href for image/title.
+  // Anchor on the last repeat in the local cluster, so price/availability that
+  // follows the title wins over neighbouring cards.
+  let at = first;
+  for (;;) {
+    const next = lower.indexOf(needle, at + needle.length);
+    if (next < 0 || next - first > 2400) break;
+    at = next;
   }
-
-  const text = visibleText(html.slice(start, end));
+  const before = visibleText(html.slice(Math.max(0, at - 1000), at));
+  const after = visibleText(html.slice(at, Math.min(html.length, at + 3000)));
+  const text = before + " " + after;
   if (!identityMatches(target, text)) return null;
 
-  const price = parseEuro(text);
+  const price = parseEuro(after);
   if (price === null) return null;
 
   let stock: RctechListingObservation["stock"] | null = null;
-  if (/momentan nicht verf[uü]gbar|nicht verf[uü]gbar|ausverkauft/i.test(text)) {
+  const stockText = after.slice(0, 1800) + " " + before.slice(-700);
+  if (/momentan nicht verf[uü]gbar|nicht verf[uü]gbar|ausverkauft/i.test(stockText)) {
     stock = "out_of_stock";
-  } else if (/sofort verf[uü]gbar|\bauf lager\b/i.test(text)) {
+  } else if (/sofort verf[uü]gbar|\bauf lager\b/i.test(stockText)) {
     stock = "in_stock";
   }
   if (!stock) return null;
