@@ -1,3 +1,7 @@
+import { catalogueRestFetch } from "../_shared/catalogue-rest-retry.ts";
+import { catalogueAdminKey } from "../_shared/catalogue-admin-auth.ts";
+import { checkOffersByMerchant } from "../_shared/catalogue-offer-scheduler.ts";
+
 const jsonHeaders = { "Content-Type": "application/json; charset=utf-8" };
 const EXPECTED_REFRESH_TOKEN_SHA256 =
   "a7ba1baeae1110ea62b2b8c8592bf48fb79200b6ca5be601e3a47162547116f7";
@@ -500,29 +504,6 @@ async function checkTarget(target: Target): Promise<CheckResult> {
   }
 }
 
-async function mapConcurrent<T, R>(
-  items: T[],
-  limit: number,
-  fn: (item: T) => Promise<R>,
-): Promise<R[]> {
-  const results = new Array<R>(items.length);
-  let next = 0;
-
-  async function worker() {
-    while (true) {
-      const index = next++;
-      if (index >= items.length) return;
-      results[index] = await fn(items[index]);
-    }
-  }
-
-  await Promise.all(
-    Array.from({ length: Math.min(limit, Math.max(items.length, 1)) }, () => worker()),
-  );
-  return results;
-}
-
-
 type OfferRow = {
   id: string;
   product_id: string;
@@ -567,16 +548,7 @@ type RunRow = {
 };
 
 function adminApiKey() {
-  const modern = Deno.env.get("SUPABASE_SECRET_KEYS");
-  if (modern) {
-    const parsed = JSON.parse(modern) as Record<string, string>;
-    if (parsed.default) return parsed.default;
-  }
-
-  const legacy = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  if (legacy) return legacy;
-
-  throw new Error("Supabase admin key is unavailable inside the Edge Function.");
+  return catalogueAdminKey((name) => Deno.env.get(name));
 }
 
 async function adminRest<T>(
@@ -599,7 +571,7 @@ async function adminRest<T>(
   }
   if (prefer) headers.set("prefer", prefer);
 
-  const response = await fetch(
+  const response = await catalogueRestFetch(
     `${baseUrl}/rest/v1/${path.replace(/^\//, "")}`,
     { ...init, headers },
   );
@@ -870,6 +842,28 @@ async function applyResults(
   return updates.length;
 }
 
+async function checkAllTargets(targets: Target[]) {
+  return checkOffersByMerchant(
+    targets,
+    checkTarget,
+    (target, blockedStatus): CheckResult => ({
+      offerId: target.offerId,
+      productId: target.productId,
+      merchantName: target.merchantName,
+      success: false,
+      price: null,
+      currency: null,
+      stockStatus: null,
+      parserSource: null,
+      responseStatus: blockedStatus,
+      checkedAt: new Date().toISOString(),
+      error:
+        "Merchant returned HTTP " + blockedStatus +
+        " earlier in this run. Further requests to this merchant were skipped.",
+    }),
+  );
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") {
     return new Response(JSON.stringify({ error: "Method not allowed" }), {
@@ -900,7 +894,7 @@ Deno.serve(async (req: Request) => {
     const { targets, offers } = await loadTargets();
 
     if (mode === "dry_run") {
-      const results = await mapConcurrent(targets, 4, checkTarget);
+      const results = await checkAllTargets(targets);
       return new Response(JSON.stringify({
         mode,
         targetCount: targets.length,
@@ -923,7 +917,7 @@ Deno.serve(async (req: Request) => {
     }
 
     try {
-      const results = await mapConcurrent(targets, 4, checkTarget);
+      const results = await checkAllTargets(targets);
       const applied = await applyResults(run.id, results, offers);
       const successful = results.filter((item) => item.success).length;
       const failed = results.length - successful;
