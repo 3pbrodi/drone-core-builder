@@ -7,6 +7,7 @@ on:
   pull_request:
     branches:
       - main
+      - feature/shared-drone-configurator
 
 permissions:
   contents: read
@@ -39,6 +40,17 @@ jobs:
 
       - name: Type-check Edge importer
         run: deno check supabase/functions/catalogue-import-runner/index.ts
+
+      - name: Type-check all catalogue Edge Functions
+        run: |
+          deno check supabase/functions/catalogue-offer-refresh/index.ts
+          deno check supabase/functions/catalogue-image-refresh/index.ts
+          deno check supabase/functions/catalogue-runtime/index.ts
+
+      - name: Run catalogue Deno regressions
+        run: |
+          deno test tests/catalogue-scope-quality.deno.ts
+          deno test tests/catalogue-rctech-fallback.deno.ts
 
       - name: TypeScript
         run: bunx tsc --noEmit
