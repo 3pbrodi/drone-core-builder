@@ -29,7 +29,7 @@ begin
   then raise exception 'Missing four image-free candidate rows'; end if;
   -- Step 6: exact model-specific HQProp SKU is legitimate, distinct from GTIN.
   if (select normalized_data->>'manufacturer_sku' from public.catalogue_import_rows
-      where proposed_product_id='qa-hqprop-ethix-p2-pickle-2cw2ccw')<>'EthixP2-PK-PC'
+      where normalized_data->>'category'='propellers')<>'EthixP2-PK-PC'
   then raise exception 'HQProp must use the exact model SKU, not source GTIN'; end if;
   if exists(select 1 from public.catalogue_import_rows
       where normalized_data->>'manufacturer_sku'='9313448340470')
