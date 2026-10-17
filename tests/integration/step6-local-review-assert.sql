@@ -16,7 +16,7 @@ begin
     then raise exception 'Step 6 local review is not fully pending/nonpublic'; end if;
 
   if (select count(*) from public.catalogue_spec_evidence
-      where product_id='qa-tbs-lucid-6s-60a-4in1-esc'
+      where product_id in (select id from public.catalogue_products where category='esc')
       and field_key='escInput'
       and value='"8-pin JST-SH 1.0mm ESC-to-FC cable"'::jsonb)<>1 then
     raise exception 'ESC-to-FC connector not independently sourced'; end if;
@@ -27,7 +27,7 @@ set source_url='https://www.team-blacksheep.com/media/files/tbs-lucid-manual.pdf
     conditions=jsonb_set(coalesce(conditions,'{}'::jsonb),'{provenance}',
       '"manufacturer-manual-pinout-review-pending"'::jsonb),
     caveats='Official TBS Lucid manual illustrates 8-PIN ESC Cable JST SH 1.0mm; exact variant and connector reviewer approval still pending'
-where product_id='qa-tbs-lucid-6s-60a-4in1-esc'
+where product_id in (select id from public.catalogue_products where category='esc')
   and field_key='escInput'
   and verification_status='pending_review';
 do $assert$
