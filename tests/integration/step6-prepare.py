@@ -18,6 +18,12 @@ archived=[]
 for filename in ("staged-validated-items.json","staged-review-required-items.json"):
     archived += json.loads((pilot_dir/filename).read_text())
 lookup={str(item["import_row_id"]):item for item in archived}
+step5=json.loads(Path(sys.argv[4]).read_text())
+review={item["pilot_id"]:item for item in step5["candidates"]}
+assert set(review)=={"4","126","132","NEU-CNHL-3S-1300"}
+assert all(all(field["verification_status"]=="pending_review"
+   for field in item["required_field_evidence"].values()) for item in review.values())
+
 assert len(evidence["items"])==8
 assert len({i["category"] for i in evidence["items"]})==8
 assert sum(i["qaCandidate"] for i in evidence["items"])==4
@@ -58,6 +64,21 @@ for item in evidence["items"]:
     elif item["pilotId"]=="72":normalized["variant"]=None # aspect/lens ambiguous
     elif item["pilotId"]=="4":normalized["variant"]="2CW+2CCW 4-pack"
     elif item["pilotId"].startswith("NEU-"):normalized["variant"]="1 battery / XT60"
+    # Step 6 overlays ONLY independently sourced exact identity and technical
+    # values; manufacturer pictures remain blocked and verification is NOT granted.
+    if pilot_id in review:
+        reviewed=review[pilot_id]
+        assert reviewed["category"]==normalized["category"]
+        normalized["manufacturer_sku"]=reviewed["manufacturer_sku"]
+        normalized["image_url"]=None
+        normalized["image_exact_model_verified"]=False
+        if pilot_id=="132":
+            input_value=reviewed["required_field_evidence"]["escInput"]
+            assert input_value["verification_status"]=="pending_review"
+            assert "JST-SH" in input_value["value"] and "DShot" not in input_value["value"]
+            normalized["esc_input"]=input_value["value"]
+        if pilot_id=="4":
+            assert reviewed["gtin"]!=reviewed["manufacturer_sku"]
     sample={**item,"normalized":normalized}
     samples.append(sample)
 
