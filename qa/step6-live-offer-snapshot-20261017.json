@@ -1,0 +1,53 @@
+{
+  "date": "2026-10-17",
+  "probe_source": "GitHub-hosted ephemeral runner directly retrieved merchant HTTPS product pages",
+  "run_id": 39032727787,
+  "observed_at_utc": "2026-10-17T12:29:48Z",
+  "merchant_product_count": 4,
+  "http_200": 4,
+  "identity_matched": 4,
+  "formally_verified_offers": 0,
+  "observations": [
+    {
+      "product": "CNHL Black Series 1300mAh 3S 130C XT60",
+      "source": "https://www.rotorama.de/product/cnhl-1300mah-3s-130c",
+      "price_eur": null,
+      "stock": "unknown",
+      "reason": "Exact product identified but price and stock not reliably parsed",
+      "merchant_verified": false
+    },
+    {
+      "product": "HQProp ETHIX P2 Pickle four-pack",
+      "source": "https://www.rctech.de/?a=7000&lang=eng",
+      "price_eur": 2.99,
+      "stock": "unknown",
+      "reason": "Exact SKU/GTIN page price read; out-of-stock/in-stock indication not conclusive in product block",
+      "merchant_verified": false
+    },
+    {
+      "product": "TBS Crossfire Nano RX SE",
+      "source": "https://www.rctech.de/tbs-crossfire-nano-rx-longrange-empfaenger-se",
+      "price_eur": 29.9,
+      "stock": "in_stock",
+      "reason": "Exact page returned EUR price and available status; human signoff still required",
+      "merchant_verified": false
+    },
+    {
+      "product": "TBS Lucid 6S 60A 4-in-1 ESC",
+      "source": "https://www.rctech.de/tbs-lucid-60a-6s-4-in-1-esc",
+      "price_eur": 59.9,
+      "stock": "in_stock",
+      "reason": "Exact page returned EUR price and available status, but older category snapshot conflicts; human resolution required",
+      "merchant_verified": false
+    }
+  ],
+  "documentation": "https://github.com/3pbrodi/drone-core-builder/actions/runs/39032727787",
+  "warnings": [
+    "No offer row created or verified; evidence is a single HTTP snapshot that may change",
+    "Do not publish until image/no-image policy and manual reviewer approval",
+    "Step5 nominal volts corrected to cell counts in qa/step6-field-semantics-correction.json"
+  ],
+  "source_expiry_policy_hours": 24,
+  "images_reused_from_manufacturers": 0,
+  "explicitly_approved_for_production": false
+}

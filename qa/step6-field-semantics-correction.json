@@ -1,0 +1,41 @@
+{
+  "audit_date": "2026-10-17",
+  "blocker_resolved": "Database field naming ambiguity: voltage keys are CELL COUNTS, not nominal volts",
+  "migration_reference": "supabase/migrations/20260928144930_catalogue_review_promotion_workflow.sql: public.catalogue_product_field_value_json",
+  "evidence_mode": "pending_review_not_verified",
+  "field_mappings": [
+    {
+      "product": "CNHL Black Series V2.0 1300mAh 3S",
+      "category": "battery",
+      "schema_field_key": "voltage",
+      "source_label": "3S1P / 11.1V",
+      "canonical_db_value": 3,
+      "unit": "cells",
+      "nominal_volts_display_only": 11.1,
+      "source": "https://chinahobbyline.com/de/products/cnhl-black-series-1300mah-11-1v-3s-130c-lipo-battery-with-xt60-plug"
+    },
+    {
+      "product": "TBS Lucid 6S 60A 4-in-1 ESC",
+      "category": "esc",
+      "schema_field_key": "minVoltage",
+      "source_label": "3S–6S",
+      "canonical_db_value": 3,
+      "unit": "cells",
+      "nominal_volts_display_only": 11.1,
+      "source": "https://www.team-blacksheep.com/products/prod:lucid_4in1"
+    },
+    {
+      "product": "TBS Lucid 6S 60A 4-in-1 ESC",
+      "category": "esc",
+      "schema_field_key": "maxVoltage",
+      "source_label": "3S–6S",
+      "canonical_db_value": 6,
+      "unit": "cells",
+      "nominal_volts_display_only": 22.2,
+      "source": "https://www.team-blacksheep.com/products/prod:lucid_4in1"
+    }
+  ],
+  "reviewer_approval": false,
+  "usage": "QA-only corrected normalization, not a mutation of Step5 or Production product records",
+  "warning": "Do not pass nominal cell voltages 11.1 or 22.2 as canonical field values; authoritative SQL function maps these fields to smallint battery_cells/min_battery_cells/max_battery_cells."
+}
