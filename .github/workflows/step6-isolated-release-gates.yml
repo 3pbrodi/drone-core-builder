@@ -7,6 +7,8 @@ on:
       - 'src/lib/catalogue-step6-release-gate.ts'
       - 'tests/step6-release-gate.test.ts'
       - 'qa/step5-four-products-source-evidence.json'
+      - 'qa/step6-field-semantics-correction.json'
+      - 'tests/step6-schema-semantics.test.ts'
       - 'qa/step6-eight-source-offer-evidence.json'
       - 'tests/integration/step6-*'
       - '.github/workflows/step6-isolated-release-gates.yml'
@@ -34,7 +36,7 @@ jobs:
 
       - name: Check offline licensing and release gates
         run: |
-          bun test tests/step5-evidence-validation.test.ts tests/step6-release-gate.test.ts
+          bun test tests/step5-evidence-validation.test.ts tests/step6-release-gate.test.ts tests/step6-schema-semantics.test.ts
           deno check tests/integration/step6-live-offer-audit.ts
           deno check supabase/functions/catalogue-import-runner/index.ts
 
