@@ -1,6 +1,5 @@
 {
   "audit_id": "dronecores_step5_2026_10_17",
-  "review_timestamp_utc": "2026-10-17T09:38:00Z",
   "source_material": "Step9B.4 original pilot 171 rows and 8 source-offer audit; 4 shortlisted here",
   "verification_method": "external official-source research with retailer results, NOT Supabase manual reviewer approval",
   "production_permission": false,
@@ -470,5 +469,7 @@
         "explicit_owner_approval"
       ]
     }
-  ]
+  ],
+  "review_date": "2026-10-17",
+  "note_on_freshness": "Web-index dates and status excerpts are not a live offer verification; collect exact HTTP evidence with real timestamps before publishing."
 }
