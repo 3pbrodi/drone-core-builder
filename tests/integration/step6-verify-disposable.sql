@@ -21,16 +21,18 @@ begin
   or exists(select 1 from public.catalogue_identity_evidence where verification_status='verified')
   or exists(select 1 from public.catalogue_spec_evidence where verification_status='verified')
   or (select count(*) from public.catalogue_identity_evidence)<>4
-  or (select count(*) from public.catalogue_spec_evidence)<10
+  or (select count(*) from public.catalogue_spec_evidence)<>13
   then raise exception 'Staging counts, independent research evidence, or publication gates invalid';
   end if;
   if (select count(*) from public.catalogue_import_rows where status='imported'
     and dedupe_status='new' and normalized_data->>'image_url' is null)<>4
   then raise exception 'Missing four image-free candidate rows'; end if;
-  -- Important: exact manufacturer SKU is NOT the same as an upstream GTIN.
+  -- Step 6: exact model-specific HQProp SKU is legitimate, distinct from GTIN.
+  if (select normalized_data->>'manufacturer_sku' from public.catalogue_import_rows
+      where proposed_product_id='qa-hqprop-ethix-p2-pickle-2cw2ccw')<>'EthixP2-PK-PC'
+  then raise exception 'HQProp must use the exact model SKU, not source GTIN'; end if;
   if exists(select 1 from public.catalogue_import_rows
-    where normalized_data->>'source_name' in ('HQProp official','Team BlackSheep official')
-      and nullif(normalized_data->>'manufacturer_sku','') is not null)
+      where normalized_data->>'manufacturer_sku'='9313448340470')
   then raise exception 'GTIN used as manufacturer SKU'; end if;
 
   for v in select id from public.catalogue_products
