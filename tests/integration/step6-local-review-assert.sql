@@ -15,6 +15,20 @@ begin
     or exists(select 1 from public.catalogue_public_runtime_products)
     then raise exception 'Step 6 local review is not fully pending/nonpublic'; end if;
 
+  -- Canonical voltage-labelled fields refer to cell counts; never persist
+  -- nominal volts as their structured field evidence.
+  if (select e.value from public.catalogue_spec_evidence e
+      join public.catalogue_products p on p.id=e.product_id
+      where p.category='battery' and e.field_key='voltage') <> '3'::jsonb
+  then raise exception 'Battery voltage field must mean 3 cells, not 11.1 V'; end if;
+  if (select e.value from public.catalogue_spec_evidence e
+      join public.catalogue_products p on p.id=e.product_id
+      where p.category='esc' and e.field_key='minVoltage') <> '3'::jsonb
+  then raise exception 'ESC minVoltage must mean 3 cells'; end if;
+  if (select e.value from public.catalogue_spec_evidence e
+      join public.catalogue_products p on p.id=e.product_id
+      where p.category='esc' and e.field_key='maxVoltage') <> '6'::jsonb
+  then raise exception 'ESC maxVoltage must mean 6 cells'; end if;
   if (select count(*) from public.catalogue_spec_evidence
       where product_id in (select id from public.catalogue_products where category='esc')
       and field_key='escInput'
