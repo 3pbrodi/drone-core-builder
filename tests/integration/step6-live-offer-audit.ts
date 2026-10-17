@@ -118,4 +118,6 @@ Deno.writeTextFileSync(outPath,JSON.stringify(output,null,2)+"\n");
 console.log(JSON.stringify({live_checks:results.length,
   direct_exact:results.filter(x=>x.exactProduct&&x.priceEUR!==null&&x.stock!=="unknown").length,
   errors:results.filter(x=>!x.exactProduct).map(x=>x.id),
-  all_unverified:results.every(x=>!x.usableAsVerifiedOffer)}));
+  all_unverified:results.every(x=>!x.usableAsVerifiedOffer),
+  observations:results.map(({id,priceEUR,stock,exactProduct,responseStatus,reason})=>
+    ({id,priceEUR,stock,exactProduct,responseStatus,reason}))}));
