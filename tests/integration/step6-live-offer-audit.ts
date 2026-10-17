@@ -4,7 +4,6 @@
 import {
   parseRctechExactProductFallback, parseRctechListingFallback,
 } from "../../supabase/functions/_shared/catalogue-rctech-fallback.ts";
-import { writeTextFileSync } from "node:fs";
 
 type Observation = {
   id:string;merchant:string;url:string;checkedAt:string;
@@ -115,7 +114,7 @@ const output={checkedAt:new Date().toISOString(),source:"direct_GitHub_runner_ht
   marketplaceOffersInserted:0,imagesCopied:0,reviewStatus:"pending_review",
   observations:results};
 const outPath=Deno.args[0]??"step6-results/live-eu-offers.json";
-writeTextFileSync(outPath,JSON.stringify(output,null,2)+"\n");
+Deno.writeTextFileSync(outPath,JSON.stringify(output,null,2)+"\n");
 console.log(JSON.stringify({live_checks:results.length,
   direct_exact:results.filter(x=>x.exactProduct&&x.priceEUR!==null&&x.stock!=="unknown").length,
   errors:results.filter(x=>!x.exactProduct).map(x=>x.id),
