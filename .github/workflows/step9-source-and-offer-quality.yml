@@ -108,7 +108,7 @@ jobs:
             >step9-results/disposable-safety-output.txt
           tail -1 step9-results/disposable-safety-output.txt | jq . \
             >step9-results/disposable-safety-audit.json
-          jq -e '.migrations==26 and .public_runtime_products==0
+          jq -e '.migrations==25 and .public_runtime_products==0
             and .license_filter_on==true and .fresh_offer_filter_on==true
             and .production_mutation==false and .step=="PASS"' \
             step9-results/disposable-safety-audit.json
