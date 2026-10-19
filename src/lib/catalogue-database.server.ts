@@ -1,4 +1,5 @@
 import "@tanstack/react-start/server-only";
+import { isFreshEuroOfferTimestamp } from "../../supabase/functions/_shared/catalogue-offer-freshness";
 
 import { type Category, type Product, type StockStatus } from "./build-data";
 import {
@@ -130,7 +131,9 @@ function runtimeRowToProduct(row: RuntimeProductRow): Product | null {
     row.price_amount === null ||
     row.weight_grams === null ||
     row.currency !== "EUR" ||
-    row.offer_region !== "EU"
+    row.offer_region !== "EU" ||
+    !(typeof row.price_amount === "number" && Number.isFinite(row.price_amount) && row.price_amount > 0) ||
+    !isFreshEuroOfferTimestamp(row.last_checked_at)
   ) {
     return null;
   }
