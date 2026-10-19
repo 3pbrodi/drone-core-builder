@@ -1,0 +1,241 @@
+{
+  "created_on": "2026-10-19",
+  "review_purpose": "pre-Step8 source verification; NOT a licensed image or authenticated human release",
+  "total_products": 4,
+  "source_claims_total": 13,
+  "media_reuse_permission": false,
+  "human_manufacturer_review_completed": false,
+  "public_release_permission": false,
+  "products": [
+    {
+      "qa_id": "qa-cnhl-black-v2-1300mah-3s-130c-xt60-1pack",
+      "category": "battery",
+      "manufacturer": "CNHL",
+      "identity_claim": "CNHL Black Series V2.0 1300 mAh 3S 130C XT60; stock number 1301303BK; 1 battery",
+      "manufacturer_page_url": "https://chinahobbyline.com/de/products/cnhl-black-series-1300mah-11-1v-3s-130c-lipo-battery-with-xt60-plug",
+      "source_class": "manufacturer_page_corrob",
+      "secondary_url": null,
+      "official_manual_url": null,
+      "variant_exclusions": [
+        "6S 1301306BK",
+        "double-pack listing"
+      ],
+      "source_status": "manufacturer_corroborated_pending_independent_reviewer",
+      "human_reviewer": null,
+      "approve_identity": false,
+      "required_fields": [
+        {
+          "field_key": "batteryMah",
+          "canonical_value": 1300,
+          "unit": "mAh",
+          "source_url": "https://chinahobbyline.com/de/products/cnhl-black-series-1300mah-11-1v-3s-130c-lipo-battery-with-xt60-plug",
+          "short_evidence_reference": "Kapazität: 1300mAh",
+          "source_status": "manufacturer_page_corrob_pending_reviewer",
+          "reviewer_approved": false,
+          "reviewer": null,
+          "reviewed_at": null
+        },
+        {
+          "field_key": "voltage",
+          "canonical_value": 3,
+          "unit": "battery_cells",
+          "source_url": "https://chinahobbyline.com/de/products/cnhl-black-series-1300mah-11-1v-3s-130c-lipo-battery-with-xt60-plug",
+          "short_evidence_reference": "3-Zellen / 3S1P",
+          "source_status": "manufacturer_page_corrob_pending_reviewer",
+          "reviewer_approved": false,
+          "reviewer": null,
+          "reviewed_at": null
+        }
+      ],
+      "merchant_offer_review": "pending_direct_eu_price_inventory_attestation",
+      "offer_verified": false
+    },
+    {
+      "qa_id": "qa-hqprop-ethix-p2-pickle-2cw2ccw",
+      "category": "propellers",
+      "manufacturer": "HQProp",
+      "identity_claim": "Ethix P2 Pickle, 2CW + 2CCW, polycarbonate; EthixP2-PK-PC is model identifier; GTIN 9313448340470",
+      "manufacturer_page_url": "https://www.hqprop.com/ethix-p2-pickle-prop-2cw2ccw-poly-carbonate-p0459.html",
+      "source_class": "manufacturer_page_and_merchant_corrob",
+      "secondary_url": "https://www.rctech.de/?a=7000&lang=eng",
+      "official_manual_url": null,
+      "variant_exclusions": [
+        "Ethix P3 Peanut Butter & Jelly",
+        "2-piece packs",
+        "false 5.1 inch = 45 mm third-party conversion"
+      ],
+      "source_status": "manufacturer_corroborated_pending_independent_reviewer",
+      "human_reviewer": null,
+      "approve_identity": false,
+      "required_fields": [
+        {
+          "field_key": "propInches",
+          "canonical_value": 5.1,
+          "unit": "inch",
+          "source_url": "https://www.hqprop.com/ethix-p2-pickle-prop-2cw2ccw-poly-carbonate-p0459.html",
+          "short_evidence_reference": "Propeller Diameter: 5.1 inch",
+          "source_status": "manufacturer_page_corrob_pending_reviewer",
+          "reviewer_approved": false,
+          "reviewer": null,
+          "reviewed_at": null
+        }
+      ],
+      "merchant_offer_review": "pending_direct_eu_price_inventory_attestation",
+      "offer_verified": false
+    },
+    {
+      "qa_id": "qa-tbs-crossfire-nano-rx-se",
+      "category": "receiver",
+      "manufacturer": "TBS",
+      "identity_claim": "Crossfire Nano RX (SE) includes Immortal-T V2 antenna",
+      "manufacturer_page_url": "https://www.team-blacksheep.com/products/prod:crossfire_nano_se",
+      "source_class": "manufacturer_page_corrob",
+      "secondary_url": null,
+      "official_manual_url": null,
+      "variant_exclusions": [
+        "standard Crossfire Nano RX (not SE)",
+        "Diversity Nano RX",
+        "different antenna bundle"
+      ],
+      "source_status": "manufacturer_corroborated_pending_independent_reviewer",
+      "human_reviewer": null,
+      "approve_identity": false,
+      "required_fields": [
+        {
+          "field_key": "receiverProtocol",
+          "canonical_value": "TBS Crossfire",
+          "unit": "protocol",
+          "source_url": "https://www.team-blacksheep.com/products/prod:crossfire_nano_se",
+          "short_evidence_reference": "Product family: TBS Crossfire",
+          "source_status": "manufacturer_page_corrob_pending_reviewer",
+          "reviewer_approved": false,
+          "reviewer": null,
+          "reviewed_at": null
+        },
+        {
+          "field_key": "receiverSignalInterface",
+          "canonical_value": "CRSF",
+          "unit": "interface",
+          "source_url": "https://www.team-blacksheep.com/products/prod:crossfire_nano_se",
+          "short_evidence_reference": "Signal format: CRSF",
+          "source_status": "manufacturer_page_corrob_pending_reviewer",
+          "reviewer_approved": false,
+          "reviewer": null,
+          "reviewed_at": null
+        },
+        {
+          "field_key": "receiverFrequencyMinMhz",
+          "canonical_value": 868,
+          "unit": "MHz",
+          "source_url": "https://www.team-blacksheep.com/products/prod:crossfire_nano_se",
+          "short_evidence_reference": "Frequency Min: 868 MHz",
+          "source_status": "manufacturer_page_corrob_pending_reviewer",
+          "reviewer_approved": false,
+          "reviewer": null,
+          "reviewed_at": null
+        },
+        {
+          "field_key": "receiverFrequencyMaxMhz",
+          "canonical_value": 915,
+          "unit": "MHz",
+          "source_url": "https://www.team-blacksheep.com/products/prod:crossfire_nano_se",
+          "short_evidence_reference": "Frequency Max: 915 MHz",
+          "source_status": "manufacturer_page_corrob_pending_reviewer",
+          "reviewer_approved": false,
+          "reviewer": null,
+          "reviewed_at": null
+        },
+        {
+          "field_key": "receiverMinVoltageV",
+          "canonical_value": 3.3,
+          "unit": "V",
+          "source_url": "https://www.team-blacksheep.com/products/prod:crossfire_nano_se",
+          "short_evidence_reference": "Input Voltage Min: 3.3 V",
+          "source_status": "manufacturer_page_corrob_pending_reviewer",
+          "reviewer_approved": false,
+          "reviewer": null,
+          "reviewed_at": null
+        },
+        {
+          "field_key": "receiverMaxVoltageV",
+          "canonical_value": 8.4,
+          "unit": "V",
+          "source_url": "https://www.team-blacksheep.com/products/prod:crossfire_nano_se",
+          "short_evidence_reference": "Input Voltage Max: 8.4 V",
+          "source_status": "manufacturer_page_corrob_pending_reviewer",
+          "reviewer_approved": false,
+          "reviewer": null,
+          "reviewed_at": null
+        }
+      ],
+      "merchant_offer_review": "pending_direct_eu_price_inventory_attestation",
+      "offer_verified": false
+    },
+    {
+      "qa_id": "qa-tbs-lucid-6s-60a-4in1-esc",
+      "category": "esc",
+      "manufacturer": "TBS",
+      "identity_claim": "Lucid 6S 4-in-1 ESC, AM32, continuous 60A x 4; FC connection is not DShot protocol",
+      "manufacturer_page_url": "https://www.team-blacksheep.com/products/prod:lucid_4in1",
+      "source_class": "manufacturer_page_corrob_except_connector_manual_prior_audit",
+      "secondary_url": null,
+      "official_manual_url": "https://www.team-blacksheep.com/media/files/tbs-lucid-manual.pdf",
+      "variant_exclusions": [
+        "8S model",
+        "FC+ESC stack bundle",
+        "DShot protocol mistaken for connector"
+      ],
+      "source_status": "manufacturer_corroborated_pending_independent_reviewer",
+      "human_reviewer": null,
+      "approve_identity": false,
+      "required_fields": [
+        {
+          "field_key": "escAmps",
+          "canonical_value": 60,
+          "unit": "A",
+          "source_url": "https://www.team-blacksheep.com/products/prod:lucid_4in1",
+          "short_evidence_reference": "Rated current: 60A x 4",
+          "source_status": "manufacturer_page_corrob_pending_reviewer",
+          "reviewer_approved": false,
+          "reviewer": null,
+          "reviewed_at": null
+        },
+        {
+          "field_key": "escInput",
+          "canonical_value": "8-pin JST-SH 1.0mm ESC-to-FC cable",
+          "unit": "connector",
+          "source_url": "https://www.team-blacksheep.com/media/files/tbs-lucid-manual.pdf",
+          "short_evidence_reference": "Official TBS Lucid manual: 8-PIN ESC Cable JST SH 1.0 mm",
+          "source_status": "previously_manufacturer_manual_audited_pending_new_reviewer",
+          "reviewer_approved": false,
+          "reviewer": null,
+          "reviewed_at": null
+        },
+        {
+          "field_key": "minVoltage",
+          "canonical_value": 3,
+          "unit": "battery_cells",
+          "source_url": "https://www.team-blacksheep.com/products/prod:lucid_4in1",
+          "short_evidence_reference": "Input: 3-6S LiPo (minimum 3 cells)",
+          "source_status": "manufacturer_page_corrob_pending_reviewer",
+          "reviewer_approved": false,
+          "reviewer": null,
+          "reviewed_at": null
+        },
+        {
+          "field_key": "maxVoltage",
+          "canonical_value": 6,
+          "unit": "battery_cells",
+          "source_url": "https://www.team-blacksheep.com/products/prod:lucid_4in1",
+          "short_evidence_reference": "Input: 3-6S LiPo (maximum 6 cells)",
+          "source_status": "manufacturer_page_corrob_pending_reviewer",
+          "reviewer_approved": false,
+          "reviewer": null,
+          "reviewed_at": null
+        }
+      ],
+      "merchant_offer_review": "pending_direct_eu_price_inventory_attestation",
+      "offer_verified": false
+    }
+  ]
+}
