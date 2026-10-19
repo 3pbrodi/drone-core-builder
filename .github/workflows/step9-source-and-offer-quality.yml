@@ -9,6 +9,9 @@ on:
       - 'tests/catalogue-source-title.test.ts'
       - 'tests/catalogue-evidence-reconciliation.test.ts'
       - 'tests/step9-*'
+      - 'tests/integration/step9-disposable-runtime-rights-check.sql'
+      - 'supabase/functions/catalogue-image-refresh/index.ts'
+      - 'supabase/migrations/20261019230000_catalogue_runtime_licensed_images_and_fresh_offers.sql'
       - 'tests/integration/step8-audit-37-official-pages.ts'
       - 'qa/step9-*'
       - '.github/workflows/step9-source-and-offer-quality.yml'
@@ -33,8 +36,9 @@ jobs:
           deno-version: v2.9.7
       - name: Run variant and source evidence regressions
         run: |
-          bun test tests/catalogue-source-title.test.ts tests/catalogue-evidence-reconciliation.test.ts tests/step9-seven-handoff.test.ts
+          bun test tests/catalogue-source-title.test.ts tests/catalogue-evidence-reconciliation.test.ts tests/step9-seven-handoff.test.ts tests/step9-runtime-quality-safety.test.ts
           deno check tests/integration/step8-audit-37-official-pages.ts
+          deno check supabase/functions/catalogue-image-refresh/index.ts
       - name: Retrieve immutable original 171 manufacturer pilot
         uses: actions/download-artifact@v4
         with:
@@ -74,3 +78,47 @@ jobs:
           path: step9-results/
           retention-days: 30
           if-no-files-found: warn
+
+  disposable-licensing-and-freshness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 32
+    steps:
+      - name: Checkout strict QA branch
+        uses: actions/checkout@v4
+      - name: Install pinned Supabase CLI
+        uses: supabase/setup-cli@v3.0.1
+        with:
+          version: 2.118.0
+      - name: Start a fresh disposable-only database with new SQL image rights gate
+        run: |
+          test -z "${SUPABASE_ACCESS_TOKEN:-}"
+          test -z "${SUPABASE_DB_PASSWORD:-}"
+          supabase start
+          supabase db reset --local --yes
+      - name: Prove license and fresh-offer view requirements
+        run: |
+          mkdir -p step9-results
+          psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
+            -X -At -v ON_ERROR_STOP=1 \
+            -f tests/integration/step9-disposable-runtime-rights-check.sql \
+            >step9-results/disposable-safety-output.txt
+          tail -1 step9-results/disposable-safety-output.txt | jq . \
+            >step9-results/disposable-safety-audit.json
+          jq -e '.migrations==26 and .public_runtime_products==0
+            and .license_filter_on==true and .fresh_offer_filter_on==true
+            and .production_mutation==false and .step=="PASS"' \
+            step9-results/disposable-safety-audit.json
+      - name: Retain SQL regression proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: step9-disposable-license-and-freshness-no-production
+          path: step9-results/
+          retention-days: 30
+          if-no-files-found: warn
+      - name: Destroy disposable database and all state
+        if: always()
+        run: |
+          if command -v supabase >/dev/null 2>&1; then
+            supabase stop --no-backup
+          fi
