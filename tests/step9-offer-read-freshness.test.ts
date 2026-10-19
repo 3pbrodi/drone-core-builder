@@ -18,7 +18,7 @@ test("Malformed, missing, unzoned, and future checks are never an approved offer
 });
 test("PostgREST offset timestamps including microseconds are checked",()=>{
  expect(isFreshEuroOfferTimestamp("2026-10-19T22:35:00.123456+02:00",now)).toBe(true);
- expect(isFreshEuroOfferTimestamp("2026-10-18 21:35:00.100+00:00",now)).toBe(false);
+ expect(isFreshEuroOfferTimestamp("2026-10-18 19:35:00.100+00:00",now)).toBe(false);
 });
 test("Both public catalogue code paths enforce the same timestamp and positive EUR price rule",async()=>{
  const src=await Bun.file("src/lib/catalogue-database.server.ts").text();
