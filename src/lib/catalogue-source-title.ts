@@ -32,13 +32,16 @@ export type ManufacturerTitleEvidence={
 export function selectManufacturerProductTitle(
  html:string,expectedModel:string
 ):ManufacturerTitleEvidence {
- const h1=[...html.matchAll(/<h1\b[^>]*>([\s\S]*?)<\/h1>/gi)]
+ const safe=html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi," ")
+  .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi," ")
+  .replace(/<!--[\s\S]*?-->/g," ");
+ const h1=[...safe.matchAll(/<h1\b[^>]*>([\s\S]*?)<\/h1>/gi)]
   .map(m=>stripManufacturerHtml(m[1]).slice(0,240))
   .filter(x=>x && !/^(shop|catalog|categories|login|register|account)$/i.test(x));
- const og=[...html.matchAll(/<meta\b[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/gi)]
+ const og=[...safe.matchAll(/<meta\b[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/gi)]
   .map(m=>stripManufacturerHtml(m[1]));
  const title=stripManufacturerHtml(
-  html.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i)?.[1]??"");
+  safe.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i)?.[1]??"");
  const choices=[...h1,...og,title].filter(Boolean).slice(0,20);
  const expected=tokens(expectedModel);
  const scores=choices.map(x=>{
