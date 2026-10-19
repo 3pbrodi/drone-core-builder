@@ -8,6 +8,7 @@ verified catalog products or individually checked stock/offer observations.
 from pathlib import Path
 from collections import Counter, defaultdict
 import json, re, sys
+from urllib.parse import urlparse
 
 source=Path(sys.argv[1]); out=Path(sys.argv[2]);out.mkdir(parents=True,exist_ok=True)
 archived=[]
@@ -41,17 +42,19 @@ def sku_suspect(s):
 
 per_category=Counter()
 source_adapters=Counter()
+source_domains=Counter()
 prepared=[]
 fingerprint_seen=set()
 raw_dups=0
 for item in archived:
     cat=item.get("category") or item.get("normalized",{}).get("category")
     per_category[cat]+=1
-    source_adapters[item.get("adapter") or item.get("adapter_key") or "unknown"]+=1
+    source_adapters[item.get("adapter") or item.get("adapter_key") or "not_in_archived_rows"]+=1
     n=item.get("normalized") or {}
     maker=n.get("manufacturer") or ""
     model=n.get("model") or n.get("display_name") or ""
     url=item.get("source_url") or n.get("source_url") or ""
+    source_domains[urlparse(url).hostname or "missing_source_domain"]+=1
     pid=str(item.get("import_row_id",""))
     fingerprint=(norm(maker),norm(model),norm(n.get("variant")))
     duplicate_hint=fingerprint in fingerprint_seen
@@ -103,6 +106,7 @@ summary={
   "by_category":{c:per_category.get(c,0) for c in category_order},
   "nonstandard_categories":{str(k):v for k,v in per_category.items() if k not in category_order},
   "by_adapter":dict(source_adapters),
+  "by_source_domain":dict(source_domains),
   "same_normalized_model_fingerprint_hints":raw_dups,
   "next_research_queue_count":len(queue),
   "next_research_queue_by_category":dict(Counter(x["category"] for x in queue)),
