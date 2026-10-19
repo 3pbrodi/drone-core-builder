@@ -1,0 +1,27 @@
+name: "Step 9 - manufacturer evidence and honest publication readiness"
+on:
+  push:
+    branches:
+      - qa/step9-evidence-quality-20261019
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.3.4'
+      - name: Verify evidence publication gate and no falsely verified products
+        run: |
+          bun test tests/catalogue-evidence-dossier.test.ts
+          bun test tests/step8-37-review-integrity.test.ts
+          bun test tests/prestep8-media-and-manufacturer-evidence.test.ts
+      - name: Full project typecheck and lint
+        run: |
+          bun install --frozen-lockfile
+          bun run lint
+          bun run build
