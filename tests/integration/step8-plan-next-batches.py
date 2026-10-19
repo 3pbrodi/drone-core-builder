@@ -123,3 +123,14 @@ assert sum(summary["by_category"].values()) + sum(summary["nonstandard_categorie
 (out/"balanced-source-triage.json").write_text(json.dumps(
  {"summary":summary,"review_queue":queue},ensure_ascii=False,indent=2)+"\n")
 print(json.dumps(summary,ensure_ascii=False,sort_keys=True))
+# Compact, source-URL-only durable queue for a manual GitHub PR review file.
+# This does NOT contain private information, photo contents or retailer prices.
+compact=[{
+ "pilot_id":x["pilot_id"],"category":x["category"],
+ "manufacturer":x["manufacturer"],"model":x["model"],
+ "source_url":x["source_url"],"missing_required_specs":x["missing_required_specs"],
+ "review_blockers":x["review_blockers"],"review_queue_rank":x["review_queue_rank"],
+ "publication_approved":False
+} for x in queue]
+print("STEP8_QUEUE_COMPACT:"+json.dumps(compact,ensure_ascii=False,separators=(",",":")))
+
