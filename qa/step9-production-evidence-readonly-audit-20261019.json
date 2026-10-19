@@ -1,0 +1,50 @@
+{
+  "audited_on": "2026-10-19",
+  "environment": "production_read_only",
+  "supabase_project_ref": "rtwreynffguvqdcogahx",
+  "published_products": 24,
+  "product_rows": 25,
+  "offer_rows": 25,
+  "offers_checked_in_last_24h": 24,
+  "oldest_offer_last_checked": "2026-09-28T18:43:34.41275Z",
+  "newest_offer_last_checked": "2026-10-18T22:00:10.055Z",
+  "public_products_with_offer_checked_within_24h": 24,
+  "public_products_with_verified_offer": 24,
+  "offer_rows_confirmed_in_stock": 12,
+  "public_products_with_any_verified_identity_record": 24,
+  "public_products_with_any_verified_technical_field": 24,
+  "public_products_with_verified_image_row": 24,
+  "published_products_with_explictly_documented_license_and_rights_url": 0,
+  "image_rows_with_verified_status_but_missing_license_metadata": 24,
+  "unapproved_image_rows": 1,
+  "key_risks": [
+    {
+      "code": "published_photos_unlicensed_or_undocumented",
+      "severity": "requires_review",
+      "count": 24,
+      "explanation": "Image verification status and exact-model verification are not evidence of actual permission for public commercial reuse; both license_name and license_url are empty on 24 published images. No determination of infringement from these fields alone."
+    },
+    {
+      "code": "older_secondary_offer",
+      "severity": "data_freshness",
+      "count": 1,
+      "explanation": "One of 25 total offers dates to 2026-09-28; 24 of 25 have last_checked_at within 24h. Investigate stale offer refresh targeting before treating every stored offer as current."
+    },
+    {
+      "code": "no_actual_release_permission",
+      "severity": "policy",
+      "count": 4,
+      "explanation": "Four Step5-8 candidates remain research-only, not independently verified or owner-authorized."
+    }
+  ],
+  "production_mutated": false,
+  "remediation_plan": [
+    "Audit exact holder/rights proof for 24 published images and either record genuine licenses or replace images through a separately approved neutral-icon rollout",
+    "Do not download or attach additional vendor images without grant",
+    "Record review signatures and URLs for each required field of the first four new products",
+    "Check remaining stale merchant offer and decide whether to re-include in refresh targets; do not extrapolate its stock",
+    "Request owner approval for generic neutral-icon media policy; not approval to publish any product",
+    "Stage validation changes in isolated QA, run complete database negative tests, then propose guarded production cutover"
+  ],
+  "data_coverage_note": "Any verified enum describes database workflow state and does not by itself prove independent factual or photo-rights verification."
+}
