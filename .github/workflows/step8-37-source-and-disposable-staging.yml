@@ -9,6 +9,8 @@ on:
       - 'tests/integration/step8-assert-37-review-only.sql'
       - 'tests/integration/step8-plan-next-batches.py'
       - 'qa/step8-37-*'
+      - 'qa/step8-round-20261019/**'
+      - 'tests/step8-37-review-integrity.test.ts'
       - '.github/workflows/step8-37-source-and-disposable-staging.yml'
   workflow_dispatch:
 permissions:
@@ -21,6 +23,12 @@ jobs:
     steps:
       - name: Checkout isolated review branch
         uses: actions/checkout@v4
+      - name: Install pinned Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.3.4'
+      - name: Audit archived pilot and excluded accessory records
+        run: bun test tests/step8-37-review-integrity.test.ts
       - name: Install pinned Deno
         uses: denoland/setup-deno@v2
         with:
