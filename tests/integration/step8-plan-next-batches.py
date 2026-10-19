@@ -39,6 +39,22 @@ def possibly_accessory(model):
 def sku_suspect(s):
     v=str(s or "").strip()
     return bool(re.fullmatch(r"\d{12,14}",v))
+def component_classification(category, model):
+    """Conservative checks for clearly wrong component categories.
+    A mixed multi-product bundle is not a standalone receiver/battery.
+    Other uncertain model identities remain manual-review only.
+    """
+    name=norm(model)
+    if category=="battery" and re.search(
+        r"\b(battery (anti slip|anti-slip|pad|strap)|ummagrip battery pad)\b",name
+    ): return "accessory_not_battery"
+    if category=="motors" and re.search(r"\b(bearing|bearings|replacement shaft)\b",name):
+        return "accessory_not_motor"
+    if category=="frame" and re.search(r"\b(arm for|replacement arm|spare arm)\b",name):
+        return "accessory_not_complete_frame"
+    if category=="receiver" and re.search(r"\b(fusion pack|starter set|tx rx bundle)\b",name):
+        return "multi_component_bundle_not_standalone_receiver"
+    return "potential_standalone_component"
 
 per_category=Counter()
 source_adapters=Counter()
@@ -62,6 +78,9 @@ for item in archived:
     fingerprint_seen.add(fingerprint)
     missing=[k for k in required.get(cat,[]) if n.get(k) in (None,"",[],{})]
     blockers=[]
+    component_kind=component_classification(cat,model)
+    if component_kind!="potential_standalone_component":
+        blockers.append(component_kind)
     if not maker or not model or not url: blockers.append("missing_manufacturer_model_or_source")
     if missing: blockers.append("missing_category_required_specs")
     if item.get("validation_errors"): blockers.append("prior_import_validation_errors")
@@ -79,6 +98,8 @@ for item in archived:
       "source_url":url,"source_adapter":item.get("adapter") or item.get("adapter_key") or "unknown",
       "manufacturer_sku":n.get("manufacturer_sku"),
       "missing_required_specs":missing,"review_blockers":blockers,
+      "component_classification":component_kind,
+      "eligible_as_standalone_component_research":component_kind=="potential_standalone_component",
       "suggested_priority":score,
       "status":"research_candidate_unverified",
       "publication_approved":False,"identity_verified":False,"offer_verified":False,
@@ -111,6 +132,11 @@ summary={
   "next_research_queue_count":len(queue),
   "next_research_queue_by_category":dict(Counter(x["category"] for x in queue)),
   "candidate_field_gaps_in_queue":sum(bool(x["missing_required_specs"]) for x in queue),
+  "excluded_accessory_or_bundle_count":sum(not x["eligible_as_standalone_component_research"] for x in queue),
+  "potential_component_research_count":sum(x["eligible_as_standalone_component_research"] for x in queue),
+  "excluded_examples":[{"pilot_id":x["pilot_id"],"category":x["category"],
+      "reason":x["component_classification"]} for x in queue
+      if not x["eligible_as_standalone_component_research"]],
   "all_unverified":all(not x["publication_approved"] and
      not x["identity_verified"] and not x["offer_verified"] for x in queue),
   "note":"This is a balanced triage queue, NOT 48 production-ready models. Each item requires original source identity and seller reviews."
@@ -123,3 +149,16 @@ assert sum(summary["by_category"].values()) + sum(summary["nonstandard_categorie
 (out/"balanced-source-triage.json").write_text(json.dumps(
  {"summary":summary,"review_queue":queue},ensure_ascii=False,indent=2)+"\n")
 print(json.dumps(summary,ensure_ascii=False,sort_keys=True))
+# Compact, source-URL-only durable queue for a manual GitHub PR review file.
+# This does NOT contain private information, photo contents or retailer prices.
+compact=[{
+ "pilot_id":x["pilot_id"],"category":x["category"],
+ "manufacturer":x["manufacturer"],"model":x["model"],
+ "source_url":x["source_url"],"missing_required_specs":x["missing_required_specs"],
+ "review_blockers":x["review_blockers"],"review_queue_rank":x["review_queue_rank"],
+ "component_classification":x["component_classification"],
+ "eligible_as_standalone_component_research":x["eligible_as_standalone_component_research"],
+ "publication_approved":False
+} for x in queue]
+print("STEP8_QUEUE_COMPACT:"+json.dumps(compact,ensure_ascii=False,separators=(",",":")))
+
