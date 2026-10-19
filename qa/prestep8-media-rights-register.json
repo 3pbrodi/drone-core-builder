@@ -1,0 +1,121 @@
+{
+  "audit_date": "2026-10-19",
+  "purpose": "Image-source and license gate for first four candidates, not owner approval",
+  "photo_reuse_authorized_count": 0,
+  "neutral_icon_mode": {
+    "proposed": true,
+    "rights_basis": "Existing lucide-react ImageOff; Lucide under ISC license, commercial use permitted with copyright/license notices",
+    "license_source": "https://lucide.dev/license",
+    "user_policy_approved": false,
+    "existing_frontend_path": "src/components/BuildInterface.tsx",
+    "existing_component": "ProductThumbnail",
+    "existing_icon": "ImageOff",
+    "new_vendor_photos_fetched": 0,
+    "new_vendor_photos_redistributed": 0,
+    "sku_specific_photo_required": false,
+    "render_rule": "Do not populate product.image or image_url when license proof absent; existing ImageOff icon renders. This is a proposal pending approval.",
+    "license_notice_requirement": "Retain Lucide ISC attribution and any MIT Feather-derived attributions within distributed license notices"
+  },
+  "rights_sources": [
+    {
+      "source": "https://chinahobbyline.com/pages/terms-and-conditions",
+      "scope": "CNHL website product images",
+      "finding": "Terms describe pictures and content as copyright-protected; no permission identified for DroneCores redistribution",
+      "reuse_permission": "not_granted"
+    },
+    {
+      "source": "https://www.rotorama.de/obchodni-podminky",
+      "scope": "Rotorama seller photographs",
+      "finding": "Store conditions reserve product imagery and forbid unrelated copying/reuse",
+      "reuse_permission": "not_granted"
+    },
+    {
+      "source": "https://www.hqprop.com/ethix-p2-pickle-prop-2cw2ccw-poly-carbonate-p0459.html",
+      "scope": "HQProp photos",
+      "finding": "Site states All Rights Reserved; no explicit photo reuse license to DroneCores identified",
+      "reuse_permission": "not_granted"
+    },
+    {
+      "source": "https://www.team-blacksheep.com/products/prod:crossfire_nano_se",
+      "scope": "TBS product photos",
+      "finding": "No evidenced license to reuse or redistribute product photos",
+      "reuse_permission": "not_granted"
+    },
+    {
+      "source": "https://www.rctech.de/tbs-lucid-60a-6s-4-in-1-esc",
+      "scope": "RCTech merchant photography",
+      "finding": "No evidenced permission for copying seller photos onto DroneCores",
+      "reuse_permission": "not_granted"
+    }
+  ],
+  "products": [
+    {
+      "qa_id": "qa-cnhl-black-v2-1300mah-3s-130c-xt60-1pack",
+      "category": "battery",
+      "allow_unlicensed_third_party_image": false,
+      "image_url": null,
+      "source_image_url": null,
+      "license_name": null,
+      "license_url": null,
+      "license_grant_document": null,
+      "license_reviewer": null,
+      "license_reviewed_at": null,
+      "media_policy_mode": "native_licensed_neutral_icon_candidate",
+      "media_policy_approved": false,
+      "source_photo_rights": "unconfirmed_or_reserved",
+      "can_publish_photo": false,
+      "can_publish_without_photo": "only_after_owner_media_policy_signoff_and_other_release_gates"
+    },
+    {
+      "qa_id": "qa-hqprop-ethix-p2-pickle-2cw2ccw",
+      "category": "propellers",
+      "allow_unlicensed_third_party_image": false,
+      "image_url": null,
+      "source_image_url": null,
+      "license_name": null,
+      "license_url": null,
+      "license_grant_document": null,
+      "license_reviewer": null,
+      "license_reviewed_at": null,
+      "media_policy_mode": "native_licensed_neutral_icon_candidate",
+      "media_policy_approved": false,
+      "source_photo_rights": "unconfirmed_or_reserved",
+      "can_publish_photo": false,
+      "can_publish_without_photo": "only_after_owner_media_policy_signoff_and_other_release_gates"
+    },
+    {
+      "qa_id": "qa-tbs-crossfire-nano-rx-se",
+      "category": "receiver",
+      "allow_unlicensed_third_party_image": false,
+      "image_url": null,
+      "source_image_url": null,
+      "license_name": null,
+      "license_url": null,
+      "license_grant_document": null,
+      "license_reviewer": null,
+      "license_reviewed_at": null,
+      "media_policy_mode": "native_licensed_neutral_icon_candidate",
+      "media_policy_approved": false,
+      "source_photo_rights": "unconfirmed_or_reserved",
+      "can_publish_photo": false,
+      "can_publish_without_photo": "only_after_owner_media_policy_signoff_and_other_release_gates"
+    },
+    {
+      "qa_id": "qa-tbs-lucid-6s-60a-4in1-esc",
+      "category": "esc",
+      "allow_unlicensed_third_party_image": false,
+      "image_url": null,
+      "source_image_url": null,
+      "license_name": null,
+      "license_url": null,
+      "license_grant_document": null,
+      "license_reviewer": null,
+      "license_reviewed_at": null,
+      "media_policy_mode": "native_licensed_neutral_icon_candidate",
+      "media_policy_approved": false,
+      "source_photo_rights": "unconfirmed_or_reserved",
+      "can_publish_photo": false,
+      "can_publish_without_photo": "only_after_owner_media_policy_signoff_and_other_release_gates"
+    }
+  ]
+}
