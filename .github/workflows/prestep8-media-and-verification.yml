@@ -1,0 +1,58 @@
+name: "Pre-Step8 media rights and manufacturer evidence audit"
+on:
+  push:
+    branches:
+      - qa/prestep8-media-and-verification-20261019
+    paths:
+      - 'qa/prestep8-*'
+      - 'docs/prestep8-*'
+      - 'tests/prestep8-*'
+      - 'tests/integration/prestep8-*'
+      - '.github/workflows/prestep8-media-and-verification.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout pending QA evidence branch
+        uses: actions/checkout@v4
+      - name: Install pinned Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.3.4'
+      - name: Install pinned Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.7
+      - name: Test rights and source matrices without any approvals
+        run: |
+          bun test tests/prestep8-media-and-manufacturer-evidence.test.ts tests/step8-review-packets.test.ts
+          deno check tests/integration/prestep8-official-page-recheck.ts
+      - name: Recheck four official manufacturer HTML pages read-only
+        run: |
+          mkdir -p prestep8-results
+          deno run \
+            --allow-net=chinahobbyline.com,www.hqprop.com,www.team-blacksheep.com \
+            --allow-write=prestep8-results \
+            tests/integration/prestep8-official-page-recheck.ts \
+            prestep8-results/manufacturer-pages.json
+          jq -e '.url_fetches == 4
+            and .images_downloaded == 0
+            and .database_writes == 0
+            and .independent_human_review_count == 0
+            and .publication_permissions_granted == 0
+            and (.results | length) == 4
+            and ([.results[].human_verified] | all(. == false))
+            and ([.results[].publication_authorized] | all(. == false))' \
+            prestep8-results/manufacturer-pages.json
+      - name: Save review evidence but not third-party images
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prestep8-four-manufacturers-media-review-required
+          path: prestep8-results/
+          retention-days: 30
+          if-no-files-found: warn
