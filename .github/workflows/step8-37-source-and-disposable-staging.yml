@@ -1,0 +1,146 @@
+name: "Step 8 - 37 manufacturer sources and disposable Supabase review"
+on:
+  push:
+    branches:
+      - qa/step8-37-product-source-audit-20261019
+    paths:
+      - 'tests/integration/step8-audit-37-official-pages.ts'
+      - 'tests/integration/step8-stage-37-review-only.py'
+      - 'tests/integration/step8-assert-37-review-only.sql'
+      - 'tests/integration/step8-plan-next-batches.py'
+      - 'qa/step8-37-*'
+      - '.github/workflows/step8-37-source-and-disposable-staging.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  source-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - name: Checkout isolated review branch
+        uses: actions/checkout@v4
+      - name: Install pinned Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.7
+      - name: Inspect read-only manufacturer audit TypeScript
+        run: deno check tests/integration/step8-audit-37-official-pages.ts
+      - name: Retrieve frozen 171-pilot manufacturer sources
+        uses: actions/download-artifact@v4
+        with:
+          repository: 3pbrodi/drone-core-builder
+          run-id: 37213658740
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          name: step9b2-official-source-staging-evidence
+          path: original-pilot
+      - name: Rebuild 37-item balanced manufacturer review queue
+        run: |
+          mkdir -p step8-results
+          python3 tests/integration/step8-plan-next-batches.py \
+            original-pilot step8-results
+          jq -e '.summary.total_source_rows==171
+            and .summary.next_research_queue_count==37
+            and .summary.all_unverified
+            and ([.review_queue[].publication_approved]|all(.==false))' \
+            step8-results/balanced-source-triage.json
+      - name: Probe official manufacturer HTML for all 37 research candidates
+        run: |
+          deno run \
+            --allow-read=step8-results/balanced-source-triage.json \
+            --allow-write=step8-results/official-source-audit-37.json \
+            --allow-net=www.hqprop.com,www.foxeer.com,www.speedybee.com,www.team-blacksheep.com \
+            tests/integration/step8-audit-37-official-pages.ts \
+            step8-results/balanced-source-triage.json \
+            step8-results/official-source-audit-37.json
+          jq -e '.summary.research_candidates==37
+            and .summary.formal_identity_verified==0
+            and .summary.formal_spec_fields_verified==0
+            and .summary.human_approved_for_publication==0
+            and .summary.production_database_writes==0
+            and .summary.manufacturer_images_downloaded==0
+            and .summary.merchant_offers_verified==0
+            and (.observations|length)==37
+            and ([.observations[].publication_approved]|all(.==false))
+            and ([.observations[].image_rights_verified]|all(.==false))' \
+            step8-results/official-source-audit-37.json
+      - name: Retain official-URL and missing-spec research evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: step8-37-official-source-audit-unverified
+          path: step8-results/
+          retention-days: 30
+          if-no-files-found: warn
+
+  disposable-review-db:
+    runs-on: ubuntu-latest
+    timeout-minutes: 38
+    steps:
+      - name: Checkout isolated review branch
+        uses: actions/checkout@v4
+      - name: Retrieve frozen official manufacturer pilot
+        uses: actions/download-artifact@v4
+        with:
+          repository: 3pbrodi/drone-core-builder
+          run-id: 37213658740
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          name: step9b2-official-source-staging-evidence
+          path: original-pilot
+      - name: Prepare 37 safe pending-only import rows
+        run: |
+          mkdir -p step8-results
+          python3 tests/integration/step8-plan-next-batches.py \
+            original-pilot step8-results
+          python3 tests/integration/step8-stage-37-review-only.py \
+            original-pilot step8-results/balanced-source-triage.json step8-results
+      - name: Install Supabase CLI
+        uses: supabase/setup-cli@v3.0.1
+        with:
+          version: 2.118.0
+      - name: Start and rebuild isolated Supabase
+        run: |
+          test -z "${SUPABASE_ACCESS_TOKEN:-}"
+          test -z "${SUPABASE_DB_PASSWORD:-}"
+          supabase start
+          supabase db reset --local --yes
+      - name: Register original manufacturer source adapters locally
+        run: |
+          psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
+            -X -v ON_ERROR_STOP=1 \
+            -f tests/integration/catalogue-local-staging-bootstrap.sql \
+            >step8-results/local-bootstrap.log
+      - name: Stage all 37 as needs_review without product promotion
+        run: |
+          psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
+            -X -v ON_ERROR_STOP=1 \
+            -f step8-results/stage-37-review-only.sql \
+            >step8-results/stage.log
+          psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
+            -X -At -v ON_ERROR_STOP=1 \
+            -f tests/integration/step8-assert-37-review-only.sql \
+            >step8-results/assertions-output.txt
+          tail -1 step8-results/assertions-output.txt | jq . \
+            >step8-results/disposable-review-audit.json
+          jq -e '.researchImportRows==37
+            and .pendingReviewRows==37
+            and .distinctCategories==8
+            and .candidateProducts==0 and .offers==0 and .images==0
+            and .ownerApprovals==0 and .publicRuntime==0
+            and .state=="PASS_NO_PUBLICATION"' \
+            step8-results/disposable-review-audit.json
+      - name: Save isolated database evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: step8-37-disposable-review-only-no-production
+          path: step8-results/
+          retention-days: 30
+          if-no-files-found: warn
+      - name: Destroy local database, no backup
+        if: always()
+        run: |
+          if command -v supabase >/dev/null 2>&1; then
+            supabase stop --no-backup
+          fi
