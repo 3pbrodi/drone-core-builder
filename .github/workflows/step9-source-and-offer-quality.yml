@@ -9,6 +9,8 @@ on:
       - 'tests/catalogue-source-title.test.ts'
       - 'tests/catalogue-evidence-reconciliation.test.ts'
       - 'tests/step9-*'
+      - 'supabase/functions/catalogue-image-refresh/index.ts'
+      - 'supabase/migrations/20261019230000_catalogue_runtime_licensed_images_and_fresh_offers.sql'
       - 'tests/integration/step9-disposable-runtime-rights-check.sql'
       - 'supabase/functions/catalogue-image-refresh/index.ts'
       - 'supabase/migrations/20261019230000_catalogue_runtime_licensed_images_and_fresh_offers.sql'
@@ -39,6 +41,8 @@ jobs:
           bun test tests/catalogue-source-title.test.ts tests/catalogue-evidence-reconciliation.test.ts tests/step9-eight-handoff.test.ts tests/step9-runtime-quality-safety.test.ts
           deno check tests/integration/step8-audit-37-official-pages.ts
           deno check supabase/functions/catalogue-image-refresh/index.ts
+      - name: Check image refresh Edge Function compiles without publishing any images
+        run: deno check supabase/functions/catalogue-image-refresh/index.ts
       - name: Retrieve immutable original 171 manufacturer pilot
         uses: actions/download-artifact@v4
         with:
