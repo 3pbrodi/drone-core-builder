@@ -70,7 +70,7 @@ as
             i.alt_text,
             i.source_url
            FROM catalogue_product_images i
-          WHERE i.product_id = p.id AND i.exact_model_verified = true AND i.verification_status = 'verified'::catalogue_verification_status AND nullif(btrim(i.license_name), '') IS NOT NULL AND i.license_url ~* '^https://[^[:space:]]+
+          WHERE i.product_id = p.id AND i.exact_model_verified = true AND i.verification_status = 'verified'::catalogue_verification_status AND nullif(btrim(i.license_name), '') IS NOT NULL AND i.license_url ~* '^https://[^[:space:]]+$'
           ORDER BY i.primary_image DESC, i.updated_at DESC
          LIMIT 1) img ON true
      LEFT JOIN LATERAL ( SELECT o.price_amount,
@@ -81,26 +81,6 @@ as
             o.region
            FROM catalogue_offers o
           WHERE o.product_id = p.id AND o.verification_status = 'verified'::catalogue_verification_status AND o.last_checked_at IS NOT NULL AND o.last_checked_at <= now() AND o.last_checked_at >= now() - interval '24 hours' AND o.currency = 'EUR'::text AND upper(TRIM(BOTH FROM COALESCE(o.region, ''::text))) = 'EU'::text
-          ORDER BY (
-                CASE o.stock_status
-                    WHEN 'in_stock'::stock_status THEN 0
-                    WHEN 'preorder'::stock_status THEN 1
-                    WHEN 'backorder'::stock_status THEN 2
-                    WHEN 'unknown'::stock_status THEN 3
-                    ELSE 4
-                END), o.last_checked_at DESC NULLS LAST, o.price_amount
-         LIMIT 1) offer ON true
-  WHERE p.record_class = 'canonical'::catalogue_record_class AND p.selectable = true AND p.identity_status = 'verified'::catalogue_verification_status AND p.verification_status = 'verified'::catalogue_verification_status AND p.lifecycle_status <> 'discontinued'::product_lifecycle_status;
-          ORDER BY i.primary_image DESC, i.updated_at DESC
-         LIMIT 1) img ON true
-     LEFT JOIN LATERAL ( SELECT o.price_amount,
-            o.currency,
-            o.stock_status,
-            o.product_url,
-            o.last_checked_at,
-            o.region
-           FROM catalogue_offers o
-          WHERE o.product_id = p.id AND o.verification_status = 'verified'::catalogue_verification_status AND o.currency = 'EUR'::text AND upper(TRIM(BOTH FROM COALESCE(o.region, ''::text))) = 'EU'::text
           ORDER BY (
                 CASE o.stock_status
                     WHEN 'in_stock'::stock_status THEN 0
