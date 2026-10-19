@@ -67,10 +67,14 @@ for rank,row in enumerate(queue,1):
     blockers += ["Step8: "+v for v in row["review_blockers"]]
     raw={"historical_pilot_id":pid,"source_url":source,
        "review_queue_rank":rank,"research_only":True,"seller_offer_approved":False,
-       "manufacturer_photo_licensed":False}
+       "manufacturer_photo_licensed":False,
+       "component_classification":row["component_classification"],
+       "eligible_as_standalone_component_research":row["eligible_as_standalone_component_research"]}
     rows.append({"pilot_id":pid,"category":row["category"],"model":row["model"],
                  "adapter":adapter,"missing_required_specs":row["missing_required_specs"],
-                 "review_blockers":blockers})
+                 "review_blockers":blockers,
+                 "component_classification":row["component_classification"],
+                 "eligible_standalone_component":row["eligible_as_standalone_component_research"]})
     # Inserts use existing registered manufacturer adapters and official source IDs.
     batchid="md5('step8:review:"+adapter+"')::uuid"
     lines.append(f"""insert into public.catalogue_import_batches
@@ -104,5 +108,6 @@ print("STEP8_STAGING_PREPARED "+json.dumps({
  "records":len(rows),"categories":{c:sum(r["category"]==c for r in rows)
    for c in sorted(set(r["category"] for r in rows))},
  "missing_specs":sum(bool(r["missing_required_specs"]) for r in rows),
+ "excluded_non_component":sum(not r["eligible_standalone_component"] for r in rows),
  "safe_unverified":True
 },ensure_ascii=False))
