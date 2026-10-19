@@ -1,13 +1,13 @@
 {
   "audit_date": "2026-10-19",
-  "generated_for": "DroneCores Step 9 data quality handoff",
+  "generated_for": "DroneCores Step 9 expanded data quality handoff",
   "source_confidence_classes": [
     "source_corrob",
     "variant_ambiguous",
     "merchant_conflicting",
     "photograph_unlicensed"
   ],
-  "caption": "Evidence-bearing source claims only; no automatic HUMAN verification and no permanent price guarantee",
+  "caption": "Official source evidence for eight product families; no manual approval, photo rights or current approved retailer offer",
   "products": [
     {
       "qa_id": "qa-cnhl-black-v2-1300mah-3s-130c-xt60-1pack",
@@ -465,6 +465,75 @@
         "owner_media_policy_approval": false
       },
       "verified_offer_count": 0,
+      "release_status": "HOLD",
+      "owner_approved_publication": false
+    },
+    {
+      "qa_id": "qa-step8-review-72",
+      "category": "camera",
+      "product": "Foxeer Mini Standard Razer FPV Camera 1200TVL",
+      "model_variant": "Product page selectable ratio 4:3 or 16:9 and lens 1.8 or 2.1, exact SKU per selected option not established",
+      "manufacturer_sku": "HS1236",
+      "sku_scope": "Manufacturer page family SKU; variant-level SKU/option selection unresolved",
+      "manufacturer_source": "https://www.foxeer.com/1200tvl-foxeer-mini-standard-razer-fpv-camera-pal-ntsc-switchable-4ms-latency-g-266",
+      "technical_claims": [
+        [
+          "cameraVideoInterface",
+          "CVBS",
+          "analog-video",
+          "Official specification Video Output CVBS Analog Signal"
+        ],
+        [
+          "cameraMinVoltageV",
+          4.5,
+          "V",
+          "Official specification Input Voltage 4.5V–25V"
+        ],
+        [
+          "cameraMaxVoltageV",
+          25,
+          "V",
+          "Official specification Input Voltage 4.5V–25V"
+        ],
+        [
+          "tvResolution",
+          1200,
+          "TVL",
+          "Official resolution 1200TVL"
+        ],
+        [
+          "cameraWidth",
+          22,
+          "mm",
+          "Official Dimensions 22 x 22 mm; camera depth not evidenced"
+        ],
+        [
+          "cameraHeight",
+          22,
+          "mm",
+          "Official Dimensions 22 x 22 mm"
+        ]
+      ],
+      "merchant": null,
+      "risk": [
+        "manufacturer_direct_out_of_stock",
+        "ratio_4by3_vs_16by9_not_selected",
+        "lens_1point8_vs_2point1_not_selected",
+        "family_Sku_does_not_identify_which_lens_ratio",
+        "no_exact_EU_merchant_offer",
+        "no_rights_to_reuse_foxeer_product_photo"
+      ],
+      "source_analysis": "Official manufacturer spec table directly confirms analog CVBS video, 4.5–25 V range and dimensions, but ratio/lens variants are unselected",
+      "manufacturer_identity_verified": false,
+      "required_fields_verification": "pending_human_review",
+      "verified_offer_count": 0,
+      "available_images": {
+        "photo_reuse_rights": "not_granted",
+        "image_url": null,
+        "licensed_icon_available": true,
+        "icon_source": "https://lucide.dev/license",
+        "owner_media_policy_approval": false
+      },
       "release_status": "HOLD",
       "owner_approved_publication": false
     }
