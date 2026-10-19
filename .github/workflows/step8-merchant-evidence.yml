@@ -1,0 +1,74 @@
+name: "Step 8 verified-source merchant evidence and 4-product audit"
+on:
+  push:
+    branches:
+      - qa/step8-merchant-evidence-20261019
+    paths:
+      - 'src/lib/catalogue-merchant-evidence.ts'
+      - 'tests/catalogue-merchant-evidence.test.ts'
+      - 'tests/step8-review-packets.test.ts'
+      - 'tests/integration/step8-live-offer-audit.ts'
+      - 'tests/integration/step8-plan-next-batches.py'
+      - 'qa/step8-*'
+      - '.github/workflows/step8-merchant-evidence.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe-merchant-exact-identity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout independent QA branch
+        uses: actions/checkout@v4
+      - name: Setup pinned Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.3.4'
+      - name: Setup pinned Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.7
+      - name: Fail-closed exact model/pack/source tests
+        run: |
+          bun test tests/catalogue-merchant-evidence.test.ts tests/step8-review-packets.test.ts
+          deno check tests/integration/step8-live-offer-audit.ts
+      - name: Probe four real EU seller product pages (no Production API)
+        run: |
+          mkdir -p step8-results
+          deno run --allow-net=www.rotorama.de,www.rctech.de \
+            --allow-write=step8-results \
+            tests/integration/step8-live-offer-audit.ts \
+            step8-results/live-eu-offers.json
+          jq -e '.productionWrite == false
+            and .marketplaceOffersInserted == 0
+            and .imagesCopied == 0
+            and .reviewStatus == "pending_review"
+            and (.observations | length) == 4
+            and ([.observations[].usableAsVerifiedOffer] | all(. == false))' \
+            step8-results/live-eu-offers.json
+      - name: Retrieve immutable 171-record manufacturer pilot (read only)
+        uses: actions/download-artifact@v4
+        with:
+          repository: 3pbrodi/drone-core-builder
+          run-id: 37213658740
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          name: step9b2-official-source-staging-evidence
+          path: original-pilot
+      - name: Build balanced next-source review queue from existing pilot
+        run: |
+          python3 tests/integration/step8-plan-next-batches.py original-pilot step8-results
+          jq -e '.summary.total_source_rows == 171
+            and .summary.next_research_queue_count <= 48
+            and .summary.next_research_queue_count > 0
+            and .summary.all_unverified == true
+            and ([.review_queue[].publication_approved] | all(. == false))' \
+            step8-results/balanced-source-triage.json
+      - name: Preserve immutable time-stamped merchant evidence for human reviewer
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: step8-four-merchant-observations-pending-review
+          path: step8-results/
+          retention-days: 30
+          if-no-files-found: warn
