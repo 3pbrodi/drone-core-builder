@@ -6,7 +6,17 @@
   "conclusion": "24 image URLs marked model-verified yet none has a copyright/reuse license record; no rights can be inferred from public accessibility",
   "owner_approval_to_change_live_site": false,
   "grouped_public_source_hosts": {
-    "invalid_url": 24
+    "chinahobbyline.com": 1,
+    "cdn11.bigcommerce.com": 4,
+    "inew.foxeer.com": 1,
+    "iflight-rc.eu": 8,
+    "store-fhxxhuiq8q.mybigcommerce.com": 2,
+    "geprc.com": 3,
+    "www.hqprop.com": 1,
+    "hqprop.com": 1,
+    "cdnc.meilon.de": 1,
+    "www.team-blacksheep.com": 1,
+    "radiomasterrc.com": 1
   },
   "remediation_steps": [
     "Confirm rightsholder and exact model photo",
