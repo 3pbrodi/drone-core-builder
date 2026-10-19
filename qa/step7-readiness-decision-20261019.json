@@ -1,0 +1,124 @@
+{
+  "audit_date": "2026-10-19",
+  "decision": "NO_GO_PRODUCTION_PUBLICATION",
+  "technical_staging": "PASS",
+  "staging_evidence": {
+    "run_id": 39299600571,
+    "url": "https://github.com/3pbrodi/drone-core-builder/actions/runs/39299600571",
+    "migrated_schemas": 24,
+    "imported_source_rows": 8,
+    "unpublished_candidates": 4,
+    "held_original_rows": 4,
+    "pending_identity_evidence": 4,
+    "pending_spec_evidence": 13,
+    "exact_duplicate_replays": 4,
+    "publication_negative_tests": "PASS",
+    "synthetic_owner_approval_without_verified_offer": "REJECTED_AND_ROLLED_BACK",
+    "published_products": 0,
+    "merchant_offers_written": 0,
+    "external_photos_copied": 0,
+    "disposable_database_destroyed": true,
+    "bun_tests_passed": 16
+  },
+  "production_baseline_read_only": {
+    "total_products": 25,
+    "selectable_products": 24,
+    "offers": 25,
+    "import_rows": 40,
+    "public_runtime_products": 24
+  },
+  "checked_at_utc": "2026-10-19T18:05:31Z",
+  "checks": {
+    "exact_http_product_responses": 4,
+    "fully_parsed_price_and_stock": 2,
+    "formally_verified_offers": 0,
+    "identities_human_approved": 0,
+    "specs_human_approved": 0,
+    "media_policy_human_approved": 0,
+    "owner_production_approvals": 0,
+    "actual_new_production_candidates": 0
+  },
+  "candidates": [
+    {
+      "id": "qa-cnhl-black-v2-1300mah-3s-130c-xt60-1pack",
+      "name": "CNHL Black V2 1300mAh 3S XT60 1-pack",
+      "merchant": "Rotorama",
+      "eu_price_eur": null,
+      "stock": "unknown",
+      "direct_page_identified": true,
+      "reviewed": false,
+      "ready_for_production": false,
+      "blockers": [
+        "unreliably_parsed_price",
+        "unknown_stock",
+        "identity_and_specs_pending_review",
+        "media_policy_unapproved",
+        "owner_release_unapproved"
+      ]
+    },
+    {
+      "id": "qa-hqprop-ethix-p2-pickle-2cw2ccw",
+      "name": "HQProp Ethix P2 Pickle 4-pack",
+      "merchant": "RCTech",
+      "eu_price_eur": 2.99,
+      "stock": "unknown",
+      "direct_page_identified": true,
+      "reviewed": false,
+      "ready_for_production": false,
+      "blockers": [
+        "unknown_stock",
+        "identity_and_specs_pending_review",
+        "media_policy_unapproved",
+        "owner_release_unapproved"
+      ]
+    },
+    {
+      "id": "qa-tbs-crossfire-nano-rx-se",
+      "name": "TBS Crossfire Nano RX SE antenna bundle",
+      "merchant": "RCTech",
+      "eu_price_eur": 29.9,
+      "stock": "in_stock",
+      "direct_page_identified": true,
+      "reviewed": false,
+      "ready_for_production": false,
+      "blockers": [
+        "price_and_stock_manual_attestation_needed",
+        "identity_and_specs_pending_review",
+        "media_policy_unapproved",
+        "owner_release_unapproved"
+      ]
+    },
+    {
+      "id": "qa-tbs-lucid-6s-60a-4in1-esc",
+      "name": "TBS Lucid 6S 60A 4in1 ESC",
+      "merchant": "RCTech",
+      "eu_price_eur": 59.9,
+      "stock": "in_stock",
+      "direct_page_identified": true,
+      "reviewed": false,
+      "ready_for_production": false,
+      "blockers": [
+        "past_conflicting_stock_snapshots_need_resolution",
+        "price_and_stock_manual_attestation_needed",
+        "identity_and_specs_pending_review",
+        "media_policy_unapproved",
+        "owner_release_unapproved"
+      ]
+    }
+  ],
+  "release_rules": {
+    "sql_migration": "supabase/migrations/20261019190000_catalogue_step7_release_approval_gate.sql",
+    "deployed_to_production": false,
+    "maximum_merchant_snapshot_age_hours": 24,
+    "live_data_is_not_an_approval": true,
+    "media_mode": "neutral_icon_pending_owner_policy_approval",
+    "release_order": [
+      "explicit_database_schema_review_and_approval",
+      "manual_manufacturer_fields_review",
+      "exact_eu_merchant_in_stock_review",
+      "media_policy",
+      "owner_named_product_release_permission",
+      "production_cutover_only_after_other_gates"
+    ]
+  }
+}
