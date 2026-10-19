@@ -36,7 +36,7 @@ jobs:
           deno-version: v2.9.7
       - name: Run variant and source evidence regressions
         run: |
-          bun test tests/catalogue-source-title.test.ts tests/catalogue-evidence-reconciliation.test.ts tests/step9-seven-handoff.test.ts tests/step9-runtime-quality-safety.test.ts
+          bun test tests/catalogue-source-title.test.ts tests/catalogue-evidence-reconciliation.test.ts tests/step9-eight-handoff.test.ts tests/step9-runtime-quality-safety.test.ts
           deno check tests/integration/step8-audit-37-official-pages.ts
           deno check supabase/functions/catalogue-image-refresh/index.ts
       - name: Retrieve immutable original 171 manufacturer pilot
