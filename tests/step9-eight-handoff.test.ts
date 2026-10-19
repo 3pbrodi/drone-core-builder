@@ -4,7 +4,7 @@ import four from "../qa/step8-four-canonical-review-packets.json";
 
 test("Eight separate actual product families, 41 claim references, all still review-pending",()=>{
  expect(p.products).toHaveLength(8);
- expect(new Set(p.products.map(x=>x.qa_id)).size).toBe(7);
+ expect(new Set(p.products.map(x=>x.qa_id)).size).toBe(8);
  expect(p.products.reduce((sum,x)=>sum+x.technical_claims.length,0)).toBe(41);
  for(const x of p.products){
    expect(x.manufacturer_identity_verified).toBe(false);
