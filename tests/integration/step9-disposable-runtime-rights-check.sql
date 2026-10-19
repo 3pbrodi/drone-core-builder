@@ -24,6 +24,38 @@ begin
  then raise exception 'Owner release review migration absent in local schema'; end if;
 end
 $assert$;
+-- Prove policy with temporary real table writes ONLY in disposable DB.
+-- All synthetic rows are rolled back immediately.
+begin;
+insert into public.catalogue_public_runtime_products(
+ id,image_url,image_alt,image_source_url,price_amount,currency,
+ stock_status,offer_url,last_checked_at,offer_region
+) values
+('qa-synthetic-stale-image',
+ 'https://example.org/third-party-photo.jpg','Unlicensed image',
+ 'https://example.org/product',49.99,'EUR','in_stock',
+ 'https://example.org/offer',now()-interval '2 days','EU'),
+('qa-synthetic-fresh-image',
+ 'https://example.org/another-unlicensed-photo.jpg','Unlicensed image',
+ 'https://example.org/product',29.99,'EUR','in_stock',
+ 'https://example.org/offer',now()-interval '2 minutes','EU');
+do $test$
+begin
+ if exists(select 1 from public.catalogue_public_runtime_products
+   where id like 'qa-synthetic-%' and image_url is not null)
+ then raise exception 'UNSAFE: unlicensed external image reached public runtime'; end if;
+ if exists(select 1 from public.catalogue_public_runtime_products
+    where id='qa-synthetic-stale-image' and
+     (price_amount is not null or offer_url is not null or stock_status::text<>'unknown'))
+ then raise exception 'UNSAFE: old merchant price/availability reached runtime'; end if;
+ if not exists(select 1 from public.catalogue_public_runtime_products
+    where id='qa-synthetic-fresh-image' and price_amount=29.99
+      and stock_status::text='in_stock')
+ then raise exception 'Fresh verified-like test offer was incorrectly discarded'; end if;
+end
+$test$;
+rollback;
+
 select jsonb_build_object(
  'migrations',(select count(*) from supabase_migrations.schema_migrations),
  'public_runtime_products',(select count(*) from public.catalogue_public_runtime_products),
