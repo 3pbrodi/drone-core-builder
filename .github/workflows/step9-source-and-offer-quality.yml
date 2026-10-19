@@ -9,6 +9,9 @@ on:
       - 'tests/catalogue-source-title.test.ts'
       - 'tests/catalogue-evidence-reconciliation.test.ts'
       - 'tests/step9-*'
+      - 'src/lib/catalogue-database.server.ts'
+      - 'supabase/functions/catalogue-runtime/index.ts'
+      - 'supabase/functions/_shared/catalogue-offer-freshness.ts'
       - 'supabase/functions/catalogue-image-refresh/index.ts'
       - 'supabase/migrations/20261019230000_catalogue_runtime_licensed_images_and_fresh_offers.sql'
       - 'tests/integration/step9-disposable-runtime-rights-check.sql'
@@ -38,11 +41,16 @@ jobs:
           deno-version: v2.9.7
       - name: Run variant and source evidence regressions
         run: |
-          bun test tests/catalogue-source-title.test.ts tests/catalogue-evidence-reconciliation.test.ts tests/step9-eight-handoff.test.ts tests/step9-runtime-quality-safety.test.ts
+          bun test tests/catalogue-source-title.test.ts tests/catalogue-evidence-reconciliation.test.ts tests/step9-eight-handoff.test.ts tests/step9-runtime-quality-safety.test.ts tests/step9-offer-read-freshness.test.ts
           deno check tests/integration/step8-audit-37-official-pages.ts
           deno check supabase/functions/catalogue-image-refresh/index.ts
+          deno check supabase/functions/catalogue-runtime/index.ts
       - name: Check image refresh Edge Function compiles without publishing any images
         run: deno check supabase/functions/catalogue-image-refresh/index.ts
+      - name: Confirm unchanged Production frontend can compile with read-time offer expiration
+        run: |
+          bun install --frozen-lockfile
+          bun run build
       - name: Retrieve immutable original 171 manufacturer pilot
         uses: actions/download-artifact@v4
         with:
