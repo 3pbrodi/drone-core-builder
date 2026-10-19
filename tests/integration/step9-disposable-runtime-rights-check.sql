@@ -1,11 +1,11 @@
--- Local-only QA to confirm the 26th disposable schema migration is effective.
+-- Local-only QA to confirm the 25th disposable schema migration is effective.
 \set ON_ERROR_STOP on
 do $assert$
 declare
  v text;
 begin
- if (select count(*) from supabase_migrations.schema_migrations)<>26
- then raise exception 'Expected 26 disposable schema migrations'; end if;
+ if (select count(*) from supabase_migrations.schema_migrations)<>25
+ then raise exception 'Expected 25 disposable schema migrations'; end if;
  v:=pg_get_functiondef('catalogue_internal.guard_public_runtime_record()'::regprocedure);
  if position('i.license_name' in v)=0
   or position('i.license_url' in v)=0
