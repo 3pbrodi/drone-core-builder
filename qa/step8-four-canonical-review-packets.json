@@ -1,0 +1,295 @@
+{
+  "created_date": "2026-10-19",
+  "title": "DroneCores first four manufacturer-backed promotion packets, UNVERIFIED",
+  "safety": "Not for import or publication before human review. No Production writes.",
+  "source": "dronecores_step5_2026_10_17",
+  "unit_semanics_note": "Battery voltage and ESC minVoltage/maxVoltage are cell counts in SQL, nominal volts are display-only",
+  "products": [
+    {
+      "category": "battery",
+      "manufacturer": "CNHL",
+      "exact_model": "Black Series V2.0 1300mAh 3S 130C XT60",
+      "manufacturer_sku": "1301303BK",
+      "gtin": null,
+      "package_quantity": 1,
+      "original_source_url": "https://chinahobbyline.com/de/products/cnhl-black-series-1300mah-11-1v-3s-130c-lipo-battery-with-xt60-plug",
+      "qa_id": "qa-cnhl-black-v2-1300mah-3s-130c-xt60-1pack",
+      "technical_required_evidence": [
+        {
+          "field_key": "batteryMah",
+          "canonical_value": 1300,
+          "unit": "mAh",
+          "manufacturer_source_url": "https://chinahobbyline.com/de/products/cnhl-black-series-1300mah-11-1v-3s-130c-lipo-battery-with-xt60-plug",
+          "evidence_status": "pending_human_review",
+          "verified_by": null,
+          "verified_at": null,
+          "source_excerpt_required": true
+        },
+        {
+          "field_key": "voltage",
+          "canonical_value": 3,
+          "unit": "battery_cells",
+          "manufacturer_source_url": "https://chinahobbyline.com/de/products/cnhl-black-series-1300mah-11-1v-3s-130c-lipo-battery-with-xt60-plug",
+          "evidence_status": "pending_human_review",
+          "verified_by": null,
+          "verified_at": null,
+          "source_excerpt_required": true
+        }
+      ],
+      "exact_variant_review": {
+        "approved": false,
+        "reviewer": null
+      },
+      "merchant_offers": [
+        {
+          "merchant": "Rotorama",
+          "product_url": "https://www.rotorama.de/product/cnhl-1300mah-3s-130c",
+          "research_price_eur": 14.39,
+          "stock_status": "unknown_pending_fresh_http_and_human_review",
+          "verified": false,
+          "reviewer": null
+        }
+      ],
+      "image_policy": {
+        "mode": "neutral_icon_candidate",
+        "approved": false,
+        "manufacturer_image_reuse": false
+      },
+      "publication": {
+        "allowed": false,
+        "owner_approved": false,
+        "reviewer": null
+      },
+      "identity_disambiguation": "Manufacturer stock number 1301303BK confirmed; explicitly distinct from already-published 6S 1301306BK."
+    },
+    {
+      "category": "propellers",
+      "manufacturer": "HQProp",
+      "exact_model": "ETHIX P2 Pickle 5.1x2.9x3 2CW+2CCW Polycarbonate",
+      "manufacturer_sku": "EthixP2-PK-PC",
+      "gtin": "9313448340470",
+      "package_quantity": 4,
+      "original_source_url": "https://www.hqprop.com/ethix-p2-pickle-prop-2cw2ccw-poly-carbonate-p0459.html",
+      "qa_id": "qa-hqprop-ethix-p2-pickle-2cw2ccw",
+      "technical_required_evidence": [
+        {
+          "field_key": "propInches",
+          "canonical_value": 5.1,
+          "unit": "inch",
+          "manufacturer_source_url": "https://www.hqprop.com/ethix-p2-pickle-prop-2cw2ccw-poly-carbonate-p0459.html",
+          "evidence_status": "pending_human_review",
+          "verified_by": null,
+          "verified_at": null,
+          "source_excerpt_required": true
+        }
+      ],
+      "exact_variant_review": {
+        "approved": false,
+        "reviewer": null
+      },
+      "merchant_offers": [
+        {
+          "merchant": "RCTech",
+          "product_url": "https://www.rctech.de/?a=7000&lang=eng",
+          "research_price_eur": 2.99,
+          "stock_status": "unknown_pending_fresh_http_and_human_review",
+          "verified": false,
+          "reviewer": null
+        },
+        {
+          "merchant": "Rotorama",
+          "product_url": "https://www.rotorama.de/product/ethix-p2-pickle",
+          "research_price_eur": 3.69,
+          "stock_status": "unknown_pending_fresh_http_and_human_review",
+          "verified": false,
+          "reviewer": null
+        }
+      ],
+      "image_policy": {
+        "mode": "neutral_icon_candidate",
+        "approved": false,
+        "manufacturer_image_reuse": false
+      },
+      "publication": {
+        "allowed": false,
+        "owner_approved": false,
+        "reviewer": null
+      },
+      "identity_disambiguation": "Official HQProp product identifier EthixP2-PK-PC; 13-digit 9313448340470 is GTIN from RCTech and FPV24, NOT manufacturer SKU."
+    },
+    {
+      "category": "receiver",
+      "manufacturer": "TBS",
+      "exact_model": "Crossfire Nano RX SE with Immortal-T V2 antenna",
+      "manufacturer_sku": null,
+      "gtin": "741587426158",
+      "package_quantity": 1,
+      "original_source_url": "https://www.team-blacksheep.com/products/prod:crossfire_nano_se",
+      "qa_id": "qa-tbs-crossfire-nano-rx-se",
+      "technical_required_evidence": [
+        {
+          "field_key": "receiverProtocol",
+          "canonical_value": "TBS Crossfire",
+          "unit": "protocol",
+          "manufacturer_source_url": "https://www.team-blacksheep.com/products/prod:crossfire_nano_se",
+          "evidence_status": "pending_human_review",
+          "verified_by": null,
+          "verified_at": null,
+          "source_excerpt_required": true
+        },
+        {
+          "field_key": "receiverSignalInterface",
+          "canonical_value": "CRSF",
+          "unit": "interface",
+          "manufacturer_source_url": "https://www.team-blacksheep.com/products/prod:crossfire_nano_se",
+          "evidence_status": "pending_human_review",
+          "verified_by": null,
+          "verified_at": null,
+          "source_excerpt_required": true
+        },
+        {
+          "field_key": "receiverFrequencyMinMhz",
+          "canonical_value": 868,
+          "unit": "MHz",
+          "manufacturer_source_url": "https://www.team-blacksheep.com/products/prod:crossfire_nano_se",
+          "evidence_status": "pending_human_review",
+          "verified_by": null,
+          "verified_at": null,
+          "source_excerpt_required": true
+        },
+        {
+          "field_key": "receiverFrequencyMaxMhz",
+          "canonical_value": 915,
+          "unit": "MHz",
+          "manufacturer_source_url": "https://www.team-blacksheep.com/products/prod:crossfire_nano_se",
+          "evidence_status": "pending_human_review",
+          "verified_by": null,
+          "verified_at": null,
+          "source_excerpt_required": true
+        },
+        {
+          "field_key": "receiverMinVoltageV",
+          "canonical_value": 3.3,
+          "unit": "V",
+          "manufacturer_source_url": "https://www.team-blacksheep.com/products/prod:crossfire_nano_se",
+          "evidence_status": "pending_human_review",
+          "verified_by": null,
+          "verified_at": null,
+          "source_excerpt_required": true
+        },
+        {
+          "field_key": "receiverMaxVoltageV",
+          "canonical_value": 8.4,
+          "unit": "V",
+          "manufacturer_source_url": "https://www.team-blacksheep.com/products/prod:crossfire_nano_se",
+          "evidence_status": "pending_human_review",
+          "verified_by": null,
+          "verified_at": null,
+          "source_excerpt_required": true
+        }
+      ],
+      "exact_variant_review": {
+        "approved": false,
+        "reviewer": null
+      },
+      "merchant_offers": [
+        {
+          "merchant": "RCTech",
+          "product_url": "https://www.rctech.de/tbs-crossfire-nano-rx-longrange-empfaenger-se",
+          "research_price_eur": 29.9,
+          "stock_status": "unknown_pending_fresh_http_and_human_review",
+          "verified": false,
+          "reviewer": null
+        }
+      ],
+      "image_policy": {
+        "mode": "neutral_icon_candidate",
+        "approved": false,
+        "manufacturer_image_reuse": false
+      },
+      "publication": {
+        "allowed": false,
+        "owner_approved": false,
+        "reviewer": null
+      },
+      "identity_disambiguation": "SE includes antenna, unlike standard Nano RX already in Production; retailer SKU TBS_CROSS_NANO_SE identifies bundle."
+    },
+    {
+      "category": "esc",
+      "manufacturer": "TBS",
+      "exact_model": "Lucid 6S 60A 4-in-1 ESC",
+      "manufacturer_sku": null,
+      "gtin": "703674150797",
+      "package_quantity": 1,
+      "original_source_url": "https://www.team-blacksheep.com/products/prod:lucid_4in1",
+      "qa_id": "qa-tbs-lucid-6s-60a-4in1-esc",
+      "technical_required_evidence": [
+        {
+          "field_key": "escAmps",
+          "canonical_value": 60,
+          "unit": "A",
+          "manufacturer_source_url": "https://www.team-blacksheep.com/products/prod:lucid_4in1",
+          "evidence_status": "pending_human_review",
+          "verified_by": null,
+          "verified_at": null,
+          "source_excerpt_required": true
+        },
+        {
+          "field_key": "escInput",
+          "canonical_value": "8-pin JST-SH 1.0mm ESC-to-FC cable",
+          "unit": "connector",
+          "manufacturer_source_url": "https://www.team-blacksheep.com/media/files/tbs-lucid-manual.pdf",
+          "evidence_status": "pending_human_review",
+          "verified_by": null,
+          "verified_at": null,
+          "source_excerpt_required": true
+        },
+        {
+          "field_key": "minVoltage",
+          "canonical_value": 3,
+          "unit": "battery_cells",
+          "manufacturer_source_url": "https://www.team-blacksheep.com/products/prod:lucid_4in1",
+          "evidence_status": "pending_human_review",
+          "verified_by": null,
+          "verified_at": null,
+          "source_excerpt_required": true
+        },
+        {
+          "field_key": "maxVoltage",
+          "canonical_value": 6,
+          "unit": "battery_cells",
+          "manufacturer_source_url": "https://www.team-blacksheep.com/products/prod:lucid_4in1",
+          "evidence_status": "pending_human_review",
+          "verified_by": null,
+          "verified_at": null,
+          "source_excerpt_required": true
+        }
+      ],
+      "exact_variant_review": {
+        "approved": false,
+        "reviewer": null
+      },
+      "merchant_offers": [
+        {
+          "merchant": "RCTech",
+          "product_url": "https://www.rctech.de/tbs-lucid-60a-6s-4-in-1-esc",
+          "research_price_eur": 59.9,
+          "stock_status": "unknown_pending_fresh_http_and_human_review",
+          "verified": false,
+          "reviewer": null
+        }
+      ],
+      "image_policy": {
+        "mode": "neutral_icon_candidate",
+        "approved": false,
+        "manufacturer_image_reuse": false
+      },
+      "publication": {
+        "allowed": false,
+        "owner_approved": false,
+        "reviewer": null
+      },
+      "identity_disambiguation": "Manufacturer 3-6S, 4x60A model, keep distinct from 8S or FC+ESC stack; retailer SKU TBS_LUCID_ESC."
+    }
+  ]
+}
