@@ -6,12 +6,17 @@ declare
 begin
  if (select count(*) from supabase_migrations.schema_migrations)<>26
  then raise exception 'Expected 26 disposable schema migrations'; end if;
- v:=pg_get_viewdef('public.catalogue_runtime_products'::regclass,true);
+ v:=pg_get_functiondef('catalogue_internal.guard_public_runtime_record()'::regprocedure);
  if position('i.license_name' in v)=0
   or position('i.license_url' in v)=0
-  or position('o.last_checked_at' in v)=0
-  or position('24' in v)=0
- then raise exception 'Missing registered-image-license or EU-offer freshness filter in runtime view'; end if;
+  or position('new.last_checked_at' in v)=0
+  or position('24 hours' in v)=0
+ then raise exception 'Missing image-license and fresh-offer redaction in snapshot guard'; end if;
+ if (select count(*) from pg_trigger t
+     where t.tgrelid='public.catalogue_public_runtime_products'::regclass
+       and t.tgname='catalogue_public_runtime_license_freshness_guard'
+       and not t.tgisinternal)<>1
+ then raise exception 'Public runtime snapshot guard trigger not installed'; end if;
  if exists (select 1 from public.catalogue_public_runtime_products)
  then raise exception 'Disposable public runtime must start empty'; end if;
  if (select count(*) from information_schema.tables
