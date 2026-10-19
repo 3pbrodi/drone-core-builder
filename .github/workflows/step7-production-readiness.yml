@@ -1,4 +1,4 @@
-name: Step 7 safe promotion readiness: live offers and SQL fail-closed gates
+name: "Step 7 safe promotion readiness - live offers and SQL fail-closed gates"
 on:
   push:
     branches:
