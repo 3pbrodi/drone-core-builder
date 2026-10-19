@@ -329,6 +329,16 @@ Deno.serve(async (req: Request) => {
   let body: Record<string, unknown> = {};
   try { body = await req.json(); } catch {}
   const mode = body.mode === "apply" ? "apply" : "dry_run";
+  // Legal rights cannot be inferred from og:image, JSON-LD, or exact-model
+  // matching. This worker may suggest a photo for a reviewer, but MUST NOT
+  // mark it verified, copy a third-party URL or replace primary images.
+  if (mode === "apply") {
+    return new Response(JSON.stringify({
+      error: "Automatic image publication disabled: written license and reviewer approval required for the exact image URL.",
+      mode: "rejected", applied: 0,
+    }), { status: 409, headers: JSON_HEADERS });
+  }
+
 
   try {
     const [products, evidence] = await Promise.all([
@@ -352,59 +362,7 @@ Deno.serve(async (req: Request) => {
 
     const results = await mapConcurrent(targets, 4, ({ product, evidence }) => checkOne(product, evidence));
 
-    let applied = 0;
-    if (mode === "apply") {
-      for (const result of results) {
-        if (!result.success || !result.imageUrl) continue;
-
-        await adminRest(
-          `catalogue_product_images?product_id=eq.${encodeURIComponent(result.productId)}&primary_image=eq.true`,
-          { method: "PATCH", body: JSON.stringify({ primary_image: false }) },
-        );
-
-        const existing = await adminRest<Array<{ id: string }>>(
-          `catalogue_product_images?select=id&product_id=eq.${encodeURIComponent(result.productId)}&image_url=eq.${encodeURIComponent(result.imageUrl)}&limit=1`,
-        );
-
-        if (existing.length) {
-          await adminRest(
-            `catalogue_product_images?id=eq.${existing[0].id}`,
-            {
-              method: "PATCH",
-              body: JSON.stringify({
-                source_url: result.sourceUrl,
-                alt_text: result.productName,
-                exact_model_verified: true,
-                verification_status: "verified",
-                provenance: `Exact-model manufacturer page image via ${result.parserSource}`,
-                primary_image: true,
-                captured_at: new Date().toISOString(),
-              }),
-            },
-          );
-        } else {
-          await adminRest(
-            "catalogue_product_images",
-            {
-              method: "POST",
-              body: JSON.stringify({
-                product_id: result.productId,
-                image_url: result.imageUrl,
-                source_url: result.sourceUrl,
-                alt_text: result.productName,
-                exact_model_verified: true,
-                verification_status: "verified",
-                provenance: `Exact-model manufacturer page image via ${result.parserSource}`,
-                primary_image: true,
-                captured_at: new Date().toISOString(),
-              }),
-            },
-          );
-        }
-        applied += 1;
-      }
-    }
-
+    const applied = 0; // Dry-run observations only. No image writes.
     return new Response(JSON.stringify({
       mode,
       targetCount: targets.length,

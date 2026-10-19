@@ -1,3 +1,4 @@
+import { selectManufacturerProductTitle } from "../../src/lib/catalogue-source-title.ts";
 /**
  * Read-only inspection of all balanced 37 research candidates. NOT a seller
  * price check, a human identity review, an image-license review or a Production
@@ -45,21 +46,6 @@ function strip(html:string){
   .replace(/<[^>]*>/g," ")
   .replace(/\s+/g," ").trim();
 }
-const stopWords=new Set(["the","for","and","with","fpv","drone","parts","set","kit",
- "standard","polycarbonate","frame","motor","camera","battery","brushless","prop",
- "propeller","flight","controller","esc","receiver","racing","version","new","size"]);
-function normalize(s:string){
- return s.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g," ").trim();
-}
-function strongTokens(s:string){
- return [...new Set(normalize(s).split(/\s+/).filter(t=>t.length>=2&&!stopWords.has(t)))];
-}
-function titleFromHtml(html:string){
- const h1=html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i)?.[1];
- const og=html.match(/<meta\b[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i)?.[1];
- const t=html.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i)?.[1];
- return strip(h1||og||t||"").slice(0,200);
-}
 async function one(c:Candidate):Promise<Observation>{
  const now=new Date().toISOString();
  const x:Observation={
@@ -103,16 +89,13 @@ async function one(c:Candidate):Promise<Observation>{
   x.html_bytes=html.length;
   if (html.length>3_000_000){x.notes.push("Manufacturer page too large; refused");return x;}
   x.source_page_reachable=true;
-  x.title_excerpt=titleFromHtml(html)||null;
-  const expected=strongTokens(c.model);
-  const found=new Set(strongTokens(x.title_excerpt??""));
-  x.discriminating_model_tokens=expected.slice(0,16);
-  x.matched_discriminating_tokens=expected.filter(t=>found.has(t)).slice(0,16);
-  x.source_model_title_overlap=expected.length
-   ?Math.round(100*x.matched_discriminating_tokens.length/expected.length):0;
-  // This is a RESEARCH HINT ONLY, never proof of an exact manufacturer variant.
-  x.title_review_signal=expected.length>=2 && x.matched_discriminating_tokens.length>=2 &&
-   x.source_model_title_overlap>=65?"possible_exact_model":"ambiguous_model_or_variant";
+  const selected=selectManufacturerProductTitle(html,c.model);
+  x.title_excerpt=selected.title;
+  x.discriminating_model_tokens=selected.modelTokens.slice(0,16);
+  x.matched_discriminating_tokens=selected.matchedTokens.slice(0,16);
+  x.source_model_title_overlap=selected.score;
+  // Merely a reviewer hint, NOT verified source identity or variant.
+  x.title_review_signal=selected.titleMatch;
   x.notes.push(x.title_review_signal==="possible_exact_model"
    ?"Title tokens corroborate manufacturer model family, variant still needs expert review"
    :"Title does not uniquely establish exact model or variant; manual source excerpt required");

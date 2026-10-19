@@ -1,0 +1,54 @@
+{
+  "audit_date": "2026-10-19",
+  "environment": "Production Supabase rtwreynffguvqdcogahx",
+  "mode": "read_only",
+  "production_changes_authorized": false,
+  "products_total": 25,
+  "published_products": 24,
+  "public_runtime_products": 24,
+  "offers_total": 25,
+  "offers_stale_gt_24_hours": 1,
+  "offers_stale_gt_7_days": 1,
+  "offers_never_checked": 0,
+  "stale_offer": {
+    "product_model": "R-Line Version 5.0 1550mAh 6S 150C",
+    "seller_url": "https://www.lacameraembarquee.fr/en/batteries/16822-lipo-battery-tattu-r-line-v50-6s-1550mah-150c-6928493311691.html",
+    "checked_at_utc": "2026-09-28T18:43:34Z",
+    "research_price_eur": 46.9,
+    "recorded_stock_status": "in_stock",
+    "warning": "The price and stock observation is stale and verification_status=unverified; never display as a currently verified offer or use for first-release approval"
+  },
+  "images_total_rows": 25,
+  "total_verified_image_rows": 24,
+  "verified_images_without_license_record": 24,
+  "unverified_images_without_license_record": 1,
+  "exact_model_verified_image_rows": 24,
+  "explanation": "Exact model verified status establishes product correspondence only; it does NOT convey commercial photo copyright/reuse permission.",
+  "license_safety_action": "hold photos / use neutral icon pending documented rights",
+  "automatic_image_refresh_current_prod_risk": "Current Production image-refresh code can mark a fetched og:image as verified with no license; guarded QA code returns 409 for apply, not deployed",
+  "rights_strategy": {
+    "documented_vendor_photo_rights": 0,
+    "existing_ui_neutral_icon": "ImageOff from Lucide ISC",
+    "source": "https://lucide.dev/license",
+    "commercial_use_permitted_with_license_notice": true,
+    "user_policy_signoff": false,
+    "release_gate_migration": "supabase/migrations/20261019190000_catalogue_step7_release_approval_gate.sql",
+    "runtime_image_filter_migration": "supabase/migrations/20261019230000_catalogue_runtime_licensed_images_and_fresh_offers.sql",
+    "schema_deployed_to_production": false,
+    "note": "After separate approval, missing-licence photos will disappear and the existing neutral icon is displayed. No photo copyrights or signatures are invented."
+  },
+  "rollout_blockers": [
+    "Written rightsholder permission or documented original license for each product-specific third-party photo",
+    "Explicit owner approval to switch already-public 24 product cards to neutral icons",
+    "QA local regression on image refresh and runtime filter before deployment",
+    "Fresh independent manual review of exact vendor offers and age",
+    "Independent human manufacturer/variant/spec review and owner publication authorization"
+  ],
+  "production_safety": {
+    "sql_mutations": 0,
+    "new_products_published": 0,
+    "existing_products_removed": 0,
+    "images_downloaded_or_rehosted": 0,
+    "external_images_license_represented_as_verified": 0
+  }
+}
