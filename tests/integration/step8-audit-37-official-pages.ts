@@ -7,9 +7,11 @@
 type Candidate = {
  pilot_id:string;category:string;manufacturer:string;model:string;
  source_url:string;missing_required_specs:string[];review_blockers:string[];
+ component_classification?:string; eligible_as_standalone_component_research?:boolean;
 };
 type Observation = {
  pilot_id:string; category:string; model:string;manufacturer:string;
+ component_classification:string;eligible_as_standalone_component_research:boolean;
  source_url:string; checked_at:string; http_status:number|null;
  content_type:string|null; html_bytes:number|null;
  source_page_reachable:boolean; title_excerpt:string|null;
@@ -62,6 +64,8 @@ async function one(c:Candidate):Promise<Observation>{
  const now=new Date().toISOString();
  const x:Observation={
   pilot_id:c.pilot_id,category:c.category,manufacturer:c.manufacturer,
+  component_classification:c.component_classification??"unclassified",
+  eligible_as_standalone_component_research:c.eligible_as_standalone_component_research===true,
   model:c.model,source_url:c.source_url,checked_at:now,http_status:null,
   content_type:null,html_bytes:null,source_page_reachable:false,
   title_excerpt:null,source_model_title_overlap:0,discriminating_model_tokens:[],
@@ -72,6 +76,7 @@ async function one(c:Candidate):Promise<Observation>{
   missing_required_specs:c.missing_required_specs??[],review_blockers:[...(c.review_blockers??[])],
   notes:[]
  };
+ if(!x.eligible_as_standalone_component_research) x.notes.push("Not a standalone component; exclude from promotion");
  if (!categories.has(c.category) || !c.pilot_id || ids.has(c.pilot_id)) {
   x.notes.push("Invalid category, pilot identity or duplicated source row");return x;
  }
@@ -85,7 +90,7 @@ async function one(c:Candidate):Promise<Observation>{
  const ctrl=new AbortController();const stop=setTimeout(()=>ctrl.abort(),11000);
  try {
   const response=await fetch(url,{redirect:"follow",signal:ctrl.signal,
-   headers:{"accept":"text/html,application/xhtml+xml","user-agent":"DroneCoresResearchAuditor/1.0 (+https://github.com/3pbrodi/drone-core-builder)"}});
+   headers:{"accept":"text/html,application/xhtml+xml","user-agent":"Mozilla/5.0 (compatible; DroneCoresCatalogueVerifier/1.0; +https://dronecores.com)"}});
   x.http_status=response.status;
   x.content_type=response.headers.get("content-type");
   const finalUrl=new URL(response.url);
@@ -117,7 +122,7 @@ async function one(c:Candidate):Promise<Observation>{
  return x;
 }
 const observations:Observation[]=[];
-const concurrency=4;
+const concurrency=2;
 for(let offset=0;offset<queue.length;offset+=concurrency){
  const batch=await Promise.all(queue.slice(offset,offset+concurrency).map(one));
  observations.push(...batch);
@@ -129,6 +134,8 @@ const summary={
  model_family_title_hints:observations.filter(x=>x.title_review_signal==="possible_exact_model").length,
  source_unavailable:observations.filter(x=>!x.source_page_reachable).length,
  missing_spec_candidates:observations.filter(x=>x.missing_required_specs.length>0).length,
+ excluded_accessory_or_bundle:observations.filter(x=>!x.eligible_as_standalone_component_research).length,
+ potential_standalone_component:observations.filter(x=>x.eligible_as_standalone_component_research).length,
  possible_dupe_count:observations.filter(x=>x.review_blockers.includes("same_maker_model_variant_fingerprint_review")).length,
  formal_identity_verified:0,formal_spec_fields_verified:0,
  human_approved_for_publication:0,manufacturer_images_downloaded:0,
@@ -138,4 +145,13 @@ const summary={
 };
 await Deno.writeTextFile(outPath,JSON.stringify({summary,observations},null,2)+"\n");
 console.log("STEP8_OFFICIAL_SOURCE_SUMMARY "+JSON.stringify(summary));
-console.log("STEP8_UNAVAILABLE "+JSON.stringify(observations.filter(x=>!x.source_page_reachable).map(x=>({id:x.pilot_id,url:x.source_url,notes:x.notes}))));
+console.log("STEP8_UNAVAILABLE "+JSON.stringify(observations.filter(x=>!x.source_page_reachable).map(x=>({id:x.pilot_id,url:x.source_url,http_status:x.http_status,content_type:x.content_type,notes:x.notes}))));
+
+console.log("STEP8_SOURCE_OBSERVATIONS_COMPACT:"+JSON.stringify(
+ observations.map(({pilot_id,category,manufacturer,model,source_url,http_status,
+  source_page_reachable,title_excerpt,source_model_title_overlap,title_review_signal,
+  component_classification,eligible_as_standalone_component_research,missing_required_specs})=>
+  ({pilot_id,category,manufacturer,model,source_url,http_status,source_page_reachable,
+    title_excerpt,source_model_title_overlap,title_review_signal,
+    component_classification,eligible_as_standalone_component_research,missing_required_specs}))
+));
