@@ -50,8 +50,12 @@ export function selectManufacturerProductTitle(
  scores.sort((a,b)=>b.ratio-a.ratio||b.matched.length-a.matched.length);
  const best=scores[0];
  const score=best?Math.round(best.ratio*100):0;
+ // Version, electrical rating and directional markers are discriminating.
+ // A 6S title must never be accepted as the 8S model at 75% fuzzy overlap.
+ const variantTokens=expected.filter(t=>/\d/.test(t)||["se","pro","ccw","cw"].includes(t));
+ const allVariantTokensMatch=variantTokens.every(t=>best?.matched.includes(t));
  return {title:best?.title??null,modelTokens:expected,
   matchedTokens:best?.matched??[],score,
-  titleMatch:best && best.matched.length>=2 && score>=65
+  titleMatch:best && best.matched.length>=2 && score>=65 && allVariantTokensMatch
    ?"possible_exact_model":"ambiguous_model_or_variant"};
 }
