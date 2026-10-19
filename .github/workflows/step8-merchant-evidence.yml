@@ -6,6 +6,7 @@ on:
     paths:
       - 'src/lib/catalogue-merchant-evidence.ts'
       - 'tests/catalogue-merchant-evidence.test.ts'
+      - 'tests/step8-review-packets.test.ts'
       - 'tests/integration/step8-live-offer-audit.ts'
       - 'tests/integration/step8-plan-next-batches.py'
       - 'qa/step8-*'
@@ -30,7 +31,7 @@ jobs:
           deno-version: v2.9.7
       - name: Fail-closed exact model/pack/source tests
         run: |
-          bun test tests/catalogue-merchant-evidence.test.ts
+          bun test tests/catalogue-merchant-evidence.test.ts tests/step8-review-packets.test.ts
           deno check tests/integration/step8-live-offer-audit.ts
       - name: Probe four real EU seller product pages (no Production API)
         run: |
