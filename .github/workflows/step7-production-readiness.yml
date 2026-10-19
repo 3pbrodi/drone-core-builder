@@ -1,0 +1,133 @@
+name: Step 7 safe promotion readiness: live offers and SQL fail-closed gates
+on:
+  push:
+    branches:
+      - qa/step7-production-readiness-gate-20261019
+    paths:
+      - 'src/lib/catalogue-step6-release-gate.ts'
+      - 'tests/step6-release-gate.test.ts'
+      - 'qa/step5-four-products-source-evidence.json'
+      - 'qa/step6-field-semantics-correction.json'
+      - 'tests/step6-schema-semantics.test.ts'
+      - 'qa/step6-eight-source-offer-evidence.json'
+      - 'tests/integration/step6-*'
+      - 'tests/integration/step7-*'
+      - 'supabase/migrations/20261019190000_catalogue_step7_release_approval_gate.sql'
+      - '.github/workflows/step7-production-readiness.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  isolated-step7:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout isolated QA branch
+        uses: actions/checkout@v4
+
+      - name: Install pinned Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.3.4'
+
+      - name: Install pinned Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.7
+
+      - name: Check offline licensing and release gates
+        run: |
+          bun test tests/step5-evidence-validation.test.ts tests/step6-release-gate.test.ts tests/step6-schema-semantics.test.ts
+          deno check tests/integration/step6-live-offer-audit.ts
+          deno check supabase/functions/catalogue-import-runner/index.ts
+
+      - name: Direct merchant live snapshot, fail closed, read-only
+        run: |
+          mkdir -p step6-results
+          deno run --allow-net=www.rotorama.de,www.rctech.de \
+            --allow-write=step6-results tests/integration/step6-live-offer-audit.ts \
+            step6-results/live-eu-offers.json
+          jq -e '.productionWrite==false and .marketplaceOffersInserted==0 and
+            .imagesCopied==0 and .reviewStatus=="pending_review" and
+            (.observations|length)==4 and
+            ([.observations[].usableAsVerifiedOffer]|all(.==false))' \
+            step6-results/live-eu-offers.json
+
+      - name: Download original immutable manufacturer pilot rows
+        uses: actions/download-artifact@v4
+        with:
+          repository: 3pbrodi/drone-core-builder
+          run-id: 37213658740
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          name: step9b2-official-source-staging-evidence
+          path: original-pilot
+
+      - name: Install Supabase CLI
+        uses: supabase/setup-cli@v3.0.1
+        with:
+          version: 2.118.0
+
+      - name: Start fresh disposable local Supabase
+        run: |
+          test -z "${SUPABASE_ACCESS_TOKEN:-}"
+          test -z "${SUPABASE_DB_PASSWORD:-}"
+          supabase start
+          supabase db reset --local --yes
+
+      - name: Bootstrap local official sources only
+        run: |
+          psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
+            -X -v ON_ERROR_STOP=1 -f tests/integration/catalogue-local-staging-bootstrap.sql \
+            >step6-results/bootstrap.log
+
+      - name: Rebuild four source-backed candidates with 13 pending fields
+        run: |
+          python3 tests/integration/step7-prepare.py \
+            original-pilot qa/step6-eight-source-offer-evidence.json step6-results \
+            qa/step5-four-products-source-evidence.json
+          psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
+            -X -v ON_ERROR_STOP=1 -f step6-results/stage-and-create-four.sql \
+            >step6-results/local-stage.log
+          psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
+            -X -v ON_ERROR_STOP=1 -f tests/integration/step6-local-review-assert.sql \
+            >step6-results/manual-source-review.log
+
+      - name: Negative publication and dedupe replay tests
+        run: |
+          psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
+            -X -At -v ON_ERROR_STOP=1 -f tests/integration/step6-verify-disposable.sql \
+            >step6-results/audit-output.txt
+          tail -1 step6-results/audit-output.txt | jq . >step6-results/db-audit.json
+          jq -e '.originalRows==8 and .candidateProducts==4 and
+            .unpublishedCandidates==4 and .heldRows==4 and
+            .exactReplay==4 and .published==0 and .publicRuntime==0 and
+            .offers==0 and .pendingIdentityEvidence==4 and
+            .pendingSpecEvidence==13 and (.categories|length)==8 and
+            ([.blockers[]|length]|all(.>0))' step6-results/db-audit.json
+          psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
+            -X -At -v ON_ERROR_STOP=1 \
+            -f tests/integration/step7-release-approval-negative.sql \
+            >step6-results/step7-approval-output.txt
+          tail -1 step6-results/step7-approval-output.txt | jq . >step6-results/step7-release-audit.json
+          jq -e '.schemaMigrations==24 and .candidates==4 and
+            .approvalRecords==0 and .approvedOffers==0 and .selectable==0 and
+            .step7Blockers==4 and
+            .syntheticOwnerApprovalTest=="blocked_and_rolled_back"' \
+            step6-results/step7-release-audit.json
+
+      - name: Upload source and negative-publication audit evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: step7-readiness-reviewed-offers-and-database-gates
+          path: step6-results/
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Tear down isolated database without backup
+        if: always()
+        run: |
+          if command -v supabase >/dev/null 2>&1; then
+            supabase stop --no-backup
+          fi
