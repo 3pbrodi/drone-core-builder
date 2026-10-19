@@ -1,5 +1,6 @@
 import { catalogueRestFetch } from "../_shared/catalogue-rest-retry.ts";
 import { cataloguePublicKey } from "../_shared/catalogue-admin-auth.ts";
+import { isFreshEuroOfferTimestamp } from "../_shared/catalogue-offer-freshness.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -50,7 +51,9 @@ function toProduct(row: Record<string, any>) {
     row.price_amount === null ||
     row.weight_grams === null ||
     row.currency !== "EUR" ||
-    row.offer_region !== "EU"
+    row.offer_region !== "EU" ||
+    !(typeof row.price_amount === "number" && Number.isFinite(row.price_amount) && row.price_amount > 0) ||
+    !isFreshEuroOfferTimestamp(row.last_checked_at)
   )
     return null;
 
