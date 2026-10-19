@@ -57,3 +57,14 @@ Recommended eventual architecture: **canonical product** (stable identity and sp
 Previous [Step 6 all-green disposable run](https://github.com/3pbrodi/drone-core-builder/actions/runs/39032855460). New [Step 7 isolated gated run](https://github.com/3pbrodi/drone-core-builder/actions/runs/39299600571), with both release table and promotion function in the 24th **disposable** migration. Download the attached machine-readable audit from the successful run's GitHub Actions artifacts.
 
 **Readiness decision:** `PREPARED_FOR_FINAL_REVIEW`; `NOT_READY_FOR_PRODUCTION_PUBLICATION`. No merged `main`, no production schema writes, no live deployment, no created Production QA candidates and no license assumptions.
+
+## Execution result, 19 October 2026 — PASS technical staging, NO-GO release
+
+The *24-migration* disposable Supabase run **passed completely**: [GitHub Actions 39299600571](https://github.com/3pbrodi/drone-core-builder/actions/runs/39299600571) and [full machine audit artifact 12212105812](https://github.com/3pbrodi/drone-core-builder/actions/runs/39299600571/artifacts/12212105812).
+
+- **16/16** Bun tests passed; four QA candidates, 13 pending technical fields, four pending identity records, four exact duplicate replays, no published products, no merchant-offer writes or copied vendor images.
+- The new SQL review table was RLS-protected and private to the privileged service role. Every new candidate is refused while approval records are missing. A **synthetic** owner/media approval was also insufficient to publish without a matching EU offer and was rolled back.
+- Direct merchant snapshots from **2026-10-19 18:05 UTC** (20:05 Berlin) all returned HTTP 200 on the exact product pages: **CNHL Rotorama** price unknown/stock unknown; **HQProp P2 RCTech** EUR 2.99/stock unknown; **TBS Nano RX SE RCTech** EUR 29.90/in-stock; **TBS Lucid 6S RCTech** EUR 59.90/in-stock. These are **NOT** approved merchant records; stock can change and all four still require reviewer sign-off.
+- Final decision: **0/4 products ready to publish**. Repository decision in `qa/step7-readiness-decision-20261019.json`. Next best first candidate to review is Nano RX **SE**, because the price/stock parser captured its exact variant; Lucid 6S follows after resolving the earlier contradictory category-cache status. All candidates lack human identity/spec/media/owner release approvals.
+
+No Production mutation or deployment was made. This migration is a proposal on a standalone QA branch, not part of the live website.
