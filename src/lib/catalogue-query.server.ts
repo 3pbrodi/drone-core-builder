@@ -19,7 +19,12 @@ export async function fetchCatalogueQuery(input: CatalogueQuery): Promise<Catalo
   const query = normalizeCatalogueQuery(input);
   if (process.env["CATALOGUE_DATABASE_ENABLED"] === "false") throw new Error("Catalogue is disabled.");
   try {
-    const url = new URL(catalogueRuntimeEndpoint(process.env));
+    // Lovable previews provide the public project URL through Vite, without
+    // requiring server database credentials for the public catalogue endpoint.
+    const url = new URL(catalogueRuntimeEndpoint({
+      ...process.env,
+      VITE_SUPABASE_URL: process.env["VITE_SUPABASE_URL"] || import.meta.env?.["VITE_SUPABASE_URL"],
+    }));
     url.searchParams.set("query", JSON.stringify(query));
     const response = await fetch(url, { headers: { accept: "application/json" } });
     if (!response.ok) throw new Error("Runtime query failed.");

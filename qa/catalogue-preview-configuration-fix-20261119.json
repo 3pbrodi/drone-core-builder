@@ -1,0 +1,11 @@
+{
+  "passed": true,
+  "configuration": "VITE_SUPABASE_URL only; no SUPABASE_URL, SUPABASE_SECRET_KEY or CATALOGUE_RUNTIME_URL",
+  "initialSelectedId": true,
+  "categoryPagesLoaded": 2,
+  "filteredVariantSelected": true,
+  "selectedFrameRetained": true,
+  "categoryReopened": true,
+  "localOnly": true,
+  "externalBrowserRequestsBlocked": true
+}

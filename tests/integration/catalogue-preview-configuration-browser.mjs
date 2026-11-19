@@ -1,0 +1,12 @@
+// Run against loopback fixture4289 and dev server4190 with only VITE_SUPABASE_URL configured.
+const {chromium}=await import(process.env.PLAYWRIGHT_MODULE??'playwright');
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+const browser=await chromium.launch({headless:true,executablePath:process.env.CHROMIUM_EXECUTABLE??'/usr/bin/chromium',args:['--no-sandbox']});
+const page=await browser.newPage();const errors=[];page.on('pageerror',e=>errors.push(String(e)));await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
+try{
+ await page.goto('http://127.0.0.1:4190/create-custom-build?product=frame-000',{waitUntil:'networkidle'});await page.getByText('Synthetic frame 000',{exact:true}).first().waitFor();assert.equal(await page.getByText('Verified catalogue unavailable',{exact:true}).count(),0);
+ await page.getByRole('button',{name:'Select Propellers',exact:true}).click();const dialog=page.getByRole('dialog');await dialog.getByText('60 matching products · 60 in this category',{exact:true}).waitFor();await dialog.getByRole('button',{name:'Product filters',exact:true}).click();await dialog.getByLabel('Brand',{exact:true}).selectOption('Last page brand');await dialog.getByRole('button',{name:'Select component',exact:true}).click();await dialog.waitFor({state:'hidden'});await page.getByText('Synthetic propellers 059',{exact:true}).first().waitFor();await page.getByText('Synthetic frame 000',{exact:true}).first().waitFor();
+ await page.getByRole('button',{name:'Change Propellers',exact:true}).click();await dialog.getByText('60 matching products · 60 in this category',{exact:true}).waitFor();assert.equal(await page.getByRole('alert').count(),0);const requests=await(await fetch('http://127.0.0.1:4289/metrics')).json();assert(requests.some(q=>q.category==='propellers'&&q.page===2));assert(requests.some(q=>q.mode==='ids'&&q.ids?.includes('propellers-059')));assert.deepEqual(errors,[]);
+ const result={passed:true,configuration:'VITE_SUPABASE_URL only; no SUPABASE_URL, SUPABASE_SECRET_KEY or CATALOGUE_RUNTIME_URL',initialSelectedId:true,categoryPagesLoaded:2,filteredVariantSelected:true,selectedFrameRetained:true,categoryReopened:true,localOnly:true,externalBrowserRequestsBlocked:true};await fs.writeFile('qa/catalogue-preview-configuration-fix-20261119.json',JSON.stringify(result,null,2)+'\n');console.log(JSON.stringify(result));
+}finally{await browser.close()}

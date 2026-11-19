@@ -13,7 +13,7 @@ export function assertCatalogueEndpoint(url: string, env: Environment): void {
 }
 
 export function catalogueRuntimeEndpoint(env: Environment): string {
-  const base = env["SUPABASE_URL"]?.trim();
+  const base = env["SUPABASE_URL"]?.trim() || env["VITE_SUPABASE_URL"]?.trim();
   const localOnly = env["CATALOGUE_LOCAL_ONLY"] === "true" || env["NODE_ENV"] === "test";
   const endpoint = env["CATALOGUE_RUNTIME_URL"]?.trim() ||
     (base ? `${base.replace(/\/$/, "")}/functions/v1/catalogue-runtime` :

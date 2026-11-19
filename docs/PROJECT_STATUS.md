@@ -1,3 +1,9 @@
+## Komponenten-Ladefehler in der Vorschau behoben —2026-11-19
+
+Ursache reproduziert: die vorhandene öffentliche `VITE_SUPABASE_URL` wurde im neuen serverseitigen Katalogzugriff nicht berücksichtigt; eine Lovable-Entwicklungsvorschau ohne separate Server-URL/Secret-Konfiguration konnte deshalb keine Komponenten laden. `catalogue-endpoint.ts` erkennt jetzt diese Projekt-URL, `catalogue-query.server.ts` reicht die Vite-Konfiguration weiter. Explizite Runtime-/Server-Konfiguration behält Vorrang; lokale Tests bleiben auf Loopback beschränkt. Keine Secrets nötig, keine Produktionsänderung.
+
+Öffentliche Supabase-Schnittstelle separat lesend bestätigt: Kategorie frame15 und propellers9, queryVersion1/statusready. Regression: drei Endpoint-Tests, Typprüfung und Build bestanden. Lokaler Chromium-Test mit ausschließlich VITE-Konfiguration (ohne SUPABASE_URL, SUPABASE_SECRET_KEY oder CATALOGUE_RUNTIME_URL) bestätigt initiale ID, vollständiges Nachladen, Filter, Übernahme der Variante, erhaltenen Rahmen und erneutes Öffnen. Beleg: `qa/catalogue-preview-configuration-fix-20261119.json`. Browserprüfung: `tests/integration/catalogue-preview-configuration-browser.mjs`; mit der bestehenden Fixture starten und die drei Servervariablen für den Dev-Server explizit entfernen. Keine Datenbank-/Deploymentoperation.
+
 # Website development status —2026-11-19
 
 The active development branch is `feature/shared-drone-configurator`, as explicitly requested by the user. Continue all future website/UI changes on this branch. The website has not been publicly deployed by this transfer.
