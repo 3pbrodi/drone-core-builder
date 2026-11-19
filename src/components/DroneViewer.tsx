@@ -7,6 +7,7 @@ type ReferenceSet = {
   label: string;
   sourceUrl: string;
   images: Record<PreviewView, string>;
+  rights?: Partial<Record<PreviewView, { imageUrl: string; licenseName: string; licenseUrl: string }>>;
 };
 
 const referenceSets: Record<"freestyle" | "longRange" | "cinematic", ReferenceSet> = {
@@ -52,6 +53,10 @@ function chooseReferenceSet(selection: BuildSelection): ReferenceSet {
 }
 
 const clampZoom = (value: number) => Math.min(5, Math.max(1, value));
+function hasDocumentedRights(reference: ReferenceSet, view: PreviewView) {
+  const proof = reference.rights?.[view];
+  return Boolean(proof && proof.imageUrl === reference.images[view] && proof.licenseName.trim() && /^https:\/\//i.test(proof.licenseUrl));
+}
 const touchDistance = (touches: TouchEvent<HTMLDivElement>["touches"]) => {
   const first = touches[0];
   const second = touches[1];
@@ -263,7 +268,8 @@ export function DroneViewer({ selection }: { selection: BuildSelection }) {
 
   const activeImage = reference.images[view];
   const hasAnySelection = Object.keys(selection).length > 0;
-  const activeFailed = failedImages[activeImage] === true;
+  const activeLicensed = hasDocumentedRights(reference, view);
+  const activeFailed = !activeLicensed || failedImages[activeImage] === true;
 
   return (
     <section
@@ -281,7 +287,7 @@ export function DroneViewer({ selection }: { selection: BuildSelection }) {
             Your Drone
           </h2>
           <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground sm:text-sm lg:text-base">
-            Realistic preview based on your selected components
+            Illustrative reference, not a rendering of your selected parts.
           </p>
         </div>
       </div>
@@ -308,7 +314,7 @@ export function DroneViewer({ selection }: { selection: BuildSelection }) {
               Preview image unavailable
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Your build data is unaffected. Try another view or reload the page.
+              A licensed reference preview is not available. Your selected components are unchanged.
             </p>
           </div>
         ) : (
@@ -343,7 +349,7 @@ export function DroneViewer({ selection }: { selection: BuildSelection }) {
         {(Object.keys(viewLabels) as PreviewView[]).map((option) => {
           const selected = view === option;
           const optionImage = reference.images[option];
-          const failed = failedImages[optionImage] === true;
+          const failed = !hasDocumentedRights(reference, option) || failedImages[optionImage] === true;
 
           return (
             <button
@@ -382,7 +388,7 @@ export function DroneViewer({ selection }: { selection: BuildSelection }) {
       <p className="mx-auto mt-3 max-w-3xl text-center text-[10px] leading-relaxed text-muted-foreground sm:text-[11px]">
         Illustrative reference only. Final appearance may vary.
       </p>
-      {lightboxOpen && (
+      {lightboxOpen && activeLicensed && !activeFailed && (
         <PhotoLightbox
           src={activeImage}
           alt={`${reference.label} — ${viewLabels[view]} illustrative drone reference`}

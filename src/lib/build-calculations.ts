@@ -1,6 +1,8 @@
 import { allCategoryIds, type Category, type Product } from "./build-data";
 import { droneMountedCategoryIds } from "./component-categories";
 import { requiredCategoriesForSelection, selectionPriceSummary } from "./configurator-selection";
+import { installedComponentWeight } from "./component-measurements";
+import { normalizeMountPattern } from "../../supabase/functions/_shared/catalogue-technical-attributes";
 
 export type CompatibilityRuleStatus = "pass" | "fail" | "unknown";
 export type CompatibilityEvidenceLevel = "verified" | "unverified" | "heuristic";
@@ -170,13 +172,15 @@ function frameMotorMountRule(
     );
   }
 
+  const frameMounts = frame.mountPatterns ?? (frame.mount ? [normalizeMountPattern(frame.mount)] : []);
+  const motorMounts = motors.mountPatterns ?? (motors.mount ? [normalizeMountPattern(motors.mount)] : []);
   const missingFields = [
-    ...(frame.mount === undefined ? ["frame.mount"] : []),
-    ...(motors.mount === undefined ? ["motors.mount"] : []),
+    ...(!frameMounts.length ? ["frame.mount"] : []),
+    ...(!motorMounts.length ? ["motors.mount"] : []),
   ];
   const usedFields: Array<[Category, keyof Product]> = [
-    ["frame", "mount"],
-    ["motors", "mount"],
+    ["frame", frame.mountPatterns ? "mountPatterns" : "mount"],
+    ["motors", motors.mountPatterns ? "mountPatterns" : "mount"],
   ];
 
   if (missingFields.length > 0) {
@@ -197,7 +201,8 @@ function frameMotorMountRule(
     };
   }
 
-  const status: CompatibilityRuleStatus = frame.mount === motors.mount ? "pass" : "fail";
+  const sharedMount = frameMounts.find(pattern => motorMounts.includes(pattern));
+  const status: CompatibilityRuleStatus = sharedMount ? "pass" : "fail";
   const evidenceLevel = deterministicEvidenceLevel(verification, usedFields);
 
   return {
@@ -209,11 +214,11 @@ function frameMotorMountRule(
     explanation:
       status === "pass"
         ? evidenceLevel === "verified"
-          ? `The frame and motors use the same verified mounting pattern (${frame.mount}).`
-          : `The frame and motors list the same mounting pattern (${frame.mount}), but those catalogue values are not verified.`
+          ? `The frame and motors share a verified mounting pattern (${sharedMount}).`
+          : `The frame and motors list a shared mounting pattern (${sharedMount}), but those catalogue values are not verified.`
         : evidenceLevel === "verified"
-          ? `The frame uses a ${frame.mount} motor mount, while the motors require ${motors.mount}, so they do not fit.`
-          : `The demo specifications list a ${frame.mount} frame mount and a ${motors.mount} motor mount. That suggests they may not fit, but the source values are not verified.`,
+          ? `The frame supports ${frameMounts.join(" / ")}, while the motors require ${motorMounts.join(" / ")}; no mounting pattern matches.`
+          : `The listed frame (${frameMounts.join(" / ")}) and motor (${motorMounts.join(" / ")}) mounting patterns differ, but the source values are not verified.`,
     evidence: evidence([
       ["frame.mount", frame.mount],
       ["motors.mount", motors.mount],
@@ -1688,13 +1693,13 @@ export function evaluate(
     .map((rule) => rule.explanation);
 
   const enoughPerformance = !!(frame && motors && props && battery && esc);
-  const weight = enoughPerformance
-    ? Math.round(
-        droneMountedCategoryIds.reduce(
-          (sum, category) => sum + (selected[category]?.weight ?? 0),
-          0,
-        ) + 80,
-      )
+  const mounted = droneMountedCategoryIds.flatMap(category => selected[category] ? [selected[category]!] : []);
+  const masses = mounted.map(installedComponentWeight);
+  const documentary = mounted.some(product => product.offer || product.weightBasis);
+  // Preserve the historical demo estimate. Real components use only documented
+  // quantities; unknown/partial masses are never silently counted as zero.
+  const weight = enoughPerformance && (!documentary || complete) && masses.every(mass => mass !== null)
+    ? Math.round(masses.reduce<number>((sum, mass) => sum + mass!, 0) + (documentary ? 0 : 80))
     : null;
   const speed =
     enoughPerformance && weight && motors?.thrust && battery?.voltage && props?.propInches
@@ -1725,7 +1730,7 @@ export function evaluate(
         (rule.status === "unknown" && rule.missingFields.length > 0)),
   );
   const score =
-    complete && !blocksPerformanceScore
+    complete && weight !== null && !blocksPerformanceScore
       ? Math.max(
           1,
           Math.min(

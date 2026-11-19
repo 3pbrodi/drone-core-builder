@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import {
   ArrowLeft,
@@ -22,6 +22,7 @@ import {
   PanelsTopLeft,
   Settings2,
   ImageOff,
+  SlidersHorizontal,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -47,12 +48,16 @@ import {
   sectionCategoriesForSelection,
 } from "@/lib/configurator-selection";
 import { evaluate, candidateCheck } from "@/lib/build-calculations";
+import { productPurchaseQuantity, productWeightLabel } from "@/lib/component-measurements";
 import { createProductCatalogue, resolveBuildSelection } from "@/lib/catalogue-service";
 import {
   resolveCompatibilityEvidence,
   type CatalogueEvidenceSnapshot,
 } from "@/lib/catalogue-evidence";
+import { getConfiguratorCatalogue, getConfiguratorComponents } from "@/lib/configurator-catalogue.server-fn";
 import { DroneViewer } from "@/components/DroneViewer";
+import { ComponentProductFilters } from "@/components/ComponentProductFilters";
+import { emptyComponentFilters, filterComponentProducts, loadAllComponentOptions, mergeComponentEvidence } from "@/lib/component-product-filters";
 
 const icons: Record<Category, LucideIcon> = {
   frame: PanelsTopLeft,
@@ -118,9 +123,20 @@ export function BuildInterface({
   catalogueMessage,
   preferences,
 }: Props) {
+  const [productSearch, setProductSearch] = useState("");
+  const [visibleCount, setVisibleCount] = useState(50);
+  const [filters,setFilters] = useState(emptyComponentFilters);
+  const [filtersOpen,setFiltersOpen] = useState(false);
+  const dialogRef = useRef<HTMLElement>(null);
+  const [options, setOptions] = useState<Product[]>([]);
+  const [loadedProducts,setLoadedProducts] = useState<Product[]>([...products]);
+  const [loadedEvidence,setLoadedEvidence] = useState(evidenceSnapshot);
+  const [optionsLoading,setOptionsLoading] = useState(false);
+  const [optionsError,setOptionsError] = useState(false);
+  const [retry,setRetry] = useState(0);
+  const [checkingSelection,setCheckingSelection] = useState(false);
   const [selection, setSelection] = useState<BuildSelection>(initial),
     [editing, setEditing] = useState<Category | null>(null),
-    [filter, setFilter] = useState(false),
     [grid, setGrid] = useState(false),
     [saved, setSaved] = useState(false);
   const [expanded, setExpanded] = useState<Record<ConfiguratorSection, boolean>>({
@@ -128,9 +144,9 @@ export function BuildInterface({
     optional: true,
     pilotGear: true,
   });
-  const catalogue = useMemo(() => createProductCatalogue(products), [products]),
-    selectedProducts = resolveBuildSelection(selection, catalogue),
-    compatibilityEvidence = resolveCompatibilityEvidence(selectedProducts, evidenceSnapshot),
+  const catalogue = useMemo(() => createProductCatalogue(loadedProducts), [loadedProducts]),
+    selectedProducts = useMemo(() => resolveBuildSelection(selection, catalogue), [selection, catalogue]),
+    compatibilityEvidence = resolveCompatibilityEvidence(selectedProducts, loadedEvidence),
     stats = evaluate(
       selectedProducts,
       compatibilityEvidence.verification,
@@ -150,6 +166,44 @@ export function BuildInterface({
       (category) => stats.selected[category]?.stockStatus === "out_of_stock",
     ),
     anyOutOfStock = droneOutOfStock || pilotOutOfStock;
+  useEffect(()=>{
+    if(!editing) return;
+    let active=true;
+    setOptionsLoading(true);setOptionsError(false);setOptions([]);
+    void loadAllComponentOptions(page=>getConfiguratorComponents({data:{category:editing,page,selectedIds:Object.values(selection)}}),()=>active)
+      .then(result=>{
+        if(!active||!result) return;
+        setOptions(result.products);
+        setLoadedProducts(previous=>[...new Map([...previous,...result.products].map(p=>[p.id,p])).values()]);
+        setLoadedEvidence(previous=>mergeComponentEvidence(previous,result.evidence));
+      }).catch(()=>{if(active)setOptionsError(true);})
+      .finally(()=>{if(active)setOptionsLoading(false);});
+    return ()=>{active=false;};
+  },[editing,selection,retry]);
+  useEffect(()=>{
+    if(!editing) return;
+    const previous=document.activeElement as HTMLElement|null;
+    const overflow=document.body.style.overflow;
+    document.body.style.overflow='hidden';
+    dialogRef.current?.querySelector<HTMLInputElement>('input')?.focus();
+    const onKeyDown=(event:KeyboardEvent)=>{
+      if(event.key==='Escape'){event.preventDefault();setEditing(null);}
+      if(event.key!=='Tab') return;
+      const controls=[...(dialogRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled),input:not(:disabled),select:not(:disabled),summary,[tabindex="0"]')??[])].filter(el=>el.getClientRects().length>0);
+      const first=controls[0],last=controls.at(-1);
+      if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus();}
+      else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus();}
+    };
+    document.addEventListener('keydown',onKeyDown);
+    return ()=>{document.removeEventListener('keydown',onKeyDown);document.body.style.overflow=overflow;previous?.focus();};
+  },[editing]);
+  const optionChecks=useMemo(()=>new Map(options.map(product=>{
+    const candidateSelection={...selectedProducts,[product.category]:product};
+    const evidence=resolveCompatibilityEvidence(candidateSelection,loadedEvidence);
+    return [product.id,candidateCheck(selectedProducts,product.category,product,evidence.verification,evidence.technicalEvidence)];
+  })),[options,selectedProducts,loadedEvidence]);
+  const filteredOptions=editing?filterComponentProducts(options,editing,productSearch,filters,product=>optionChecks.get(product.id)?.status==='incompatible'):[];
+  const resetFilters=()=>{setFilters(emptyComponentFilters());setProductSearch('');setVisibleCount(50);};
   const save = () => {
     const data = { source, name, selection, ...(preferences ? { preferences } : {}) },
       blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }),
@@ -246,23 +300,23 @@ export function BuildInterface({
           />
           <Stat
             icon={Weight}
-            label="Drone Weight (est.)"
+            label={Object.values(stats.selected).some(p => p?.weightBasis) ? "Component mass (extras excluded)" : "Drone Weight (est.)"}
             value={stats.weight === null ? "—" : `~ ${stats.weight} g`}
           />
           <Stat
             icon={null}
             label="Drone Subtotal"
-            value={droneOutOfStock ? "Out of Stock" : money(stats.dronePrice)}
+            value={money(stats.dronePrice)}
           />
           <Stat
             icon={null}
             label="Pilot Gear"
-            value={pilotOutOfStock ? "Out of Stock" : money(stats.pilotGearPrice)}
+            value={money(stats.pilotGearPrice)}
           />
           <Stat
             icon={null}
-            label="Overall Total"
-            value={anyOutOfStock ? "Out of Stock" : money(stats.totalPrice)}
+            label="Total of last recorded prices"
+            value={money(stats.totalPrice)}
           />
         </section>
         <div className="mt-3 flex items-center gap-2 rounded-md border border-border bg-muted/20 p-3 text-xs font-medium">
@@ -376,7 +430,7 @@ export function BuildInterface({
                             : stats.selected,
                           candidateEvidence = resolveCompatibilityEvidence(
                             candidateSelection,
-                            evidenceSnapshot,
+                            loadedEvidence,
                           ),
                           check = item
                             ? candidateCheck(
@@ -456,9 +510,9 @@ export function BuildInterface({
                             <Button
                               variant="outline"
                               className={`min-h-11 border-primary/30 text-primary ${grid ? "w-full" : "col-start-2 row-start-1 w-[132px] max-w-full whitespace-normal px-2 text-center text-[11px] leading-tight sm:col-auto sm:row-auto sm:text-xs"}`}
+                              aria-label={`${item ? "Change" : "Select"} ${categoryNames[category]}`}
                               onClick={() => {
-                                setEditing(category);
-                                setFilter(false);
+                                setProductSearch("");setVisibleCount(50);setOptions([]);setFilters(emptyComponentFilters());setFiltersOpen(false);setEditing(category);
                               }}
                             >
                               {item
@@ -505,18 +559,34 @@ export function BuildInterface({
           }}
         >
           <section
+            ref={dialogRef}
             role="dialog"
             aria-modal="true"
             aria-label={`Select ${categoryNames[editing]}`}
-            className="max-h-[85vh] w-full max-w-xl overflow-y-auto rounded-t-lg bg-card p-4 shadow-xl sm:rounded-lg sm:p-6"
+            className="max-h-[90dvh] w-full max-w-2xl overflow-y-auto overscroll-contain rounded-t-xl bg-card p-4 shadow-xl sm:rounded-xl sm:p-6"
           >
-            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
+            <div className="sticky top-0 z-10 -mx-4 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-border bg-card px-4 py-3 sm:-mx-6 sm:px-6">
               <div>
                 <h2 className="font-display text-xl font-bold">{categoryNames[editing]}</h2>
                 <p className="text-sm text-muted-foreground">
                   Choose a verified catalogue item. Missing evidence stays unknown.
                 </p>
               </div>
+              <div className="flex items-center gap-1">
+                <Button
+                  type="button"
+                  variant={filtersOpen ? "default" : "outline"}
+                  className="min-h-11 gap-2 px-3"
+                  aria-label="Product filters"
+                  aria-expanded={filtersOpen}
+                  aria-controls="component-product-filter-menu"
+                  onClick={()=>{
+                    setFiltersOpen(!filtersOpen);
+                    if(!filtersOpen) requestAnimationFrame(()=>document.getElementById('component-product-filter-menu')?.scrollIntoView({block:'start',behavior:'smooth'}));
+                  }}
+                >
+                  <SlidersHorizontal className="size-4" aria-hidden="true"/>Filter
+                </Button>
               <Button
                 variant="ghost"
                 size="icon"
@@ -526,47 +596,36 @@ export function BuildInterface({
               >
                 <X />
               </Button>
+              </div>
             </div>
-            <label className="mt-4 flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={filter}
-                onChange={(event) => setFilter(event.target.checked)}
-                className="size-5 accent-primary"
-              />{" "}
-              Hide confirmed incompatible options
-            </label>
+            <input aria-label="Search components" className="mt-4 min-h-11 w-full rounded-md border border-input bg-background px-3 text-sm" placeholder="Search name, brand or SKU" value={productSearch} onChange={e => { setProductSearch(e.target.value); setVisibleCount(50); }} />
+            <div id="component-product-filter-menu" hidden={!filtersOpen} className="scroll-mt-28">
+              <ComponentProductFilters category={editing} products={options} value={filters} disabled={optionsLoading||optionsError} onChange={next=>{setFilters(next);setVisibleCount(50);}} onReset={resetFilters}/>
+            </div>
+            {optionsLoading&&<p role="status" className="py-3 text-sm text-muted-foreground">Loading all verified components and filters…</p>}
+            {optionsError&&<p role="alert" className="py-3 text-sm text-destructive">Components could not be loaded. <button className="min-h-11 underline" onClick={()=>setRetry(n=>n+1)}>Retry</button></p>}
+            {!optionsLoading&&!optionsError&&<p role="status" className="py-3 text-sm text-muted-foreground">{filteredOptions.length} matching products · {options.length} in this category</p>}
+            <p className="text-xs text-muted-foreground">This sum uses last recorded prices. Out-of-stock or unconfirmed parts may not be currently purchasable.</p>
             <div className="mt-3 space-y-2">
-              {catalogue.getProductsByCategory(editing).length === 0 && (
+              {!optionsLoading && !optionsError && filteredOptions.length === 0 && (
                 <div className="rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">
-                  No verified catalogue products are available for this category yet. Nothing is
-                  selected automatically.
+                  {options.length===0?'No verified catalogue products are available for this category yet.':'No products match these filters.'}
+                  {options.length>0&&<button className="ml-2 min-h-11 font-medium text-primary underline" onClick={resetFilters}>Reset filters</button>}
                 </div>
               )}
-              {catalogue.getProductsByCategory(editing).map((product) => {
-                const candidateSelection = { ...stats.selected, [editing]: product },
-                  candidateEvidence = resolveCompatibilityEvidence(
-                    candidateSelection,
-                    evidenceSnapshot,
-                  ),
-                  check = candidateCheck(
-                    stats.selected,
-                    editing,
-                    product,
-                    candidateEvidence.verification,
-                    candidateEvidence.technicalEvidence,
-                  );
-                if (filter && check.status === "incompatible") return null;
+              {filteredOptions.slice(0,visibleCount).map((product) => {
+                const check = optionChecks.get(product.id)!;
                 return (
                   <div key={product.id} className="rounded-md border border-border p-3">
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <h3 className="font-semibold">{product.name}</h3>
                         <p className="text-xs text-muted-foreground">
-                          {product.spec} · {product.weight} g
+                          {product.spec} · {productWeightLabel(product)}
                         </p>
                       </div>
                       <strong className="shrink-0 text-sm">{productPriceLabel(product)}</strong>
+                      <span className="text-xs text-muted-foreground">{product.stockStatus === "unknown" ? "Stock not currently confirmed" : product.stockStatus?.replaceAll("_", " ") ?? "Stock not currently confirmed"}{product.offer ? ` · ${product.offer.merchantName} · ${product.offer.checkedAt} · ${product.offer.freshness === "current" ? "checked price" : "last recorded price"}` : " · price availability unconfirmed"}{product.weightBasis ? ` · ${productPurchaseQuantity(product)} sales pack(s) for this quad build` : ""}</span>
                     </div>
                     <p
                       className={`mt-2 text-xs ${check.status === "incompatible" ? "text-destructive" : check.status === "verified-compatible" ? "text-emerald-600" : "text-muted-foreground"}`}
@@ -581,18 +640,26 @@ export function BuildInterface({
                     <Button
                       className="mt-2 min-h-11 w-full sm:w-auto"
                       variant={check.status === "incompatible" ? "outline" : "default"}
+                      disabled={checkingSelection}
                       onClick={() => {
-                        setSelection((current) => ({ ...current, [editing]: product.id }));
-                        setEditing(null);
-                        setSaved(false);
+                        const next={...selection,[editing]:product.id};
+                        const ids=Object.values(next);
+                        setCheckingSelection(true);
+                        void getConfiguratorCatalogue({data:{ids}}).then(result=>{
+                          if(result.status!=="ready"||ids.some(id=>!result.products.some(p=>p.id===id))) throw new Error("Selection is no longer available");
+                          setLoadedProducts(previous=>[...previous.filter(p=>!ids.includes(p.id)),...result.products]);
+                          setLoadedEvidence(result.evidence);
+                          setSelection(next);setEditing(null);setSaved(false);
+                        }).catch(()=>setOptionsError(true)).finally(()=>setCheckingSelection(false));
                       }}
                     >
-                      {selection[editing] === product.id ? "Keep selected" : "Select component"}
+                      {checkingSelection ? "Checking selection…" : selection[editing] === product.id ? "Keep selected" : "Select component"}
                     </Button>
                   </div>
                 );
               })}
             </div>
+            {filteredOptions.length>visibleCount&&<Button variant="outline" className="mt-4 min-h-11 w-full" onClick={()=>setVisibleCount(n=>n+50)}>Show more components ({filteredOptions.length-visibleCount} remaining)</Button>}
             <Button
               variant="ghost"
               className="mt-3 min-h-11"

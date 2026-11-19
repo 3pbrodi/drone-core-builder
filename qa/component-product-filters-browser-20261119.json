@@ -1,0 +1,21 @@
+{
+  "passed": true,
+  "filterAssertionsPassedInInitialRun": true,
+  "initialHarnessIssue": "Immediate dialog count raced the asynchronous selection response; continuation waits for dialog hidden. Application unchanged.",
+  "localOnly": true,
+  "fullCategoryPagination": true,
+  "priceRange": true,
+  "brandFromLaterPage": true,
+  "combinedFilters": true,
+  "bladeCountAndUnknown": true,
+  "confirmedConflictHiddenUnknownKept": true,
+  "threeDNoFalseMatches": true,
+  "search": true,
+  "showMore": true,
+  "resetOnCategoryOpen": true,
+  "selectionAndExistingFramePreserved": true,
+  "emptyCategory": true,
+  "mobileNoHorizontalOverflow": true,
+  "keyboardEscapeAndFocusContainment": true,
+  "productionWrites": false
+}

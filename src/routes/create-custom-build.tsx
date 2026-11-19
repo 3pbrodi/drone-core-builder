@@ -1,3 +1,4 @@
+import type { ServerCatalogueSnapshot } from "@/lib/catalogue-database.server";
 import { createFileRoute } from "@tanstack/react-router";
 import { BuildInterface } from "@/components/BuildInterface";
 import { aiPreset, presets, type BuildSelection, type Priority } from "@/lib/build-data";
@@ -5,6 +6,7 @@ import { createProductCatalogue, rebaseBuildSelectionToCatalogue } from "@/lib/c
 import { getConfiguratorCatalogue } from "@/lib/configurator-catalogue.server-fn";
 
 type BuildSearch = {
+  product?: string;
   source?: "ai" | "template";
   template?: keyof typeof presets;
   budget?: number;
@@ -51,6 +53,7 @@ export const Route = createFileRoute("/create-custom-build")({
         : undefined;
 
     return {
+      ...(typeof search["product"] === "string" && search["product"].length <= 200 ? { product: search["product"] } : {}),
       ...(source ? { source } : {}),
       ...(template ? { template } : {}),
       ...(budget !== undefined ? { budget } : {}),
@@ -60,7 +63,13 @@ export const Route = createFileRoute("/create-custom-build")({
       ...(wishes ? { wishes } : {}),
     };
   },
-  loader: async () => getConfiguratorCatalogue(),
+  loaderDeps: ({search}) => search,
+  loader: async ({deps}) => {
+    let selection:BuildSelection={};
+    if(deps.source==="template" && deps.template) { const preset=presets[deps.template]; if(preset) selection=preset.selection; }
+    else if(deps.source==="ai") selection=aiPreset((deps.priorities??"").split(",").filter(Boolean) as Priority[],deps.budget??1000,deps.style??null).selection;
+    return getConfiguratorCatalogue({data:{ids:[...new Set([...Object.values(selection),...(deps.product?[deps.product]:[])])]}});
+  },
   head: () => ({
     meta: [
       { title: "Custom Build — DroneCores" },
@@ -84,7 +93,7 @@ export const Route = createFileRoute("/create-custom-build")({
 
 function CreateCustomBuildPage() {
   const search = Route.useSearch();
-  const catalogueSnapshot = Route.useLoaderData();
+  const catalogueSnapshot = Route.useLoaderData() as ServerCatalogueSnapshot;
   const runtimeCatalogue = createProductCatalogue(catalogueSnapshot.products);
 
   let source: "Custom" | "AI Build" | "Template" = "Custom";
@@ -111,6 +120,9 @@ function CreateCustomBuildPage() {
     name = generated.name;
     initial = rebaseBuildSelectionToCatalogue(generated.selection, runtimeCatalogue);
   }
+
+  const requestedProduct = catalogueSnapshot.products.find(p => p.id === search.product);
+  if (requestedProduct) initial[requestedProduct.category] = requestedProduct.id;
 
   const preferences =
     source === "AI Build"

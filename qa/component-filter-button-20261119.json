@@ -1,0 +1,10 @@
+{
+  "passed": true,
+  "desktopAndMobile": true,
+  "stickyTopRightButton": true,
+  "opensAllFilters": true,
+  "closesWithoutReset": true,
+  "combinedFiltersApply": true,
+  "keyboardEnterAndEscape": true,
+  "localOnly": true
+}

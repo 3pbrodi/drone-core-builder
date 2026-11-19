@@ -12,3 +12,7 @@
 - Keep demo product specifications, build presets, compatibility rules, and estimates in separate shared modules; all three build origins must use the same evaluator so changing a part never bypasses checks.
 - Carry template and AI seed selections to the existing custom-build route through validated URL search parameters; this avoids a backend and preserves direct-link navigation.
 - Use a client-mounted procedural React Three Fiber viewer until licensed modular drone assets are available; never depict an unselected Custom Build as a finished drone.
+
+## Website development branch
+
+The user explicitly selected `feature/shared-drone-configurator` for all future website and configurator work on2026-11-19. Use this branch. Preserve unrelated user changes and never force-push or merge into main. A branch update is not authorization to deploy the public website, modify production Supabase, or replay product imports. Keep the existing viewer architecture and neutral image fallback; reference photographs are not3D product previews. See docs/PROJECT_STATUS.md for current UI behavior and verification.

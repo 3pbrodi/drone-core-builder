@@ -7,6 +7,7 @@ import {
   type ConfiguratorSection,
 } from "./component-categories";
 import type { Product } from "./build-data";
+import { productPurchaseQuantity } from "./component-measurements";
 
 export type SelectedProductMap = Partial<Record<Category, Product>>;
 
@@ -68,8 +69,9 @@ export function selectionPriceSummary(selected: SelectedProductMap) {
     pilotGear = 0;
   for (const product of Object.values(selected)) {
     if (!product) continue;
-    if (categoryMetadata[product.category].installationRole === "pilot") pilotGear += product.price;
-    else drone += product.price;
+    const price = product.price * productPurchaseQuantity(product);
+    if (categoryMetadata[product.category].installationRole === "pilot") pilotGear += price;
+    else drone += price;
   }
   return { drone, pilotGear, overall: drone + pilotGear };
 }

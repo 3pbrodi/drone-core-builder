@@ -1,4 +1,5 @@
 import "@tanstack/react-start/server-only";
+import { assertCatalogueEndpoint } from "./catalogue-endpoint";
 
 export type SupabaseRestConfig = {
   url: string;
@@ -18,6 +19,7 @@ export function getSupabaseRestConfig(): SupabaseRestConfig | null {
     );
   }
 
+  assertCatalogueEndpoint(url, process.env);
   return {
     url: url.replace(/\/$/, ""),
     secretKey,
