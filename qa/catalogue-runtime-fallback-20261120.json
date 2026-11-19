@@ -1,0 +1,15 @@
+{
+  "passed": true,
+  "actualPublishedMotorData": 15,
+  "publicApiCORSPreviouslyConfirmed": true,
+  "differentAuthProject": true,
+  "blockedPreviewRpcRequests": 3,
+  "directPublicFallbackRequests": 3,
+  "all15Loaded": true,
+  "skuSearch": true,
+  "selectedIdReconfirmed": true,
+  "mobileReopen": true,
+  "externalRequestsBlocked": true,
+  "allUiTestRequestsLoopback": true,
+  "productionWrites": 0
+}

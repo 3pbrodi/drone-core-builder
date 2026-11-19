@@ -1,3 +1,9 @@
+## Komponenten-Ladeweg mit öffentlichem Rückfall abgesichert —2026-11-20
+
+Der vorherige reine VITE-Konfigurationsfix war unvollständig. Katalogquelle ist jetzt unabhängig vom Auth-Projekt festgelegt; scheiternde Vorschau-Serveranfragen werden für Kategorieabfragen und ausgewählte IDs durch denselben geprüften öffentlichen Lese-Endpunkt ersetzt. Keine privilegierten Schlüssel nötig, keine Demo-Daten, gleiche Veröffentlichungs-/Evidenzregeln und lokale Testisolation. Erfolgreiches Nachladen räumt einen alten Fehlerhinweis auf.
+
+Öffentliche API tatsächlich gelesen:15Motoren/121Feldbelege,HTTP200/CORS*. Sieben gezielte Fälle, finale Typprüfung und Build bestanden. Zwei lokale Browser-Fehlerszenarien mit realem gespiegelten Datenbestand bestanden: geblockte RPCs und503-Server-Endpunkt; alle15 laden, Auswahl bestätigt, mobiles Wiederöffnen funktioniert. Kein Testzugriff der lokalen Website auf Produktion. Die geschützte angemeldete Lovable-Sitzung selbst ist von hier nicht direkt prüfbar. [Nachweise, Grenzen und Wiederholung](release/CATALOGUE_LOADING_RECOVERY_20261120.md). QA: `qa/catalogue-runtime-fallback-20261120.json`, `qa/catalogue-initial-server-failure-20261120.json`. Keine Datenbank-/Deploymentoperation.
+
 ## Komponenten-Ladefehler in der Vorschau behoben —2026-11-19
 
 Ursache reproduziert: die vorhandene öffentliche `VITE_SUPABASE_URL` wurde im neuen serverseitigen Katalogzugriff nicht berücksichtigt; eine Lovable-Entwicklungsvorschau ohne separate Server-URL/Secret-Konfiguration konnte deshalb keine Komponenten laden. `catalogue-endpoint.ts` erkennt jetzt diese Projekt-URL, `catalogue-query.server.ts` reicht die Vite-Konfiguration weiter. Explizite Runtime-/Server-Konfiguration behält Vorrang; lokale Tests bleiben auf Loopback beschränkt. Keine Secrets nötig, keine Produktionsänderung.

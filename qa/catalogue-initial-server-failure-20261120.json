@@ -1,0 +1,10 @@
+{
+  "passed": true,
+  "initialServerCatalogueUnavailable": true,
+  "directPublicRecovery": true,
+  "staleErrorBannerCleared": true,
+  "all15MotorsLoaded": true,
+  "selectedIdReconfirmed": true,
+  "mobileReopen": true,
+  "allUiRequestsLocal": true
+}

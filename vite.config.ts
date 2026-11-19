@@ -7,6 +7,11 @@
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 
 export default defineConfig({
+  vite: {
+    define: {
+      "import.meta.env.VITE_CATALOGUE_LOCAL_ONLY": JSON.stringify(process.env["CATALOGUE_LOCAL_ONLY"] === "true" || process.env["NODE_ENV"] === "test" ? "true" : "false"),
+    },
+  },
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this

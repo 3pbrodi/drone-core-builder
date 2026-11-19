@@ -1,19 +1,18 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {catalogueRuntimeEndpoint} from '../src/lib/catalogue-endpoint';
-const project='https://rtwreynffguvqdcogahx.supabase.co';
-test('Lovable development preview resolves the public Vite URL without server credentials',()=>{
- assert.equal(catalogueRuntimeEndpoint({NODE_ENV:'development',VITE_SUPABASE_URL:project+'/'}),project+'/functions/v1/catalogue-runtime');
- assert.equal(catalogueRuntimeEndpoint({NODE_ENV:'production',VITE_SUPABASE_URL:project}),project+'/functions/v1/catalogue-runtime');
+import {catalogueRuntimeEndpoint,publicCatalogueRuntime} from '../src/lib/catalogue-endpoint';
+test('public product catalogue is independent of missing or unrelated auth configuration',()=>{
+ for(const env of [{NODE_ENV:'development'},{NODE_ENV:'production'},{NODE_ENV:'development',VITE_SUPABASE_URL:'https://unrelated-auth.supabase.co'},{SUPABASE_URL:'https://unrelated-auth.supabase.co'}])assert.equal(catalogueRuntimeEndpoint(env),publicCatalogueRuntime);
 });
-test('explicit runtime and server project settings retain precedence',()=>{
- assert.equal(catalogueRuntimeEndpoint({NODE_ENV:'development',CATALOGUE_RUNTIME_URL:'http://127.0.0.1:4289/query',VITE_SUPABASE_URL:project}),'http://127.0.0.1:4289/query');
- assert.equal(catalogueRuntimeEndpoint({NODE_ENV:'development',SUPABASE_URL:'https://explicit.supabase.co',VITE_SUPABASE_URL:project}),'https://explicit.supabase.co/functions/v1/catalogue-runtime');
+test('dedicated catalogue configuration retains precedence',()=>{
+ assert.equal(catalogueRuntimeEndpoint({CATALOGUE_RUNTIME_URL:'https://catalogue.example/query',VITE_SUPABASE_URL:'https://auth.example'}),'https://catalogue.example/query');
+ assert.equal(catalogueRuntimeEndpoint({VITE_CATALOGUE_RUNTIME_URL:'https://catalogue.example/query'}),'https://catalogue.example/query');
 });
-test('Vite configuration cannot bypass local-only or test isolation',()=>{
+test('public defaults and Vite variables cannot bypass local-only or test isolation',()=>{
  for(const mode of [{NODE_ENV:'test'},{NODE_ENV:'development',CATALOGUE_LOCAL_ONLY:'true'}]){
-  assert.throws(()=>catalogueRuntimeEndpoint({...mode,VITE_SUPABASE_URL:project}));
+  assert.throws(()=>catalogueRuntimeEndpoint(mode));
+  assert.throws(()=>catalogueRuntimeEndpoint({...mode,VITE_SUPABASE_URL:'https://auth.supabase.co'}));
+  assert.throws(()=>catalogueRuntimeEndpoint({...mode,VITE_CATALOGUE_RUNTIME_URL:publicCatalogueRuntime}));
   assert.equal(catalogueRuntimeEndpoint({...mode,VITE_SUPABASE_URL:'http://127.0.0.1:4289'}),'http://127.0.0.1:4289/functions/v1/catalogue-runtime');
  }
- assert.throws(()=>catalogueRuntimeEndpoint({NODE_ENV:'development'}));
 });

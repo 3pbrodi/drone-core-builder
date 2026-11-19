@@ -16,3 +16,7 @@
 ## Website development branch
 
 The user explicitly selected `feature/shared-drone-configurator` for all future website and configurator work on2026-11-19. Use this branch. Preserve unrelated user changes and never force-push or merge into main. A branch update is not authorization to deploy the public website, modify production Supabase, or replay product imports. Keep the existing viewer architecture and neutral image fallback; reference photographs are not3D product previews. See docs/PROJECT_STATUS.md for current UI behavior and verification.
+
+## Catalogue preview recovery —2026-11-20
+
+The catalogue is the established DroneCores public runtime, independent of the Supabase project used for authentication. Override it only via dedicated CATALOGUE_RUNTIME_URL/VITE_CATALOGUE_RUNTIME_URL. Browser component pages and selected-ID confirmation retain the existing server path, with a read-only public fallback when that path fails. Local/test runs must remain isolated: CATALOGUE_LOCAL_ONLY/NODE_ENV=test are enforced on the server and forwarded to the client by Vite; loopback browser hosts also require a loopback endpoint. No credentials are sent by the browser fallback. See docs/PROJECT_STATUS.md for fault-injection receipts and actual verification limits.

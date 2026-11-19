@@ -57,6 +57,7 @@ import {
 import { getConfiguratorCatalogue, getConfiguratorComponents } from "@/lib/configurator-catalogue.server-fn";
 import { DroneViewer } from "@/components/DroneViewer";
 import { ComponentProductFilters } from "@/components/ComponentProductFilters";
+import { PublicCatalogueReadError, readCatalogueWithPublicFallback } from "@/lib/catalogue-public-query";
 import { emptyComponentFilters, filterComponentProducts, loadAllComponentOptions, mergeComponentEvidence } from "@/lib/component-product-filters";
 
 const icons: Record<Category, LucideIcon> = {
@@ -124,6 +125,7 @@ export function BuildInterface({
   preferences,
 }: Props) {
   const [productSearch, setProductSearch] = useState("");
+  const [catalogueAccessible,setCatalogueAccessible] = useState(catalogueReady);
   const [visibleCount, setVisibleCount] = useState(50);
   const [filters,setFilters] = useState(emptyComponentFilters);
   const [filtersOpen,setFiltersOpen] = useState(false);
@@ -133,6 +135,7 @@ export function BuildInterface({
   const [loadedEvidence,setLoadedEvidence] = useState(evidenceSnapshot);
   const [optionsLoading,setOptionsLoading] = useState(false);
   const [optionsError,setOptionsError] = useState(false);
+  const [optionsErrorMessage,setOptionsErrorMessage] = useState("");
   const [retry,setRetry] = useState(0);
   const [checkingSelection,setCheckingSelection] = useState(false);
   const [selection, setSelection] = useState<BuildSelection>(initial),
@@ -169,14 +172,18 @@ export function BuildInterface({
   useEffect(()=>{
     if(!editing) return;
     let active=true;
-    setOptionsLoading(true);setOptionsError(false);setOptions([]);
-    void loadAllComponentOptions(page=>getConfiguratorComponents({data:{category:editing,page,selectedIds:Object.values(selection)}}),()=>active)
+    setOptionsLoading(true);setOptionsError(false);setOptionsErrorMessage("");setOptions([]);
+    void loadAllComponentOptions(page=>{
+      const data={category:editing,page,selectedIds:Object.values(selection),withEvidence:true,withManufacturers:false};
+      return readCatalogueWithPublicFallback(()=>getConfiguratorComponents({data}),data);
+    },()=>active)
       .then(result=>{
         if(!active||!result) return;
         setOptions(result.products);
+        setCatalogueAccessible(true);
         setLoadedProducts(previous=>[...new Map([...previous,...result.products].map(p=>[p.id,p])).values()]);
         setLoadedEvidence(previous=>mergeComponentEvidence(previous,result.evidence));
-      }).catch(()=>{if(active)setOptionsError(true);})
+      }).catch(error=>{if(active){setOptionsError(true);setOptionsErrorMessage(error instanceof PublicCatalogueReadError?error.message:"Components could not be loaded.");}})
       .finally(()=>{if(active)setOptionsLoading(false);});
     return ()=>{active=false;};
   },[editing,selection,retry]);
@@ -267,7 +274,7 @@ export function BuildInterface({
             </span>
           )}
         </div>
-        {!catalogueReady && (
+        {!catalogueAccessible && (
           <div className="mb-3 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-foreground">
             <strong>Verified catalogue unavailable</strong>
             <p className="mt-1 text-muted-foreground">
@@ -603,7 +610,7 @@ export function BuildInterface({
               <ComponentProductFilters category={editing} products={options} value={filters} disabled={optionsLoading||optionsError} onChange={next=>{setFilters(next);setVisibleCount(50);}} onReset={resetFilters}/>
             </div>
             {optionsLoading&&<p role="status" className="py-3 text-sm text-muted-foreground">Loading all verified components and filters…</p>}
-            {optionsError&&<p role="alert" className="py-3 text-sm text-destructive">Components could not be loaded. <button className="min-h-11 underline" onClick={()=>setRetry(n=>n+1)}>Retry</button></p>}
+            {optionsError&&<p role="alert" className="py-3 text-sm text-destructive">{optionsErrorMessage||"Components could not be loaded."} <button className="min-h-11 underline" onClick={()=>setRetry(n=>n+1)}>Retry</button></p>}
             {!optionsLoading&&!optionsError&&<p role="status" className="py-3 text-sm text-muted-foreground">{filteredOptions.length} matching products · {options.length} in this category</p>}
             <p className="text-xs text-muted-foreground">This sum uses last recorded prices. Out-of-stock or unconfirmed parts may not be currently purchasable.</p>
             <div className="mt-3 space-y-2">
@@ -645,12 +652,12 @@ export function BuildInterface({
                         const next={...selection,[editing]:product.id};
                         const ids=Object.values(next);
                         setCheckingSelection(true);
-                        void getConfiguratorCatalogue({data:{ids}}).then(result=>{
+                        void readCatalogueWithPublicFallback(()=>getConfiguratorCatalogue({data:{ids}}),{mode:"ids",ids,withEvidence:true}).then(result=>{
                           if(result.status!=="ready"||ids.some(id=>!result.products.some(p=>p.id===id))) throw new Error("Selection is no longer available");
                           setLoadedProducts(previous=>[...previous.filter(p=>!ids.includes(p.id)),...result.products]);
                           setLoadedEvidence(result.evidence);
                           setSelection(next);setEditing(null);setSaved(false);
-                        }).catch(()=>setOptionsError(true)).finally(()=>setCheckingSelection(false));
+                        }).catch(error=>{setOptionsError(true);setOptionsErrorMessage(error instanceof PublicCatalogueReadError?error.message:"The selection could not be confirmed. Please retry.");}).finally(()=>setCheckingSelection(false));
                       }}
                     >
                       {checkingSelection ? "Checking selection…" : selection[editing] === product.id ? "Keep selected" : "Select component"}
