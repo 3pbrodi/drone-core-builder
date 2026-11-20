@@ -1,0 +1,30 @@
+{
+  "passed": true,
+  "results": [
+    {
+      "width": 390,
+      "fourAnswersApplied": true,
+      "packBudget": true,
+      "compatibleFixture": true,
+      "manualSelection": true,
+      "skipClearsWishes": true,
+      "rangeGps": true,
+      "conflictBlocked": true,
+      "noOverflow": true
+    },
+    {
+      "width": 1280,
+      "fourAnswersApplied": true,
+      "packBudget": true,
+      "compatibleFixture": true,
+      "manualSelection": true,
+      "skipClearsWishes": true,
+      "rangeGps": true,
+      "conflictBlocked": true,
+      "noOverflow": true
+    }
+  ],
+  "localOnly": true,
+  "syntheticProducts": true,
+  "productionWrites": false
+}

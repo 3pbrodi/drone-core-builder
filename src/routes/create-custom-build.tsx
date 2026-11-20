@@ -1,8 +1,9 @@
 import type { ServerCatalogueSnapshot } from "@/lib/catalogue-database.server";
 import { createFileRoute } from "@tanstack/react-router";
 import { BuildInterface } from "@/components/BuildInterface";
-import { aiPreset, presets, type BuildSelection, type Priority } from "@/lib/build-data";
+import { presets, type BuildSelection, type Priority } from "@/lib/build-data";
 import { createProductCatalogue, rebaseBuildSelectionToCatalogue } from "@/lib/catalogue-service";
+import { AiGeneratedBuild } from "@/components/AiGeneratedBuild";
 import { getConfiguratorCatalogue } from "@/lib/configurator-catalogue.server-fn";
 
 type BuildSearch = {
@@ -67,7 +68,6 @@ export const Route = createFileRoute("/create-custom-build")({
   loader: async ({deps}) => {
     let selection:BuildSelection={};
     if(deps.source==="template" && deps.template) { const preset=presets[deps.template]; if(preset) selection=preset.selection; }
-    else if(deps.source==="ai") selection=aiPreset((deps.priorities??"").split(",").filter(Boolean) as Priority[],deps.budget??1000,deps.style??null).selection;
     return getConfiguratorCatalogue({data:{ids:[...new Set([...Object.values(selection),...(deps.product?[deps.product]:[])])]}});
   },
   head: () => ({
@@ -94,6 +94,7 @@ export const Route = createFileRoute("/create-custom-build")({
 function CreateCustomBuildPage() {
   const search = Route.useSearch();
   const catalogueSnapshot = Route.useLoaderData() as ServerCatalogueSnapshot;
+  if(search.source==='ai') return <AiGeneratedBuild key={JSON.stringify(search)} answers={{budget:search.budget??1000,priorities:(search.priorities??'').split(',').filter(Boolean) as Priority[],...(search.color?{color:search.color}:{}),...(search.wishes?{wishes:search.wishes}:{}),...(search.style?{style:search.style}:{})}}/>;
   const runtimeCatalogue = createProductCatalogue(catalogueSnapshot.products);
 
   let source: "Custom" | "AI Build" | "Template" = "Custom";
@@ -107,33 +108,12 @@ function CreateCustomBuildPage() {
       name = preset.name;
       initial = rebaseBuildSelectionToCatalogue(preset.selection, runtimeCatalogue);
     }
-  } else if (search["source"] === "ai") {
-    const selectedPriorities = (search["priorities"] ?? "")
-      .split(",")
-      .filter(Boolean) as Priority[];
-    const generated = aiPreset(
-      selectedPriorities,
-      search["budget"] ?? 1000,
-      search["style"] ?? null,
-    );
-    source = "AI Build";
-    name = generated.name;
-    initial = rebaseBuildSelectionToCatalogue(generated.selection, runtimeCatalogue);
   }
 
   const requestedProduct = catalogueSnapshot.products.find(p => p.id === search.product);
   if (requestedProduct) initial[requestedProduct.category] = requestedProduct.id;
 
-  const preferences =
-    source === "AI Build"
-      ? {
-          budget: search["budget"] ?? 1000,
-          style: search["style"] ?? null,
-          priorities: search["priorities"] ?? "",
-          color: search["color"] ?? null,
-          wishes: search["wishes"] ?? "",
-        }
-      : undefined;
+  const preferences = undefined;
 
   const identity =
     source +

@@ -1,3 +1,9 @@
+## KI-Build aus dem geprüften Katalog —2026-11-20
+
+Die vier Antworten steuern jetzt eine begrenzte, deterministische Katalogsuche statt des alten Demo-Presets: Gesamtbudget einschließlich Packungszahlen, Einsatzzweck, belegbare Farbpräferenz und unterstützte Freitextanforderungen. Bekannte Konflikte werden ausgeschlossen, fehlende Nachweise bleiben offen. Vor Übernahme werden exakte Varianten, Preise und Evidenz erneut gelesen; entfernte Nachweise werden dabei nicht weiterverwendet. Erklärungsbericht, Wiederholen bei Ladefehler und anschließendes manuelles Bearbeiten im bestehenden Konfigurator. Keine neue KI-API oder Modellanbindung; nachvollziehbare Optimierung mit96Alternativen pro Suchstufe und zweiter Reihenfolge bei unvollständigem Treffer, keine globale Optimalitätsgarantie.
+
+Sechs gezielte Tests bestanden; Chromium390/1280px bestätigt alle vier Antworten, Packungsbudget, vollständige kompatible Testauswahl, GPS bei Reichweitenprofil, manuelle Auswahl, Skip ohne veralteten Freitext, Konfliktsperre und Überlaufkontrolle. Typprüfung und Build bestanden. Echter öffentlicher Katalog separat ausschließlich lesend geprüft:133Produkte/996Feldbelege; alle vier Einzelprofile finden bei1.000EUR vollständige Vorschläge, keiner davon darf mangels Paarungsnachweisen als vollständig verifiziert kompatibel bezeichnet werden. Browser verwendet ausschließlich lokale synthetische Daten. Details, Wiederholung und Grenzen: [AI_BUILD_SELECTION_20261120](release/AI_BUILD_SELECTION_20261120.md); Beleg `qa/ai-build-20261120.json`. Keine Produktions-/Staging-/Auth-/Billing-/Deploymentänderung.
+
 ## Redundante Pflicht-/Optionalhinweise entfernt —2026-11-20
 
 Die einzelnen Komponenten-Karten wiederholen „Required“/„Optional“ nicht mehr. Die Überschriften der übergeordneten Bereiche sowie Missing-/Kompatibilitätsanzeigen und Pflichtlogik bleiben erhalten. Reine Textdarstellung; keine Datenbank- oder Ladeänderung.

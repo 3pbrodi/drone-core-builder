@@ -47,7 +47,7 @@ const PRIORITY_OPTIONS: { id: Priority; title: string; description: string }[] =
     id: "footage",
     title: "🎬 Crisp, Stable Camera Footage",
     description:
-      "4K gimbal camera and smooth hovering for cinematic travel clips and YouTube videos.",
+      "Prioritize a suitable camera/video setup and a stable component configuration for filming.",
   },
   {
     id: "parkour",
@@ -59,13 +59,13 @@ const PRIORITY_OPTIONS: { id: Priority; title: string; description: string }[] =
     id: "range",
     title: "⏱️ Long Flight Time & Range",
     description:
-      "25–35+ min battery and GPS Return-to-Home so you can explore further without stress.",
+      "Prioritize an endurance-oriented component setup and GPS; actual flight time needs validation.",
   },
   {
     id: "beginner",
     title: "🛡️ Easy to Fly & Crash-Resistant",
     description:
-      "Ducted prop guards and forgiving controls so beginners can practice without breaking parts.",
+      "Prioritize compact, lighter components for a manageable practice build; protection features need verification.",
   },
 ];
 
@@ -88,7 +88,8 @@ function AiBuildPage() {
   const nextStep = () => setStep((current) => Math.min(current + 1, 3));
   const prevStep = () => setStep((current) => Math.max(current - 1, 0));
 
-  const finish = () => {
+  const finish = (wishOverride?: string) => {
+    const finalWishes=wishOverride??wishes;
     void navigate({
       to: "/create-custom-build",
       search: {
@@ -96,7 +97,7 @@ function AiBuildPage() {
         budget,
         ...(selectedPriorities.length ? { priorities: selectedPriorities.join(",") } : {}),
         ...(color ? { color } : {}),
-        ...(wishes.trim() ? { wishes: wishes.trim().slice(0, 500) } : {}),
+        ...(finalWishes.trim() ? { wishes: finalWishes.trim().slice(0, 500) } : {}),
       },
     });
   };
@@ -188,7 +189,7 @@ function AiBuildPage() {
                 What is your budget?
               </h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                Drag the slider to set how much you want to spend.
+                Set the budget for drone components. Pilot gear, tools and unspecified accessories are separate.
               </p>
               <p className="mt-6 text-center font-display text-4xl font-bold text-primary tabular-nums">
                 {formatBudget(budget)}
@@ -285,7 +286,7 @@ function AiBuildPage() {
                 What color should your drone be?
               </h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                Pick a shell color — or skip this and decide later.
+                Color is a preference: only explicitly listed variant colors can influence matching.
               </p>
               <div
                 className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3"
@@ -334,7 +335,7 @@ function AiBuildPage() {
                 Personalization
               </h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                Add any optional wishes for your build. You can also skip this.
+                Add requirements such as 6S, ELRS, analog video, 3 inch or under 250 g. Unsupported or undocumented wishes will be flagged for review.
               </p>
               <label htmlFor="special-wishes" className="sr-only">
                 Special wishes or personalization
@@ -348,10 +349,10 @@ function AiBuildPage() {
                 placeholder="For example: it should fit in my school bag and be as quiet as possible"
               />
               {navigationRow({
-                onContinue: finish,
+                onContinue: () => finish(),
                 onSkip: () => {
                   setWishes("");
-                  finish();
+                  finish("");
                 },
                 continueLabel: "Open my build",
               })}

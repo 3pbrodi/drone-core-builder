@@ -24,3 +24,7 @@ The catalogue is the established DroneCores public runtime, independent of the S
 ## Product selection rows — user instruction2026-11-20
 
 The user now requests one product image on the right of each configurator option when available. This supersedes the old blanket no-display instruction only for displaying existing approved product.image metadata in these rows. No image research, uploads, new URLs/associations, unlicensed photos or database changes are authorized by this UI request. Missing/failed images use ImageOff. Verified-compatible and verified-incompatible use green checked-square/red crossed-square labels; unknown compatibility remains explicitly unverified. Keep source mass scope, distinguish peak current from ESC current rating, and never estimate missing values.
+
+## KI-Build continuation —2026-11-20
+
+Live AI selections must use `planAiBuild` with the fully paginated published catalogue and `loadAiBuildCatalogue` evidence, never the legacy `aiPreset` demo IDs. Preserve all four answers, explicit unknown/conflict reporting, full-pack budget accounting and shared native compatibility evaluation. A fresh exact-ID/evidence read must replace old selected proof snapshots, so revoked proofs cannot survive matching. Missing evidence is not a pass; bounded search is not a global optimum or a flight-performance guarantee. No LLM provider is configured. See `docs/release/AI_BUILD_SELECTION_20261120.md` for test commands and constraints.

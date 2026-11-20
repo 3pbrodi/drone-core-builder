@@ -6,8 +6,8 @@ export function installedQuantity(product: Product): number {
   return product.category === "motors" || product.category === "propellers" ? 4 : 1;
 }
 export function productPurchaseQuantity(product: Product): number {
-  if (!product.weightBasis) return 1; // Existing demo/legacy set prices.
-  return product.packageQuantity ? Math.ceil(installedQuantity(product) / product.packageQuantity) : 1;
+  if (product.packageQuantity && product.packageQuantity > 0) return Math.ceil(installedQuantity(product) / product.packageQuantity);
+  return 1; // Existing demo/legacy set prices; the AI excludes unknown motor/prop pack counts.
 }
 export function installedComponentWeight(product: Product): number | null {
   // A per-item basis describes quantity, not installation completeness.

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import {
   ArrowLeft,
@@ -113,6 +113,7 @@ type Props = {
   catalogueReady: boolean;
   catalogueMessage?: string;
   preferences?: Record<string, string | number | null | undefined>;
+  recommendation?: ReactNode;
 };
 export function BuildInterface({
   source,
@@ -123,6 +124,7 @@ export function BuildInterface({
   catalogueReady,
   catalogueMessage,
   preferences,
+  recommendation,
 }: Props) {
   const [productSearch, setProductSearch] = useState("");
   const [catalogueAccessible,setCatalogueAccessible] = useState(catalogueReady);
@@ -282,6 +284,7 @@ export function BuildInterface({
             </p>
           </div>
         )}
+        {recommendation}
         <DroneViewer selection={selection} />
         <section
           aria-label="Build statistics"
