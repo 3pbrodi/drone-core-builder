@@ -1,3 +1,9 @@
+## Grid-Ansicht für Kategorien und Produkte, auch mobil —2026-11-20
+
+Der bestehende Schalter steuerte nur die Kategorienübersicht und dort begann das Raster erst ab sm. Jetzt zeigt die Kategorienübersicht schon mobil zwei Spalten (ab lg drei). Die Produktauswahl folgt demselben Ansichtsstatus und besitzt zusätzlich eigene zugängliche Listen-/Rasterknöpfe neben der Suche: zwei Spalten mobil, drei ab sm. Produktkarten wachsen mit dem Inhalt, mit Bild oben und Auswahl unten; keine feste quadratische Höhe. Ausgewählte Kategorien zeigen umbrochene Produktnamen statt schmal abgeschnittener Zeilen. Der fehlende Pflichtproduktname lautet jetzt nur „Missing“; andere Pflicht-/Optionalregeln bleiben erhalten.
+
+Typprüfung und Build bestanden. Chromium-Akzeptanz auf320/390/768/1280px: Kategorie- und Produktraster, Rückwechsel zur Liste, keine horizontalen Überläufe/abgeschnittenen Karten, richtige Missing-Zählung, Filter/Suche/50→60Nachladen, Produktauswahl und erhaltener Rahmen bestanden. Beleg `qa/configurator-grid-20261120.json`, Prüfer `tests/integration/configurator-grid-browser.mjs` mit bestehender lokaler Bild-/Produktfixture. Lokale Ansichten: `qa/configurator-product-grid-mobile-20261120.png`, `qa/configurator-category-grid-mobile-20261120.png`. Keine Datenbank-/Staging-/Produktdatenänderung oder Websitebereitstellung.
+
 ## Produktkarten platzsparender angeordnet —2026-11-20
 
 Produktkarten besitzen weniger Innenabstand, kleinere Bildflächen (64px mobil/80px ab sm) und technische Stichpunkte in einer flexibel umbrechenden Zeile. Der Auswahlknopf sitzt unter dem Bild rechts; seine Touchhöhe bleibt44px. Kurzer sichtbarer Knopftext mit unverändertem zugänglichem Auswahlnamen. Identität, Preisstand, Kompatibilitätsstatus, bis zu vier Quellwerte und Bildfehler-Fallback bleiben enthalten.

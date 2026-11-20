@@ -1,0 +1,42 @@
+{
+  "passed": true,
+  "viewports": [
+    {
+      "width": 320,
+      "categoryGrid": true,
+      "productColumns": 2,
+      "listToggle": true,
+      "allContentFits": true,
+      "filterSearchPaginationSelection": true
+    },
+    {
+      "width": 390,
+      "categoryGrid": true,
+      "productColumns": 2,
+      "listToggle": true,
+      "allContentFits": true,
+      "filterSearchPaginationSelection": true
+    },
+    {
+      "width": 768,
+      "categoryGrid": true,
+      "productColumns": 3,
+      "listToggle": true,
+      "allContentFits": true,
+      "filterSearchPaginationSelection": true
+    },
+    {
+      "width": 1280,
+      "categoryGrid": true,
+      "productColumns": 3,
+      "listToggle": true,
+      "allContentFits": true,
+      "filterSearchPaginationSelection": true
+    }
+  ],
+  "missingLabel": true,
+  "tallContentDrivenCards": true,
+  "existingFramePreserved": true,
+  "localOnly": true,
+  "productionChanges": false
+}

@@ -428,7 +428,7 @@ export function BuildInterface({
                     )}
                   </button>
                   {isOpen && (
-                    <div className={`mt-3 ${grid ? "grid gap-2 sm:grid-cols-2" : "space-y-1.5"}`}>
+                    <div className={`mt-3 ${grid ? "grid grid-cols-2 gap-2 lg:grid-cols-3" : "space-y-1.5"}`}>
                       {visibleSections[section].map((category) => {
                         const item = stats.selected[category],
                           Icon = icons[category],
@@ -452,14 +452,15 @@ export function BuildInterface({
                         return (
                           <div
                             key={category}
+                            data-component-category={category}
                             className={`min-w-0 rounded-md border bg-background p-3 ${requiredMissing ? "border-primary/35" : "border-border"} ${grid ? "flex flex-col gap-2" : "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 sm:grid-cols-[170px_minmax(0,1fr)_120px_90px_132px]"}`}
                           >
                             <div className="flex min-w-0 items-center gap-2">
-                              <span className="grid size-10 shrink-0 place-items-center rounded-full bg-secondary text-primary">
+                              <span className={`grid shrink-0 place-items-center rounded-full bg-secondary text-primary ${grid ? "size-8" : "size-10"}`}>
                                 <Icon className="size-5" />
                               </span>
-                              <div>
-                                <h3 className="font-display text-base font-extrabold sm:text-lg">
+                              <div className="min-w-0">
+                                <h3 className={`break-words font-display font-extrabold ${grid ? "text-sm sm:text-base" : "text-base sm:text-lg"}`}>
                                   {categoryNames[category]}
                                 </h3>
                                 <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
@@ -470,16 +471,16 @@ export function BuildInterface({
                               </div>
                             </div>
                             <div
-                              className={`flex min-w-0 items-center gap-3 ${grid ? "" : "col-start-1 row-start-2 sm:col-auto sm:row-auto"}`}
+                              className={`flex min-w-0 gap-2 ${grid ? "flex-col items-start" : "items-center col-start-1 row-start-2 sm:col-auto sm:row-auto"}`}
                             >
                               {item && <ProductThumbnail key={item.id} product={item} />}
                               <div className="min-w-0">
-                                <p className="truncate text-sm font-semibold">
+                                <p className={`${grid ? "break-words" : "truncate"} text-sm font-semibold`}>
                                   {item?.name ??
-                                    (requiredMissing ? "Required component missing" : "Not added")}
+                                    (requiredMissing ? "Missing" : "Not added")}
                                 </p>
                                 {item ? (
-                                  <p className="truncate text-xs text-muted-foreground">
+                                  <p className={`${grid ? "break-words" : "truncate"} text-xs text-muted-foreground`}>
                                     {item.spec}
                                   </p>
                                 ) : (
@@ -516,7 +517,7 @@ export function BuildInterface({
                             </span>
                             <Button
                               variant="outline"
-                              className={`min-h-11 border-primary/30 text-primary ${grid ? "w-full" : "col-start-2 row-start-1 w-[132px] max-w-full whitespace-normal px-2 text-center text-[11px] leading-tight sm:col-auto sm:row-auto sm:text-xs"}`}
+                              className={`min-h-11 border-primary/30 text-primary ${grid ? "mt-auto w-full whitespace-normal px-2 text-xs" : "col-start-2 row-start-1 w-[132px] max-w-full whitespace-normal px-2 text-center text-[11px] leading-tight sm:col-auto sm:row-auto sm:text-xs"}`}
                               aria-label={`${item ? "Change" : "Select"} ${categoryNames[category]}`}
                               onClick={() => {
                                 setProductSearch("");setVisibleCount(50);setOptions([]);setFilters(emptyComponentFilters());setFiltersOpen(false);setEditing(category);
@@ -536,6 +537,7 @@ export function BuildInterface({
                         integratedRequired.map(({ category, product }) => (
                           <div
                             key={category}
+                            data-component-category={category}
                             className="rounded-md border border-emerald-600/20 bg-emerald-500/5 p-3 text-sm"
                           >
                             <span className="font-semibold">{categoryNames[category]}</span>
@@ -605,7 +607,13 @@ export function BuildInterface({
               </Button>
               </div>
             </div>
-            <input aria-label="Search components" className="mt-4 min-h-11 w-full rounded-md border border-input bg-background px-3 text-sm" placeholder="Search name, brand or SKU" value={productSearch} onChange={e => { setProductSearch(e.target.value); setVisibleCount(50); }} />
+            <div className="mt-4 flex min-w-0 items-center gap-2">
+              <input aria-label="Search components" className="min-h-11 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-sm" placeholder="Search name, brand or SKU" value={productSearch} onChange={e => { setProductSearch(e.target.value); setVisibleCount(50); }} />
+              <div role="group" aria-label="Product view" className="flex shrink-0 gap-1">
+                <Button size="icon" className="size-11" aria-label="List product view" title="List view" aria-pressed={!grid} variant={!grid?"default":"outline"} onClick={()=>setGrid(false)}><List/></Button>
+                <Button size="icon" className="size-11" aria-label="Grid product view" title="Grid view" aria-pressed={grid} variant={grid?"default":"outline"} onClick={()=>setGrid(true)}><LayoutGrid/></Button>
+              </div>
+            </div>
             <div id="component-product-filter-menu" hidden={!filtersOpen} className="scroll-mt-28">
               <ComponentProductFilters category={editing} products={options} value={filters} disabled={optionsLoading||optionsError} onChange={next=>{setFilters(next);setVisibleCount(50);}} onReset={resetFilters}/>
             </div>
@@ -613,9 +621,9 @@ export function BuildInterface({
             {optionsError&&<p role="alert" className="py-3 text-sm text-destructive">{optionsErrorMessage||"Components could not be loaded."} <button className="min-h-11 underline" onClick={()=>setRetry(n=>n+1)}>Retry</button></p>}
             {!optionsLoading&&!optionsError&&<p role="status" className="py-3 text-sm text-muted-foreground">{filteredOptions.length} matching products · {options.length} in this category</p>}
             <p className="text-xs text-muted-foreground">This sum uses last recorded prices. Out-of-stock or unconfirmed parts may not be currently purchasable.</p>
-            <div className="mt-3 space-y-2">
+            <div data-product-layout={grid?"grid":"list"} className={`mt-3 ${grid?"grid grid-cols-2 items-stretch gap-2 sm:grid-cols-3":"space-y-2"}`}>
               {!optionsLoading && !optionsError && filteredOptions.length === 0 && (
-                <div className="rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">
+                <div className="col-span-full rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">
                   {options.length===0?'No verified catalogue products are available for this category yet.':'No products match these filters.'}
                   {options.length>0&&<button className="ml-2 min-h-11 font-medium text-primary underline" onClick={resetFilters}>Reset filters</button>}
                 </div>
@@ -623,8 +631,8 @@ export function BuildInterface({
               {filteredOptions.slice(0,visibleCount).map((product) => {
                 const check = optionChecks.get(product.id)!;
                 return (
-                  <div key={product.id} data-product-option={product.id} className="rounded-lg border border-border bg-card p-2.5 sm:p-3">
-                    <ProductOptionSummary product={product} check={check}>
+                  <div key={product.id} data-product-option={product.id} className={`min-w-0 rounded-lg border border-border bg-card p-2.5 sm:p-3 ${grid?"flex flex-col":""}`}>
+                    <ProductOptionSummary product={product} check={check} grid={grid}>
                     <Button
                       className="h-11 min-h-11 w-full px-1.5 text-[11px] sm:text-xs"
                       aria-label={checkingSelection ? "Checking selection…" : selection[editing] === product.id ? "Keep selected" : "Select component"}
