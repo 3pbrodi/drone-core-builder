@@ -504,11 +504,7 @@ export function BuildInterface({
                                 "Check fit"
                               ) : item ? (
                                 "Needs verification"
-                              ) : requiredMissing ? (
-                                "Required"
-                              ) : (
-                                "Optional"
-                              )}
+                              ) : null}
                             </div>
                             <span
                               className={`text-sm font-bold ${grid ? "" : "col-start-2 row-start-2 justify-self-end sm:col-auto sm:row-auto sm:justify-self-start"}`}

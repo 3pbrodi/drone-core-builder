@@ -1,3 +1,7 @@
+## Redundante Pflicht-/Optionalhinweise entfernt —2026-11-20
+
+Die einzelnen Komponenten-Karten wiederholen „Required“/„Optional“ nicht mehr. Die Überschriften der übergeordneten Bereiche sowie Missing-/Kompatibilitätsanzeigen und Pflichtlogik bleiben erhalten. Reine Textdarstellung; keine Datenbank- oder Ladeänderung.
+
 ## Grid-Ansicht für Kategorien und Produkte, auch mobil —2026-11-20
 
 Der bestehende Schalter steuerte nur die Kategorienübersicht und dort begann das Raster erst ab sm. Jetzt zeigt die Kategorienübersicht schon mobil zwei Spalten (ab lg drei). Die Produktauswahl folgt demselben Ansichtsstatus und besitzt zusätzlich eigene zugängliche Listen-/Rasterknöpfe neben der Suche: zwei Spalten mobil, drei ab sm. Produktkarten wachsen mit dem Inhalt, mit Bild oben und Auswahl unten; keine feste quadratische Höhe. Ausgewählte Kategorien zeigen umbrochene Produktnamen statt schmal abgeschnittener Zeilen. Der fehlende Pflichtproduktname lautet jetzt nur „Missing“; andere Pflicht-/Optionalregeln bleiben erhalten.
