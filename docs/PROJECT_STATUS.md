@@ -1,3 +1,9 @@
+## Produktkarten platzsparender angeordnet —2026-11-20
+
+Produktkarten besitzen weniger Innenabstand, kleinere Bildflächen (64px mobil/80px ab sm) und technische Stichpunkte in einer flexibel umbrechenden Zeile. Der Auswahlknopf sitzt unter dem Bild rechts; seine Touchhöhe bleibt44px. Kurzer sichtbarer Knopftext mit unverändertem zugänglichem Auswahlnamen. Identität, Preisstand, Kompatibilitätsstatus, bis zu vier Quellwerte und Bildfehler-Fallback bleiben enthalten.
+
+Typprüfung und Build bestanden. Bestehende gezielte Chromium-Prüfung mit zusätzlichen Layoutassertionen bestanden: beispielhafte mobile Karte136px hoch, Inline-Fakten, Bild-/Fehlerzustände, alle Kompatibilitätszustände, kein horizontaler Überlauf, Auswahl und erhaltener Rahmen. Beleg `qa/product-option-density-20261120.json`; lokale Ansicht `qa/product-option-density-mobile-20261120.png`. Keine Änderungen an Datenzugriff, Filterregeln oder Produktionsdaten.
+
 ## Kompakte Produktzeilen im Konfigurator —2026-11-20
 
 Nutzer bestätigte zuvor, dass das Komponentenladen in Lovable funktioniert. Produktauswahl jetzt mit kompaktem Status (Verified compatible/grünes Checkboxsymbol, Verified incompatible/rotes Kreuz; unbekannte Kompatibilität neutral ungeprüft), maximal vier technischen Stichpunkten und genau einem Bildbereich rechts. Bestehende freigegebene Produktbilder werden gemäß neuer Nutzeranweisung angezeigt; fehlende oder defekte Bilder erhalten ImageOff. Keine Bildrecherche/-Uploads/-Datenbankänderungen. Alte pauschale Bildanzeigeverbote sind für diese bestehende Bildmetadaten-Anzeige in Optionszeilen überholt.

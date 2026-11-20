@@ -623,10 +623,11 @@ export function BuildInterface({
               {filteredOptions.slice(0,visibleCount).map((product) => {
                 const check = optionChecks.get(product.id)!;
                 return (
-                  <div key={product.id} data-product-option={product.id} className="rounded-xl border border-border bg-card p-3 sm:p-4">
-                    <ProductOptionSummary product={product} check={check}/>
+                  <div key={product.id} data-product-option={product.id} className="rounded-lg border border-border bg-card p-2.5 sm:p-3">
+                    <ProductOptionSummary product={product} check={check}>
                     <Button
-                      className="mt-2 min-h-11 w-full sm:w-auto"
+                      className="h-11 min-h-11 w-full px-1.5 text-[11px] sm:text-xs"
+                      aria-label={checkingSelection ? "Checking selection…" : selection[editing] === product.id ? "Keep selected" : "Select component"}
                       variant={check.status === "incompatible" ? "outline" : "default"}
                       disabled={checkingSelection}
                       onClick={() => {
@@ -641,8 +642,9 @@ export function BuildInterface({
                         }).catch(error=>{setOptionsError(true);setOptionsErrorMessage(error instanceof PublicCatalogueReadError?error.message:"The selection could not be confirmed. Please retry.");}).finally(()=>setCheckingSelection(false));
                       }}
                     >
-                      {checkingSelection ? "Checking selection…" : selection[editing] === product.id ? "Keep selected" : "Select component"}
+                      {checkingSelection ? "Checking…" : selection[editing] === product.id ? "Selected" : "Select"}
                     </Button>
+                    </ProductOptionSummary>
                   </div>
                 );
               })}
