@@ -20,3 +20,7 @@ The user explicitly selected `feature/shared-drone-configurator` for all future 
 ## Catalogue preview recovery —2026-11-20
 
 The catalogue is the established DroneCores public runtime, independent of the Supabase project used for authentication. Override it only via dedicated CATALOGUE_RUNTIME_URL/VITE_CATALOGUE_RUNTIME_URL. Browser component pages and selected-ID confirmation retain the existing server path, with a read-only public fallback when that path fails. Local/test runs must remain isolated: CATALOGUE_LOCAL_ONLY/NODE_ENV=test are enforced on the server and forwarded to the client by Vite; loopback browser hosts also require a loopback endpoint. No credentials are sent by the browser fallback. See docs/PROJECT_STATUS.md for fault-injection receipts and actual verification limits.
+
+## Product selection rows — user instruction2026-11-20
+
+The user now requests one product image on the right of each configurator option when available. This supersedes the old blanket no-display instruction only for displaying existing approved product.image metadata in these rows. No image research, uploads, new URLs/associations, unlicensed photos or database changes are authorized by this UI request. Missing/failed images use ImageOff. Verified-compatible and verified-incompatible use green checked-square/red crossed-square labels; unknown compatibility remains explicitly unverified. Keep source mass scope, distinguish peak current from ESC current rating, and never estimate missing values.

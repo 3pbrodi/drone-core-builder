@@ -48,7 +48,6 @@ import {
   sectionCategoriesForSelection,
 } from "@/lib/configurator-selection";
 import { evaluate, candidateCheck } from "@/lib/build-calculations";
-import { productPurchaseQuantity, productWeightLabel } from "@/lib/component-measurements";
 import { createProductCatalogue, resolveBuildSelection } from "@/lib/catalogue-service";
 import {
   resolveCompatibilityEvidence,
@@ -57,6 +56,7 @@ import {
 import { getConfiguratorCatalogue, getConfiguratorComponents } from "@/lib/configurator-catalogue.server-fn";
 import { DroneViewer } from "@/components/DroneViewer";
 import { ComponentProductFilters } from "@/components/ComponentProductFilters";
+import { ProductOptionSummary } from "@/components/ProductOptionSummary";
 import { PublicCatalogueReadError, readCatalogueWithPublicFallback } from "@/lib/catalogue-public-query";
 import { emptyComponentFilters, filterComponentProducts, loadAllComponentOptions, mergeComponentEvidence } from "@/lib/component-product-filters";
 
@@ -623,27 +623,8 @@ export function BuildInterface({
               {filteredOptions.slice(0,visibleCount).map((product) => {
                 const check = optionChecks.get(product.id)!;
                 return (
-                  <div key={product.id} className="rounded-md border border-border p-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <h3 className="font-semibold">{product.name}</h3>
-                        <p className="text-xs text-muted-foreground">
-                          {product.spec} · {productWeightLabel(product)}
-                        </p>
-                      </div>
-                      <strong className="shrink-0 text-sm">{productPriceLabel(product)}</strong>
-                      <span className="text-xs text-muted-foreground">{product.stockStatus === "unknown" ? "Stock not currently confirmed" : product.stockStatus?.replaceAll("_", " ") ?? "Stock not currently confirmed"}{product.offer ? ` · ${product.offer.merchantName} · ${product.offer.checkedAt} · ${product.offer.freshness === "current" ? "checked price" : "last recorded price"}` : " · price availability unconfirmed"}{product.weightBasis ? ` · ${productPurchaseQuantity(product)} sales pack(s) for this quad build` : ""}</span>
-                    </div>
-                    <p
-                      className={`mt-2 text-xs ${check.status === "incompatible" ? "text-destructive" : check.status === "verified-compatible" ? "text-emerald-600" : "text-muted-foreground"}`}
-                    >
-                      {check.status === "incompatible"
-                        ? check.messages.join(" ")
-                        : check.status === "verified-compatible"
-                          ? "Verified compatible against the current documented rules. This is not a flight-safety guarantee."
-                          : check.messages.join(" ") ||
-                            "No confirmed conflict found, but this option is not fully verified against the current build."}
-                    </p>
+                  <div key={product.id} data-product-option={product.id} className="rounded-xl border border-border bg-card p-3 sm:p-4">
+                    <ProductOptionSummary product={product} check={check}/>
                     <Button
                       className="mt-2 min-h-11 w-full sm:w-auto"
                       variant={check.status === "incompatible" ? "outline" : "default"}

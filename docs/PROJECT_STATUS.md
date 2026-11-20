@@ -1,3 +1,11 @@
+## Kompakte Produktzeilen im Konfigurator —2026-11-20
+
+Nutzer bestätigte zuvor, dass das Komponentenladen in Lovable funktioniert. Produktauswahl jetzt mit kompaktem Status (Verified compatible/grünes Checkboxsymbol, Verified incompatible/rotes Kreuz; unbekannte Kompatibilität neutral ungeprüft), maximal vier technischen Stichpunkten und genau einem Bildbereich rechts. Bestehende freigegebene Produktbilder werden gemäß neuer Nutzeranweisung angezeigt; fehlende oder defekte Bilder erhalten ImageOff. Keine Bildrecherche/-Uploads/-Datenbankänderungen. Alte pauschale Bildanzeigeverbote sind für diese bestehende Bildmetadaten-Anzeige in Optionszeilen überholt.
+
+Sourced Daten bleiben unverändert: Gewichtsangabe mit Teil-/Pack-/Set-Bezug, Spitzenstrom als Peak current statt erfundenem Dauerverbrauch, ESC-Strombelastbarkeit separat, kategoriespezifische Angaben wie KV, Funkprotokoll und Durchmesser. Fehlende Werte werden ausgelassen. Lange Händler-/Zeitstempel-/Kompatibilitätsabsätze aus den einzelnen Zeilen entfernt; Preis und kurzer Hinweis bei historischen Preisen bleiben. Native Lade-/Filter-/Auswahl-/Evidenzprüfung unverändert.
+
+Typprüfung und Build des isolierten Feature-Standes bestanden. Lokaler Chromium-Test: alle drei Kompatibilitätszustände, höchstens vier Fakten, vorhandenes/fehlendes/defektes Bild, Bild rechts, mobile Breite ohne Überlauf und Auswahl mit erhaltenem Rahmen bestanden. Beleg `qa/product-option-rows-20261120.json`. Reproduzierbar: `tests/integration/product-option-rows-fixture.mjs` auf4289, Website mit expliziter Loopback-Katalogkonfiguration auf4190, dann `tests/integration/product-option-rows-browser.mjs` mit lokalem PLAYWRIGHT_MODULE. Alle Daten und Bilder der Bildtests sind ausdrücklich synthetisch; keine echten Produktbilder erfunden. Kein Produktions-/Stagingzugriff oder Deployment.
+
 ## Komponenten-Ladeweg mit öffentlichem Rückfall abgesichert —2026-11-20
 
 Der vorherige reine VITE-Konfigurationsfix war unvollständig. Katalogquelle ist jetzt unabhängig vom Auth-Projekt festgelegt; scheiternde Vorschau-Serveranfragen werden für Kategorieabfragen und ausgewählte IDs durch denselben geprüften öffentlichen Lese-Endpunkt ersetzt. Keine privilegierten Schlüssel nötig, keine Demo-Daten, gleiche Veröffentlichungs-/Evidenzregeln und lokale Testisolation. Erfolgreiches Nachladen räumt einen alten Fehlerhinweis auf.

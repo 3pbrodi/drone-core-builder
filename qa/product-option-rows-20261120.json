@@ -1,0 +1,15 @@
+{
+  "passed": true,
+  "verifiedCompatibleGreenCheck": true,
+  "verifiedIncompatibleRedCross": true,
+  "unknownNotFalselyVerified": true,
+  "maxFourSourcedFacts": true,
+  "peakCurrentCorrectlyNamed": true,
+  "partialMassQualifier": true,
+  "oneImageOnRight": true,
+  "missingAndFailedImageFallback": true,
+  "noVerbosePerRowOfferOrCompatibilityText": true,
+  "mobileNoOverflow": true,
+  "selectionAndExistingFramePreserved": true,
+  "localOnly": true
+}
