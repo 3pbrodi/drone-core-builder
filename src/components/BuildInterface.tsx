@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { estimateBuildPerformance } from "@/lib/build-performance-estimates";
+import { BuildPerformanceDetails } from "./BuildPerformanceDetails";
 import { Link } from "@tanstack/react-router";
 import {
   ArrowLeft,
@@ -114,6 +116,7 @@ type Props = {
   catalogueMessage?: string;
   preferences?: Record<string, string | number | null | undefined>;
   recommendation?: ReactNode;
+  estimationProducts?: Product[];
 };
 export function BuildInterface({
   source,
@@ -125,6 +128,7 @@ export function BuildInterface({
   catalogueMessage,
   preferences,
   recommendation,
+  estimationProducts,
 }: Props) {
   const [productSearch, setProductSearch] = useState("");
   const [catalogueAccessible,setCatalogueAccessible] = useState(catalogueReady);
@@ -157,6 +161,8 @@ export function BuildInterface({
       compatibilityEvidence.verification,
       compatibilityEvidence.technicalEvidence,
     );
+  const massCatalogue=useMemo(()=>[...new Map([...(estimationProducts??[]),...loadedProducts].map(p=>[p.id,p])).values()],[estimationProducts,loadedProducts]);
+  const performanceEstimate=useMemo(()=>estimateBuildPerformance(selectedProducts,massCatalogue,stats.rules.some(rule=>rule.applicable&&(rule.status==='fail'||rule.advisoryOutcome==='fail'))),[selectedProducts,massCatalogue,loadedEvidence]);
   const visibleSections = Object.fromEntries(
       sectionOrder.map((section) => [
         section,
@@ -306,12 +312,14 @@ export function BuildInterface({
           <Stat
             icon={Gauge}
             label="Top Speed (est.)"
-            value={stats.speed === null ? "—" : `~ ${stats.speed} km/h`}
+            value={performanceEstimate.speedKmh === null ? "—" : `~ ${performanceEstimate.speedKmh.value} km/h`}
+            detail={performanceEstimate.speedKmh ? `${performanceEstimate.speedKmh.min}–${performanceEstimate.speedKmh.max} km/h model range` : "More data or compatible parts needed"}
           />
           <Stat
             icon={Weight}
-            label={Object.values(stats.selected).some(p => p?.weightBasis) ? "Component mass (extras excluded)" : "Drone Weight (est.)"}
-            value={stats.weight === null ? "—" : `~ ${stats.weight} g`}
+            label="Takeoff weight (est.)"
+            value={performanceEstimate.takeoffGrams === null ? "—" : `~ ${Math.round(performanceEstimate.takeoffGrams.value)} g`}
+            detail={performanceEstimate.takeoffGrams ? `${Math.round(performanceEstimate.takeoffGrams.min)}–${Math.round(performanceEstimate.takeoffGrams.max)} g model range` : "Complete the drone first"}
           />
           <Stat
             icon={null}
@@ -329,6 +337,7 @@ export function BuildInterface({
             value={money(stats.totalPrice)}
           />
         </section>
+        <BuildPerformanceDetails estimate={performanceEstimate} catalogue={massCatalogue}/>
         <div className="mt-3 flex items-center gap-2 rounded-md border border-border bg-muted/20 p-3 text-xs font-medium">
           {stats.status === "verified-compatible" ? (
             <BadgeCheck className="size-5 shrink-0 text-emerald-600" />

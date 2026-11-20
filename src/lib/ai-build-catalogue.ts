@@ -8,7 +8,9 @@ import type { CatalogueEvidenceSnapshot } from "./catalogue-evidence";
 export async function loadAiBuildCatalogue(
   read: (query: CatalogueQuery) => Promise<PublicCatalogueResult>,
   active: () => boolean = () => true,
+  onProgress?: (phase: "products" | "compatibility") => void,
 ) {
+  onProgress?.("products");
   const found = new Map<string, Product>();
   for (let page = 1; page <= 100000; page++) {
     if (!active()) return null;
@@ -22,6 +24,7 @@ export async function loadAiBuildCatalogue(
     if (!result.hasMore) break;
     if (page === 100000) throw new Error("Catalogue pagination did not finish.");
   }
+  onProgress?.("compatibility");
   let evidence: CatalogueEvidenceSnapshot = {
     fields: [],
     motorPropeller: [],

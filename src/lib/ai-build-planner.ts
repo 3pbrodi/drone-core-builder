@@ -14,6 +14,10 @@ import {
 } from "./configurator-selection";
 import { coreRequiredCategoryIds, categoryMetadata } from "./component-categories";
 import { installedComponentWeight, productPurchaseQuantity } from "./component-measurements";
+import {
+  estimateBuildPerformance,
+  type BuildPerformanceEstimate,
+} from "./build-performance-estimates";
 import { productOptionFacts } from "./product-option-facts";
 
 export type AiBuildAnswers = {
@@ -35,6 +39,7 @@ export type AiBuildPlan = {
   examined: number;
   candidateCount: number;
   method: string;
+  performance: BuildPerformanceEstimate;
 };
 type Requirements = {
   cells?: number;
@@ -224,7 +229,9 @@ export function planAiBuild(
   answers: AiBuildAnswers,
   products: readonly Product[],
   evidence: CatalogueEvidenceSnapshot,
-  beamWidth = 96,
+  beamWidth = 192,
+  onProgress?: (phase: "optimizing" | "estimating") => void,
+  estimationProducts: readonly Product[] = products,
 ): AiBuildPlan {
   const budget = Math.round(
       Math.max(0, Number.isFinite(answers.budget) ? answers.budget : 0) * 100,
@@ -263,7 +270,8 @@ export function planAiBuild(
     reasons: [],
     examined: 0,
     candidateCount: unique.length,
-    method: `Best match found by bounded catalogue search (${beamWidth} alternatives per stage); not a proof of a global optimum.`,
+    method: `Use-case performance search (${beamWidth} alternatives per stage), budget-diverse candidates and single/paired upgrades; not a proof of a global optimum.`,
+    performance: estimateBuildPerformance({}, products),
   };
   if (r.conflicts.length) return { ...empty, notes: r.conflicts };
   const fields = new Map<string, typeof evidence.fields>();
@@ -350,6 +358,26 @@ export function planAiBuild(
       value += 0.25;
     return value;
   }
+  // Whole-build performance matters, not the price tag of an isolated part.
+  // These engineering estimates remain separate from source/compatibility evidence.
+  function performanceUtility(selected: SelectedProducts): number {
+    const p = estimateBuildPerformance(selected, estimationProducts);
+    if (!p.takeoffGrams) return 0;
+    const endurance = Math.log1p(Math.max(0, p.hoverMinutes ?? 0) / 5);
+    const speed = Math.log1p(Math.max(0, p.speedKmh?.value ?? 0) / 60);
+    const agility = Math.log1p(Math.max(0, (p.thrustToWeight ?? 1) - 1));
+    const margin = Math.min(1, (p.thrustToWeight ?? 0) / 3);
+    const lightness = 1 / (1 + p.takeoffGrams.value / 300);
+    const scores: Record<Priority, number> = {
+      range: 3 * endurance + 0.4 * margin,
+      parkour: 1.4 * speed + 1.5 * agility + 0.4 * lightness,
+      footage: 1.4 * endurance + margin + 0.5 * lightness,
+      beginner: 2 * lightness + margin + 0.3 * endurance,
+    };
+    return priorities.size
+      ? [...priorities].reduce((sum, p) => sum + scores[p], 0) / priorities.size
+      : endurance + speed + 0.5 * agility;
+  }
   const categories: Category[] = [...coreRequiredCategoryIds];
   if (priorities.has("range") || r.gps) categories.push("gps");
   // A usable video link needs a transmitter and antenna, unless documented as included/integrated.
@@ -376,6 +404,31 @@ export function planAiBuild(
     b.score - a.score ||
     a.amount - b.amount ||
     a.key.localeCompare(b.key);
+  function retain(nodes: Node[]): Node[] {
+    const sorted = nodes.sort(rank),
+      limit = Math.max(1, beamWidth);
+    const chosen = sorted.slice(0, Math.ceil(limit / 2)),
+      seen = new Set(chosen.map((n) => n.key)),
+      buckets = new Set<string>();
+    for (const node of sorted) {
+      const bucket = `${node.coverage}:${Math.floor((node.amount / Math.max(1, budget)) * 12)}:${node.selected.frame?.id ?? ""}:${node.selected.battery?.id ?? ""}`;
+      if (!seen.has(node.key) && !buckets.has(bucket)) {
+        chosen.push(node);
+        seen.add(node.key);
+        buckets.add(bucket);
+      }
+      if (chosen.length >= limit) break;
+    }
+    for (const node of sorted) {
+      if (chosen.length >= limit) break;
+      if (!seen.has(node.key)) {
+        chosen.push(node);
+        seen.add(node.key);
+      }
+    }
+    return chosen;
+  }
+  onProgress?.("optimizing");
   function search(order: Category[]): Node {
     let beam: Node[] = [{ selected: {}, amount: 0, score: 0, coverage: 0, key: "" }];
     for (let index = 0; index < order.length; index++) {
@@ -418,11 +471,12 @@ export function planAiBuild(
             (rule) =>
               rule.applicable && (rule.status === "unknown" || rule.evidenceLevel !== "verified"),
           ).length;
-          const score =
+          let score =
             Object.values(selected).reduce((sum, p) => sum + utility(p!), 0) +
             verifiedPass * 0.03 -
             unknown * 0.01;
           const coverage = categories.filter((k) => fulfilled(selected, k)).length;
+          if (coverage === categories.length) score += performanceUtility(selected);
           next.push({
             selected,
             amount,
@@ -436,21 +490,91 @@ export function planAiBuild(
         }
         if (!added) next.push(node);
       }
-      beam = next.sort(rank).slice(0, Math.max(1, beamWidth));
+      beam = retain(next);
     }
     return beam.sort(rank)[0]!;
   }
   let best = search(categories);
-  // If early FC choices crowded out a complete link, start with consumers and
-  // solve the FC/ESC interfaces last. Keep the better complete/partial result.
-  if (best.coverage < categories.length) {
-    const alternate = search([
-      ...categories.filter((c) => c !== "flightController" && c !== "esc"),
-      "flightController",
-      "esc",
-    ]);
-    if (rank(alternate, best) < 0) best = alternate;
+  // A second order explores consumer/FC dependencies even if the first found a full build.
+  const alternate = search([
+    ...categories.filter((c) => c !== "flightController" && c !== "esc"),
+    "flightController",
+    "esc",
+  ]);
+  if (rank(alternate, best) < 0) best = alternate;
+  function upgraded(base: Node, replacements: Product[]): Node | null {
+    const selected = { ...base.selected };
+    for (const p of replacements) {
+      selected[p.category] = p;
+      for (const c of [...(p.integratedCategories ?? []), ...(p.includedCategories ?? [])])
+        if (c !== p.category && categoryMetadata[c].canBeFulfilledByIntegration) delete selected[c];
+    }
+    const amount = Object.values(selected).reduce((sum, p) => sum + cost(p!), 0);
+    if (amount > budget) return null;
+    const checked = assessment(selected);
+    if (
+      checked.rules.some(
+        (rule) => rule.applicable && (rule.status === "fail" || rule.advisoryOutcome === "fail"),
+      )
+    )
+      return null;
+    if (r.maxWeight !== undefined) {
+      const mass = Object.values(selected).reduce(
+        (sum, p) => sum + (installedComponentWeight(p!) ?? Infinity),
+        0,
+      );
+      if (r.strictWeight ? mass >= r.maxWeight : mass > r.maxWeight) return null;
+    }
+    const coverage = categories.filter((c) => fulfilled(selected, c)).length;
+    const passes = checked.rules.filter(
+      (rule) => rule.applicable && rule.status === "pass" && rule.evidenceLevel === "verified",
+    ).length;
+    const unknown = checked.rules.filter(
+      (rule) => rule.applicable && (rule.status === "unknown" || rule.evidenceLevel !== "verified"),
+    ).length;
+    const score =
+      Object.values(selected).reduce((sum, p) => sum + utility(p!), 0) +
+      passes * 0.03 -
+      unknown * 0.01 +
+      (coverage === categories.length ? performanceUtility(selected) : 0);
+    return {
+      selected,
+      amount,
+      score,
+      coverage,
+      key: Object.values(selected)
+        .map((p) => p!.id)
+        .sort()
+        .join("|"),
+    };
   }
+  // Spending is allowed only when the measured/design objective improves. Coupled
+  // upgrades escape local traps such as a motor needing a different cell count.
+  for (let pass = 0; pass < 2; pass++) {
+    const before = best;
+    for (const c of categories)
+      for (const p of pool(c)) {
+        examined++;
+        const candidate = upgraded(best, [p]);
+        if (candidate && rank(candidate, best) < 0) best = candidate;
+      }
+    for (const [left, right] of [
+      ["motors", "battery"],
+      ["frame", "propellers"],
+    ] as [Category, Category][]) {
+      const base = best;
+      let paired = best;
+      for (const a of pool(left))
+        for (const b of pool(right)) {
+          examined++;
+          const candidate = upgraded(base, [a, b]);
+          if (candidate && rank(candidate, paired) < 0) paired = candidate;
+        }
+      best = paired;
+    }
+    if (best === before) break;
+  }
+  onProgress?.("estimating");
   const result = assessment(best.selected),
     selection = Object.fromEntries(
       Object.values(best.selected).map((p) => [p!.category, p!.id]),
@@ -502,7 +626,7 @@ export function planAiBuild(
       return "Ranked by documented capacity and cell-count compatibility within the total budget.";
     if (p.category === "gps")
       return "Included for the range priority or explicit GPS request; reception/rescue performance still needs validation.";
-    return "Chosen within the total budget using documented interfaces and available verification evidence; unknown interfaces remain flagged.";
+    return "Chosen within the total budget using documented interfaces and whole-build use-case scoring; unknown interfaces remain flagged.";
   };
   const reasons = Object.values(best.selected).map((p) => ({
     id: p!.id,
@@ -525,5 +649,6 @@ export function planAiBuild(
     reasons,
     examined,
     candidateCount: unique.length,
+    performance: estimateBuildPerformance(best.selected, estimationProducts),
   };
 }
