@@ -5,7 +5,7 @@ import {
   type Priority,
   type FlightStyle,
 } from "./build-data";
-import { evaluate, type SelectedProducts } from "./build-calculations";
+import { evaluate, type CompatibilityRuleCode, type SelectedProducts } from "./build-calculations";
 import { resolveCompatibilityEvidence, type CatalogueEvidenceSnapshot } from "./catalogue-evidence";
 import {
   fulfillmentProductForCategory,
@@ -277,7 +277,7 @@ export function planAiBuild(
     reasons: [],
     examined: 0,
     candidateCount: unique.length,
-    method: `Use-case performance search (${beamWidth} alternatives per stage), budget-diverse candidates and single/paired upgrades; not a proof of a global optimum.`,
+    method: `Use-case performance search (${beamWidth} alternatives per stage), budget-diverse candidates and single/paired upgrades including source-verified pair recovery; not a proof of a global optimum.`,
     performance: estimateBuildPerformance({}, products),
   };
   if (r.conflicts.length) return { ...empty, notes: r.conflicts };
@@ -315,6 +315,12 @@ export function planAiBuild(
       evidenceIssues,
     };
   }
+  // Use the same rejection policy during search and every upgrade path.
+  const blocked = (result: ReturnType<typeof assessment>) =>
+    result.evidenceIssues.some((issue) => issue.kind === "conflict") ||
+    result.rules.some(
+      (rule) => rule.applicable && (rule.status === "fail" || rule.advisoryOutcome === "fail"),
+    );
   // Hard requirements require matching field evidence, not just a plausible value.
   for (let i = unique.length - 1; i >= 0; i--) {
     const p = unique[i]!,
@@ -469,14 +475,7 @@ export function planAiBuild(
           if (amount > budget) continue;
           const selected = { ...node.selected, [c]: p },
             result = assessment(selected);
-          if (
-            result.evidenceIssues.some((issue) => issue.kind === "conflict") ||
-            result.rules.some(
-              (rule) =>
-                rule.applicable && (rule.status === "fail" || rule.advisoryOutcome === "fail"),
-            )
-          )
-            continue;
+          if (blocked(result)) continue;
           if (r.maxWeight !== undefined) {
             const mass = Object.values(selected).reduce(
               (sum, p) => sum + (installedComponentWeight(p!) ?? Infinity),
@@ -536,7 +535,11 @@ export function planAiBuild(
     "esc",
   ]);
   if (rank(alternate, best) < 0) best = alternate;
-  function upgraded(base: Node, replacements: Product[]): Node | null {
+  function upgraded(
+    base: Node,
+    replacements: Product[],
+    requiredVerifiedRule?: CompatibilityRuleCode,
+  ): Node | null {
     const selected = { ...base.selected };
     for (const p of replacements) {
       selected[p.category] = p;
@@ -546,10 +549,15 @@ export function planAiBuild(
     const amount = Object.values(selected).reduce((sum, p) => sum + cost(p!), 0);
     if (amount > budget) return null;
     const checked = assessment(selected);
+    if (blocked(checked)) return null;
     if (
-      checked.evidenceIssues.some((issue) => issue.kind === "conflict") ||
-      checked.rules.some(
-        (rule) => rule.applicable && (rule.status === "fail" || rule.advisoryOutcome === "fail"),
+      requiredVerifiedRule &&
+      !checked.rules.some(
+        (rule) =>
+          rule.code === requiredVerifiedRule &&
+          rule.applicable &&
+          rule.status === "pass" &&
+          rule.evidenceLevel === "verified",
       )
     )
       return null;
@@ -586,6 +594,62 @@ export function planAiBuild(
         .join("|"),
     };
   }
+  // Evidence records are exploration hints only. The resolver must verify the
+  // proposed exact pair in its actual battery/propeller context before ranking.
+  // Index only eligible products; never reintroduce an excluded/conflicted variant.
+  const eligible = new Map(unique.map((p) => [p.id, p]));
+  const pairedCandidates = new Map<string, { parts: Product[]; rule: CompatibilityRuleCode }>();
+  function rememberPair(
+    leftId: string,
+    rightId: string,
+    leftCategory: Category,
+    rightCategory: Category,
+    rule: CompatibilityRuleCode,
+  ) {
+    const left = eligible.get(leftId),
+      right = eligible.get(rightId);
+    // Preserve the search invariant: an integrated/included role must not be
+    // duplicated by adding a separate component to obtain a better proof count.
+    const covers = (provider: Product, role: Category) =>
+      categoryMetadata[role].canBeFulfilledByIntegration &&
+      [...(provider.integratedCategories ?? []), ...(provider.includedCategories ?? [])].includes(
+        role,
+      );
+    if (
+      left?.category === leftCategory &&
+      right?.category === rightCategory &&
+      !covers(left, rightCategory) &&
+      !covers(right, leftCategory)
+    )
+      pairedCandidates.set(JSON.stringify([rule, leftId, rightId]), { parts: [left, right], rule });
+  }
+  for (const row of evidence.fcEscConnection)
+    if (row?.verificationStatus === "verified")
+      rememberPair(
+        row.flightControllerId,
+        row.escId,
+        "flightController",
+        "esc",
+        "FC_ESC_CONNECTOR",
+      );
+  for (const row of evidence.motorPropeller)
+    if (row?.verificationStatus === "verified")
+      rememberPair(
+        row.motorId,
+        row.propellerId,
+        "motors",
+        "propellers",
+        "MOTOR_PROPELLER_SIZE_GUIDANCE",
+      );
+  for (const row of evidence.motorEscCurrent)
+    if (row?.verificationStatus === "verified")
+      rememberPair(row.motorId, row.escId, "motors", "esc", "MOTOR_ESC_CURRENT");
+  const evidencePairs = [...pairedCandidates.values()].sort(
+    (a, b) =>
+      a.rule.localeCompare(b.rule) ||
+      a.parts[0]!.id.localeCompare(b.parts[0]!.id) ||
+      a.parts[1]!.id.localeCompare(b.parts[1]!.id),
+  );
   // Spending is allowed only when the measured/design objective improves. Coupled
   // upgrades escape local traps such as a motor needing a different cell count.
   for (let pass = 0; pass < 2; pass++) {
@@ -609,6 +673,13 @@ export function planAiBuild(
           if (candidate && rank(candidate, paired) < 0) paired = candidate;
         }
       best = paired;
+    }
+    // These coupled changes can recover a supported pair pruned by the beam,
+    // even when neither isolated replacement improves compatibility.
+    for (const pair of evidencePairs) {
+      examined++;
+      const candidate = upgraded(best, pair.parts, pair.rule);
+      if (candidate && rank(candidate, best) < 0) best = candidate;
     }
     if (best === before) break;
   }
@@ -658,7 +729,7 @@ export function planAiBuild(
       );
   }
   notes.push(
-    "Compatibility evidence takes priority over modeled performance when component coverage is equal. Use-case ranking is a design preference, not a measured flight-time, camera-quality or crash-resistance guarantee. Budget covers selected drone components, not pilot gear, tools or unspecified accessories.",
+    "Confirmed conflicts and disputed verified sources are excluded. At equal required-component coverage, fewer unresolved checks take priority over modeled performance and price. Use-case ranking is a design preference, not a measured flight-time, camera-quality or crash-resistance guarantee. Budget covers selected drone components, not pilot gear, tools or unspecified accessories.",
   );
   const reasonFor = (p: Product) => {
     if (p.category === "frame" || p.category === "propellers")

@@ -1,0 +1,36 @@
+{
+  "passed": true,
+  "results": [
+    {
+      "width": 390,
+      "verifiedCompatible": true,
+      "verifiedIncompatible": true,
+      "unverified": true,
+      "sourceLinksAndDates": true,
+      "revocationRefresh": true,
+      "keyboardChecklist": true,
+      "scopeLimitVisible": true,
+      "noOverflow": true,
+      "liveAiReviewNotice": true,
+      "reviewLinkOpensChecklist": true,
+      "restoredProofClearsNotice": true
+    },
+    {
+      "width": 1280,
+      "verifiedCompatible": true,
+      "verifiedIncompatible": true,
+      "unverified": true,
+      "sourceLinksAndDates": true,
+      "revocationRefresh": true,
+      "keyboardChecklist": true,
+      "scopeLimitVisible": true,
+      "noOverflow": true,
+      "liveAiReviewNotice": true,
+      "reviewLinkOpensChecklist": true,
+      "restoredProofClearsNotice": true
+    }
+  ],
+  "loopbackOnly": true,
+  "syntheticProducts": true,
+  "productionWrites": false
+}

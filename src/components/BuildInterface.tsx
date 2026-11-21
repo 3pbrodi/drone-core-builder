@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { estimateBuildPerformance } from "@/lib/build-performance-estimates";
 import { compatibilityCoverageGaps } from "@/lib/compatibility-coverage";
 import { createCompatibilityValidation } from "@/lib/compatibility-validation";
+import { AiBuildReviewNotice } from "./AiBuildReviewNotice";
 import { CompatibilityChecks } from "./CompatibilityChecks";
 import { BuildPerformanceDetails } from "./BuildPerformanceDetails";
 import { Link } from "@tanstack/react-router";
@@ -300,6 +301,7 @@ export function BuildInterface({
           </div>
         )}
         {recommendation}
+        {source === "AI Build" && <AiBuildReviewNotice validation={validation}/>}
         <DroneViewer selection={selection} />
         <section
           aria-label="Build statistics"

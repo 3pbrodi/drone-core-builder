@@ -16,6 +16,7 @@ try {
   await page.goto('http://127.0.0.1:4190/create-custom-build?source=ai&budget=300&wishes=6S%20ELRS%202.5%20inch',{waitUntil:'networkidle'});
   const status=page.locator('[data-build-validation]');await page.locator('[data-build-validation="verified-compatible"]').waitFor({timeout:30000});
   assert((await status.innerText()).includes('Verified compatible'));
+  assert.equal(await page.locator('[data-ai-selection-warning]').count(),0);
   const checklist=page.locator('details[aria-label="Compatibility checklist"]');assert.equal(await checklist.getAttribute('open'),null);
   await checklist.locator('summary').focus();await page.keyboard.press('Enter');assert.notEqual(await checklist.getAttribute('open'),null);
   const mount=checklist.locator('[data-compatibility-check="FRAME_MOTOR_MOUNT"]');assert.equal(await mount.getAttribute('data-validation-status'),'verified-compatible');
@@ -25,18 +26,24 @@ try {
   await page.getByRole('button',{name:'Change Propellers',exact:true}).click();let dialog=page.getByRole('dialog');
   await dialog.locator('[data-product-option="large-prop"]').getByRole('button',{name:'Select component',exact:true}).click();await dialog.waitFor({state:'hidden'});
   await page.locator('[data-build-validation="verified-incompatible"]').waitFor();assert((await status.innerText()).includes('Verified incompatible'));
+  const conflictNotice=page.locator('[data-ai-selection-warning="verified-incompatible"]');assert((await conflictNotice.innerText()).includes('verified conflict'));
   await checklist.locator('summary').click();const clearance=checklist.locator('[data-compatibility-check="FRAME_PROPELLER_CLEARANCE"]');assert.equal(await clearance.getAttribute('data-validation-status'),'verified-incompatible');assert(await clearance.getByRole('link',{name:/Source/}).count()>0);await checklist.locator('summary').click();
   assert.equal((await page.request.post('http://127.0.0.1:4289/__test/evidence?mode=missing-wiring')).status(),200);
   await page.getByRole('button',{name:'Change Propellers',exact:true}).click();dialog=page.getByRole('dialog');
   await dialog.locator('[data-product-option="small-prop"]').getByRole('button',{name:'Select component',exact:true}).click();await dialog.waitFor({state:'hidden'});
   await page.locator('[data-build-validation="unverified"]').waitFor();assert((await status.innerText()).includes('Unverified'));
-  await checklist.locator('summary').click();const wiring=checklist.locator('[data-compatibility-check="FC_ESC_CONNECTOR"]');assert.equal(await wiring.getAttribute('data-validation-status'),'unverified');assert((await wiring.innerText()).includes('missing'));
+  const notice=page.locator('[data-ai-selection-warning="unverified"]');assert((await notice.innerText()).includes('unverified check'));await notice.getByRole('link',{name:'Review current checks',exact:true}).click();assert.notEqual(await checklist.getAttribute('open'),null);const wiring=checklist.locator('[data-compatibility-check="FC_ESC_CONNECTOR"]');assert.equal(await wiring.getAttribute('data-validation-status'),'unverified');assert((await wiring.innerText()).includes('missing'));
   assert.equal(await page.locator('body').evaluate(el=>el.scrollWidth<=el.clientWidth),true);assert.deepEqual(errors,[]);
   if(width===390)await page.screenshot({path:'/tmp/dronecores-validation-mobile.png',fullPage:true});
-  results.push({width,verifiedCompatible:true,verifiedIncompatible:true,unverified:true,sourceLinksAndDates:true,revocationRefresh:true,keyboardChecklist:true,scopeLimitVisible:true,noOverflow:true});
+  await checklist.locator('summary').click();
+  assert.equal((await page.request.post('http://127.0.0.1:4289/__test/evidence?mode=complete')).status(),200);
+  await page.getByRole('button',{name:'Change Frame',exact:true}).click();dialog=page.getByRole('dialog');
+  await dialog.locator('[data-product-option="large"]').getByRole('button',{name:'Select component',exact:true}).click();await dialog.waitFor({state:'hidden'});
+  await page.locator('[data-build-validation="verified-compatible"]').waitFor();assert.equal(await page.locator('[data-ai-selection-warning]').count(),0);
+  results.push({width,verifiedCompatible:true,verifiedIncompatible:true,unverified:true,sourceLinksAndDates:true,revocationRefresh:true,keyboardChecklist:true,scopeLimitVisible:true,noOverflow:true,liveAiReviewNotice:true,reviewLinkOpensChecklist:true,restoredProofClearsNotice:true});
   assert.equal((await page.request.post('http://127.0.0.1:4289/__test/evidence?mode=complete')).status(),200);
   await page.close();
  }
  const receipt={passed:true,results,loopbackOnly:true,syntheticProducts:true,productionWrites:false};
- await fs.writeFile('qa/compatibility-validation-browser-20261121.json',JSON.stringify(receipt,null,2)+'\n');console.log(JSON.stringify(receipt));
+ await fs.writeFile(process.env.COMPATIBILITY_BROWSER_RECEIPT??'qa/compatibility-validation-browser-20261121.json',JSON.stringify(receipt,null,2)+'\n');console.log(JSON.stringify(receipt));
 } finally {await browser.close();}

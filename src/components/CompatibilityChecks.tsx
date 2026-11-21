@@ -34,6 +34,7 @@ export function CompatibilityChecks({
     );
   return (
     <details
+      id="compatibility-checklist"
       aria-label="Compatibility checklist"
       className="mt-2 rounded-lg border border-border bg-card px-3 py-2 text-xs text-muted-foreground"
     >
