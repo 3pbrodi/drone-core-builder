@@ -1,0 +1,193 @@
+{
+  "completed": true,
+  "projectId": "rtwreynffguvqdcogahx",
+  "authorization": "User: Please implement steps 1-3 one by one; scoped production activation explicitly stated in response. No website deployment.",
+  "sourceCommit": "14ab17c47cff1f0c597a950b0f0eb5af285d8161",
+  "migration": {
+    "sourceFile": "supabase/migrations/20261121201229_catalogue_pair_evidence_review.sql",
+    "sourceSha256": "5bc4be67716e3ec2e7091e3723108353f5c166cdab5b938933bcdcd2badcb2fb",
+    "executedQuerySha256": "cfa30b205bf5bc1ef8430e7845032fa03a3e516326a59987fcfcdb15e0a42ece",
+    "productionVersion": "20261121203933",
+    "productionCount": 38,
+    "historyRepairPerformed": false,
+    "localFilenameMapsToProductionVersion": true
+  },
+  "runtime": {
+    "version": 5,
+    "sha256": "7f7fdeaaffb4cd9eb7654c4a64c7492b00ea5617f5195435ffdd50f0e2153cfe",
+    "filesMatch": true
+  },
+  "rpcSecurity": {
+    "anon": false,
+    "invoker": true,
+    "service": true,
+    "authenticated": false
+  },
+  "productCount": 134,
+  "selectableCount": 133,
+  "productOfferImageHashesPreserved": true,
+  "allEightAtomicUnchangedGuardsPassed": true,
+  "unchangedHashes": {
+    "products": "d1ba98c5e483b236f80a8b061616929ba347692ad9a140b5a33a3a7d5a16ad42",
+    "offers": "1d222d8c027a024a2a6227bbf5a7a2dfe78b4c488ccf2bcdc266f79fd27c29b3",
+    "images": "b2369af8ed60175e0ab9d884c7714093f65628509b4d3664b7886791ada59279",
+    "specs": "bcc0c5468be7be2be3f73af2e94cef363851807ede956b4f6c3ce0718a17aaf8",
+    "fields": "457e3135625b7dde5098e0ba94a938e167051e022f9700c977dacef055bd0418",
+    "sources": "fed2c69d45b84c9440d90e70fcbdf3291b0f5aa2c171e6c928551682a495b853",
+    "identities": "a7481026e199e7f92bc2486148972761e62dbb5a8c3cca95ef474704d74271e0",
+    "motorCurrent": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "legacyV455PairPreserved": true,
+  "nativeReviewEventIds": [
+    1820,
+    1821,
+    1822,
+    1823,
+    1824
+  ],
+  "pairs": [
+    {
+      "dossierId": "wiring-mini35",
+      "kind": "fc_esc_connection",
+      "productIds": [
+        "speedybee-f405-mini-flight-controller",
+        "speedybee-bls-35a-mini-v2-4in1-esc"
+      ],
+      "evidenceId": "3d01443c-eb3a-4d88-a215-c8dd1172a77b",
+      "sourceId": "b9c08f0f-47d9-4570-bfe2-0bba3e1c082a",
+      "sourceSnapshotId": "2f54508c-4625-4c91-afcc-9928491cf364",
+      "sourceUrl": "https://store-fhxxhuiq8q.mybigcommerce.com/product_images/img_SpeedyBee_F405_Mini_BLS_35A/SpeedyBee-f405-mini-stack-Manual-en.pdf",
+      "sourceSha256": "d35df7611ca9f4ca0e8016b7853ec30616db05966fd6234c17cdbb2d36edc1ab",
+      "sourceRetrievedAt": "2026-11-21T16:51:14.678007+00:00",
+      "verifiedAt": "2026-11-21T20:40:36.142893+00:00",
+      "scope": "Exact named FC/ESC and manufacturer-supplied SH1.0 8-pin harness only; matching PCB revision,3\u20136S supply and correct assembly required.",
+      "conditions": {
+        "minBatteryCells": 3,
+        "maxBatteryCells": 6
+      },
+      "verificationStatus": "verified"
+    },
+    {
+      "dossierId": "wiring-v3-50",
+      "kind": "fc_esc_connection",
+      "productIds": [
+        "speedybee-speedybee-f405-v3-30x30-flight-controller-manufacturer-default-option-sku-sb-f405-v3",
+        "speedybee-bls-50a-4in1-esc"
+      ],
+      "evidenceId": "40cca56d-b2c4-4417-b88b-6ea82320eeaa",
+      "sourceId": "b9c08f0f-47d9-4570-bfe2-0bba3e1c082a",
+      "sourceSnapshotId": "2285707a-c976-4f99-b66d-6f44559bcc28",
+      "sourceUrl": "https://store-fhxxhuiq8q.mybigcommerce.com/product_images/img_SpeedyBee_F405_V3_Stack/SpeedyBee_f405_v3_stack_manual_en.pdf",
+      "sourceSha256": "74f2c78b6ce630d7c70eb8128a7c4710d8a2b28f034495b8c70798efecf94cb5",
+      "sourceRetrievedAt": "2026-11-21T16:51:14.908873+00:00",
+      "verifiedAt": "2026-11-21T20:40:36.142893+00:00",
+      "scope": "Exact named FC/ESC and manufacturer-supplied SH1.0 8-pin harness only; matching PCB revision,3\u20136S supply and correct assembly required.",
+      "conditions": {
+        "minBatteryCells": 3,
+        "maxBatteryCells": 6
+      },
+      "verificationStatus": "verified"
+    },
+    {
+      "dossierId": "wiring-v4-60",
+      "kind": "fc_esc_connection",
+      "productIds": [
+        "pilot-speedybee-f405-v4",
+        "speedybee-bls-60a-4in1-esc"
+      ],
+      "evidenceId": "2ba1940d-6cee-4c7a-8c43-6c040959692b",
+      "sourceId": "b9c08f0f-47d9-4570-bfe2-0bba3e1c082a",
+      "sourceSnapshotId": "cd8fbd36-bb49-4022-bc8d-b9161e4afe47",
+      "sourceUrl": "https://store-fhxxhuiq8q.mybigcommerce.com/product_images/img_SpeedyBee_F405_V4_60A_Stack/manual/speedybee_f405v460a_stack_manual_en.pdf",
+      "sourceSha256": "1e46ae519089ed373fbbb1b398b717c474a184cfb7647f1f1ca1586f28a37850",
+      "sourceRetrievedAt": "2026-11-21T16:51:14.842214+00:00",
+      "verifiedAt": "2026-11-21T20:40:36.142893+00:00",
+      "scope": "Exact named FC/ESC and manufacturer-supplied SH1.0 8-pin harness only; matching PCB revision,3\u20136S supply and correct assembly required.",
+      "conditions": {
+        "minBatteryCells": 3,
+        "maxBatteryCells": 6
+      },
+      "verificationStatus": "verified"
+    },
+    {
+      "dossierId": "wiring-f7-50",
+      "kind": "fc_esc_connection",
+      "productIds": [
+        "speedybee-speedybee-f7-v3-flight-controller-manufacturer-default-option-sku-speedybee-f7v3",
+        "speedybee-bl32-50a-4in1-esc"
+      ],
+      "evidenceId": "743f179d-5d02-42a8-ac72-5920b23df5f9",
+      "sourceId": "b9c08f0f-47d9-4570-bfe2-0bba3e1c082a",
+      "sourceSnapshotId": "52138669-df44-40d4-b4a3-bd59ee790e2b",
+      "sourceUrl": "https://store-fhxxhuiq8q.mybigcommerce.com/product_images/img_SpeedyBee_F7V3_Stack/SpeedyBee_F7V3_Stack_Manual_EN.pdf",
+      "sourceSha256": "1dd4d8052d4fbe64bafba438a8c08b6433fde6bc28f73a589e74bd5f7b458baa",
+      "sourceRetrievedAt": "2026-11-21T16:51:15.084447+00:00",
+      "verifiedAt": "2026-11-21T20:40:36.142893+00:00",
+      "scope": "Exact named FC/ESC and manufacturer-supplied SH1.0 8-pin harness only; matching PCB revision,3\u20136S supply and correct assembly required.",
+      "conditions": {
+        "minBatteryCells": 3,
+        "maxBatteryCells": 6
+      },
+      "verificationStatus": "verified"
+    },
+    {
+      "dossierId": "xing1750-nazgulf5",
+      "kind": "motor_propeller",
+      "productIds": [
+        "catalogue-iflight-xing2-2207-1750kv",
+        "catalogue-iflight-nazgul-f5-prop"
+      ],
+      "evidenceId": "362d5b8f-0a22-472c-9c6b-8a80f98a4baa",
+      "sourceId": "fa3c8a94-3c4f-4293-8d4b-3d0faffbfa25",
+      "sourceSnapshotId": "b0bc2cfd-c98e-46a2-bc22-c41d001c69a0",
+      "sourceUrl": "https://shop.iflight.com/iflight-quads-cat25/freestyle-quads-cat29/Evoque-F5-V3-6S-WTFPV-Pro2401",
+      "sourceSha256": "2dfa7070b92f807519267bf10615288699ee0eedec9f6d65652298fe072fc915",
+      "sourceRetrievedAt": "2026-11-21T16:55:17.627276+00:00",
+      "verifiedAt": "2026-11-21T20:40:36.142893+00:00",
+      "scope": "Maker explicitly assembles these named parts in EvoqueF5V3 6S WTFPV; NazgulF5 component SKU NP10226. Does not apply to1855KV or generic5140 test props.",
+      "conditions": {
+        "batteryCells": 6,
+        "motorKv": 1750,
+        "manufacturerConfiguration": "Evoque F5 V3 6S WTFPV; named motor/propeller BOM"
+      },
+      "verificationStatus": "verified"
+    }
+  ],
+  "verification": {
+    "passed": true,
+    "checks": 61,
+    "network": "Actual anonymous public captures replayed offline through shared reader/resolver/native rules/React checklist",
+    "publicProducts": 133,
+    "scopedProducts": 12,
+    "newWiringPairsVerified": 4,
+    "newMotorPropellerPairsVerified": 1,
+    "legacyPairPreserved": true,
+    "sourceLinksAndScopesVerified": true,
+    "wrongUnknownCellsOtherIdsAndRevocationRemainUnverified": true,
+    "fullMechanicalFitApproved": false,
+    "installedFirmwareApproved": false,
+    "websiteDeploymentPerformed": false
+  },
+  "localRuntimeChecks": 42,
+  "localActivationAndRollbackPassed": true,
+  "stagingAndCountersPreserved": true,
+  "physicalFitApproved": false,
+  "installedFirmwareApproved": false,
+  "newImages": 0,
+  "websiteDeployed": false,
+  "advisories": {
+    "existingSecurityInfo": 26,
+    "existingPgNetWarning": 1,
+    "existingUnindexedForeignKeys": 3,
+    "newUnindexedPairForeignKeys": 0
+  },
+  "rollback": "Fresh per-row fingerprint; native revoke for these five evidence IDs only. Retain all products, offers, source snapshots and review events. Protected rollback.sql was rehearsed locally; not executed in production.",
+  "typecheck": "passed",
+  "build": "passed",
+  "verificationLogSha256": {
+    "runtime": "ef41846a0c61ba4b6a999d07d2d52f82368c77bb24d633972d4f2b70148fb4c4",
+    "configurator": "9f12b0192238a2f06a1574c9e42ae258b65855402713320e3d289bd769dedca5",
+    "types": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "build": "d13c9120846ec5f09a8d6ca2d586b3359653d84bc04fab01851925678132a678"
+  }
+}
