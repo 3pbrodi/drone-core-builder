@@ -18,6 +18,7 @@ import {
   estimateBuildPerformance,
   type BuildPerformanceEstimate,
 } from "./build-performance-estimates";
+import { compatibilityCoverageGaps } from "./compatibility-coverage";
 import { productOptionFacts } from "./product-option-facts";
 
 export type AiBuildAnswers = {
@@ -280,14 +281,17 @@ export function planAiBuild(
     rows.push(f);
     fields.set(f.productId, rows);
   }
-  const verifiedFields = new Map(
+  const productEvidence = new Map(
     unique.map((p) => [
       p.id,
       resolveCompatibilityEvidence(
         { [p.category]: p },
         { ...evidence, fields: fields.get(p.id) ?? [] },
-      ).verification[p.category] ?? [],
+      ),
     ]),
+  );
+  const verifiedFields = new Map(
+    unique.map((p) => [p.id, productEvidence.get(p.id)!.verification[p.category] ?? []]),
   );
   function assessment(selected: SelectedProducts) {
     const resolved = resolveCompatibilityEvidence(selected, { ...evidence, fields: [] });
@@ -296,7 +300,14 @@ export function planAiBuild(
         .filter(Boolean)
         .map((p) => [p!.category, verifiedFields.get(p!.id) ?? []]),
     );
-    return evaluate(selected, resolved.verification, resolved.technicalEvidence);
+    const evidenceIssues = [
+      ...resolved.issues,
+      ...Object.values(selected).flatMap((p) => productEvidence.get(p!.id)?.issues ?? []),
+    ];
+    return {
+      ...evaluate(selected, resolved.verification, resolved.technicalEvidence),
+      evidenceIssues,
+    };
   }
   // Hard requirements require matching field evidence, not just a plausible value.
   for (let i = unique.length - 1; i >= 0; i--) {
@@ -318,7 +329,11 @@ export function planAiBuild(
       keys.push("videoTransmitterSystem");
     if (r.maxWeight !== undefined)
       keys.push("weight", "weightBasis", "weightScope", "weightUnitQuantity");
-    if (keys.some((key) => !verifiedFields.get(p.id)?.includes(key))) unique.splice(i, 1);
+    if (
+      productEvidence.get(p.id)?.issues.some((issue) => issue.kind === "conflict") ||
+      keys.some((key) => !verifiedFields.get(p.id)?.includes(key))
+    )
+      unique.splice(i, 1);
   }
   const pool = (c: Category) => unique.filter((p) => p.category === c);
   function utility(p: Product): number {
@@ -396,11 +411,13 @@ export function planAiBuild(
     amount: number;
     score: number;
     coverage: number;
+    unresolved: number;
     key: string;
   };
   let examined = 0;
   const rank = (a: Node, b: Node) =>
     b.coverage - a.coverage ||
+    a.unresolved - b.unresolved ||
     b.score - a.score ||
     a.amount - b.amount ||
     a.key.localeCompare(b.key);
@@ -430,7 +447,7 @@ export function planAiBuild(
   }
   onProgress?.("optimizing");
   function search(order: Category[]): Node {
-    let beam: Node[] = [{ selected: {}, amount: 0, score: 0, coverage: 0, key: "" }];
+    let beam: Node[] = [{ selected: {}, amount: 0, score: 0, coverage: 0, unresolved: 0, key: "" }];
     for (let index = 0; index < order.length; index++) {
       const c = order[index]!,
         next: Node[] = [];
@@ -447,6 +464,7 @@ export function planAiBuild(
           const selected = { ...node.selected, [c]: p },
             result = assessment(selected);
           if (
+            result.evidenceIssues.some((issue) => issue.kind === "conflict") ||
             result.rules.some(
               (rule) =>
                 rule.applicable && (rule.status === "fail" || rule.advisoryOutcome === "fail"),
@@ -467,10 +485,11 @@ export function planAiBuild(
             (rule) =>
               rule.applicable && rule.status === "pass" && rule.evidenceLevel === "verified",
           ).length;
-          const unknown = result.rules.filter(
-            (rule) =>
-              rule.applicable && (rule.status === "unknown" || rule.evidenceLevel !== "verified"),
-          ).length;
+          const unknown =
+            result.rules.filter(
+              (rule) =>
+                rule.applicable && (rule.status === "unknown" || rule.evidenceLevel !== "verified"),
+            ).length + compatibilityCoverageGaps(selected).length;
           let score =
             Object.values(selected).reduce((sum, p) => sum + utility(p!), 0) +
             verifiedPass * 0.03 -
@@ -482,6 +501,7 @@ export function planAiBuild(
             amount,
             score,
             coverage,
+            unresolved: unknown,
             key: Object.values(selected)
               .map((p) => p!.id)
               .join("|"),
@@ -494,10 +514,18 @@ export function planAiBuild(
     }
     return beam.sort(rank)[0]!;
   }
-  let best = search(categories);
+  // Resolve electrical test conditions before evaluating motor/propeller evidence.
+  const electricalOrder: Category[] = [
+    "frame",
+    "battery",
+    "motors",
+    "propellers",
+    ...categories.filter((c) => !["frame", "battery", "motors", "propellers"].includes(c)),
+  ];
+  let best = search(electricalOrder);
   // A second order explores consumer/FC dependencies even if the first found a full build.
   const alternate = search([
-    ...categories.filter((c) => c !== "flightController" && c !== "esc"),
+    ...electricalOrder.filter((c) => c !== "flightController" && c !== "esc"),
     "flightController",
     "esc",
   ]);
@@ -513,6 +541,7 @@ export function planAiBuild(
     if (amount > budget) return null;
     const checked = assessment(selected);
     if (
+      checked.evidenceIssues.some((issue) => issue.kind === "conflict") ||
       checked.rules.some(
         (rule) => rule.applicable && (rule.status === "fail" || rule.advisoryOutcome === "fail"),
       )
@@ -529,9 +558,11 @@ export function planAiBuild(
     const passes = checked.rules.filter(
       (rule) => rule.applicable && rule.status === "pass" && rule.evidenceLevel === "verified",
     ).length;
-    const unknown = checked.rules.filter(
-      (rule) => rule.applicable && (rule.status === "unknown" || rule.evidenceLevel !== "verified"),
-    ).length;
+    const unknown =
+      checked.rules.filter(
+        (rule) =>
+          rule.applicable && (rule.status === "unknown" || rule.evidenceLevel !== "verified"),
+      ).length + compatibilityCoverageGaps(selected).length;
     const score =
       Object.values(selected).reduce((sum, p) => sum + utility(p!), 0) +
       passes * 0.03 -
@@ -542,6 +573,7 @@ export function planAiBuild(
       amount,
       score,
       coverage,
+      unresolved: unknown,
       key: Object.values(selected)
         .map((p) => p!.id)
         .sort()
@@ -591,6 +623,11 @@ export function planAiBuild(
     notes.push(
       `Compatibility still needs verification: ${unknown.map((rule) => rule.code).join(", ")}.`,
     );
+  const coverageGaps = compatibilityCoverageGaps(best.selected);
+  if (coverageGaps.length)
+    notes.push(
+      `Additional integration checks need verification: ${coverageGaps.map((g) => g.code).join(", ")}.`,
+    );
   if (Object.values(best.selected).some((p) => p!.offer?.freshness !== "current"))
     notes.push(
       "Budget uses last recorded prices; current retailer prices and stock may differ. Out-of-stock products remain eligible.",
@@ -615,7 +652,7 @@ export function planAiBuild(
       );
   }
   notes.push(
-    "Use-case ranking is a design preference, not a measured flight-time, camera-quality or crash-resistance guarantee. Budget covers selected drone components, not pilot gear, tools or unspecified accessories.",
+    "Compatibility evidence takes priority over modeled performance when component coverage is equal. Use-case ranking is a design preference, not a measured flight-time, camera-quality or crash-resistance guarantee. Budget covers selected drone components, not pilot gear, tools or unspecified accessories.",
   );
   const reasonFor = (p: Product) => {
     if (p.category === "frame" || p.category === "propellers")
@@ -644,7 +681,8 @@ export function planAiBuild(
     complete:
       missing.length === 0 &&
       requiredCategoriesForSelection(best.selected).every((c) => Boolean(best.selected[c])),
-    verified: missing.length === 0 && result.status === "verified-compatible",
+    verified:
+      missing.length === 0 && coverageGaps.length === 0 && result.status === "verified-compatible",
     notes,
     reasons,
     examined,

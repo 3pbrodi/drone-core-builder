@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { estimateBuildPerformance } from "@/lib/build-performance-estimates";
+import { compatibilityCoverageGaps } from "@/lib/compatibility-coverage";
+import { CompatibilityChecks } from "./CompatibilityChecks";
 import { BuildPerformanceDetails } from "./BuildPerformanceDetails";
 import { Link } from "@tanstack/react-router";
 import {
@@ -156,13 +158,16 @@ export function BuildInterface({
   const catalogue = useMemo(() => createProductCatalogue(loadedProducts), [loadedProducts]),
     selectedProducts = useMemo(() => resolveBuildSelection(selection, catalogue), [selection, catalogue]),
     compatibilityEvidence = resolveCompatibilityEvidence(selectedProducts, loadedEvidence),
-    stats = evaluate(
+    evaluated = evaluate(
       selectedProducts,
       compatibilityEvidence.verification,
       compatibilityEvidence.technicalEvidence,
     );
+  const hasEvidenceConflict=compatibilityEvidence.issues.some(issue=>issue.kind==='conflict');
+  const integrationGaps=compatibilityCoverageGaps(selectedProducts);
+  const stats=(hasEvidenceConflict||integrationGaps.length>0)&&evaluated.status==='verified-compatible'?{...evaluated,status:'potentially-compatible' as const,statusExplanation:'Conflicting verified evidence requires review.'}:evaluated;
   const massCatalogue=useMemo(()=>[...new Map([...(estimationProducts??[]),...loadedProducts].map(p=>[p.id,p])).values()],[estimationProducts,loadedProducts]);
-  const performanceEstimate=useMemo(()=>estimateBuildPerformance(selectedProducts,massCatalogue,stats.rules.some(rule=>rule.applicable&&(rule.status==='fail'||rule.advisoryOutcome==='fail'))),[selectedProducts,massCatalogue,loadedEvidence]);
+  const performanceEstimate=useMemo(()=>estimateBuildPerformance(selectedProducts,massCatalogue,hasEvidenceConflict||stats.rules.some(rule=>rule.applicable&&(rule.status==='fail'||rule.advisoryOutcome==='fail'))),[selectedProducts,massCatalogue,loadedEvidence]);
   const visibleSections = Object.fromEntries(
       sectionOrder.map((section) => [
         section,
@@ -215,7 +220,9 @@ export function BuildInterface({
   const optionChecks=useMemo(()=>new Map(options.map(product=>{
     const candidateSelection={...selectedProducts,[product.category]:product};
     const evidence=resolveCompatibilityEvidence(candidateSelection,loadedEvidence);
-    return [product.id,candidateCheck(selectedProducts,product.category,product,evidence.verification,evidence.technicalEvidence)];
+    const check=candidateCheck(selectedProducts,product.category,product,evidence.verification,evidence.technicalEvidence);
+    const conflicts=evidence.issues.filter(issue=>issue.kind==='conflict'&&issue.productIds.includes(product.id));
+    return [product.id,conflicts.length?{...check,status:check.status==='verified-compatible'?'potentially-compatible' as const:check.status,messages:[...conflicts.map(issue=>issue.message),...check.messages]}:check];
   })),[options,selectedProducts,loadedEvidence]);
   const filteredOptions=editing?filterComponentProducts(options,editing,productSearch,filters,product=>optionChecks.get(product.id)?.status==='incompatible'):[];
   const resetFilters=()=>{setFilters(emptyComponentFilters());setProductSearch('');setVisibleCount(50);};
@@ -338,8 +345,8 @@ export function BuildInterface({
           />
         </section>
         <BuildPerformanceDetails estimate={performanceEstimate} catalogue={massCatalogue}/>
-        <div className="mt-3 flex items-center gap-2 rounded-md border border-border bg-muted/20 p-3 text-xs font-medium">
-          {stats.status === "verified-compatible" ? (
+        <div className="mt-3 flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted/20 p-3 text-xs font-medium">
+          {hasEvidenceConflict ? (<AlertTriangle className="size-5 shrink-0 text-destructive"/>) : stats.status === "verified-compatible" ? (
             <BadgeCheck className="size-5 shrink-0 text-emerald-600" />
           ) : stats.status === "incompatible" ? (
             <AlertTriangle className="size-5 shrink-0 text-destructive" />
@@ -348,20 +355,22 @@ export function BuildInterface({
           )}
           <span
             className={
-              stats.status === "verified-compatible"
+              hasEvidenceConflict ? "text-destructive" : stats.status === "verified-compatible"
                 ? "text-emerald-600"
                 : stats.status === "incompatible"
                   ? "text-destructive"
                   : "text-muted-foreground"
             }
           >
-            {stats.status === "verified-compatible"
-              ? "Verified compatible"
+            {hasEvidenceConflict ? "Conflicting evidence — review required" : stats.status === "verified-compatible"
+              ? "Verified for listed checks"
               : stats.status === "incompatible"
                 ? "Compatibility needs attention"
                 : "Potentially compatible"}
           </span>
+          <span className="text-[11px] text-muted-foreground">Physical fit unverified</span>
         </div>
+        <CompatibilityChecks rules={stats.rules} selected={selectedProducts} evidence={loadedEvidence} issues={compatibilityEvidence.issues}/>
         {(stats.warnings.length > 0 || stats.missing.length > 0) && (
           <div
             className={`mt-3 rounded-md border p-3 text-sm text-foreground ${stats.status === "incompatible" ? "border-destructive/30 bg-destructive/5" : "border-border bg-muted/30"}`}

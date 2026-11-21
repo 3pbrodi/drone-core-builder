@@ -155,7 +155,7 @@ export function AiGeneratedBuild({ answers }: { answers: AiBuildAnswers }) {
           <details className="mt-1 text-muted-foreground">
             <summary className="cursor-pointer">
               Build details ·{" "}
-              {match.plan.verified ? "hardware checks passed" : "compatibility needs verification"}
+              {match.plan.verified ? "catalogue checks passed" : "compatibility needs verification"}
             </summary>
             <div className="mt-3 space-y-2">
               <p>

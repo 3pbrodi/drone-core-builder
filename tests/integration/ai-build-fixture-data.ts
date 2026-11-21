@@ -121,7 +121,7 @@ export function proofs(products: Product[]): CatalogueEvidenceSnapshot {
         propellerId: p.id,
         result: "compatible" as const,
         authority: "manufacturer" as const,
-        operatingConditions: { synthetic: true },
+        operatingConditions: { minBatteryCells: 1, maxBatteryCells: 12, synthetic: true },
       })),
     ),
     motorEscCurrent: motors.flatMap((m) =>
@@ -135,7 +135,12 @@ export function proofs(products: Product[]): CatalogueEvidenceSnapshot {
         escRatingType: "continuous" as const,
         ratingTypesVerified: true,
         motorOperatingConditionsVerified: true,
-        operatingConditions: { synthetic: true },
+        operatingConditions: {
+          minBatteryCells: 1,
+          maxBatteryCells: 12,
+          propellers: props.map((p) => p.id),
+          synthetic: true,
+        },
       })),
     ),
     fcEscConnection: fc.flatMap((f) =>

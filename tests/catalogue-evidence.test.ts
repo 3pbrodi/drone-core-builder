@@ -19,6 +19,7 @@ const motors3 = product("motors3");
 const props5 = product("props5");
 const esc55 = product("esc55");
 const fcF7 = product("fcF7");
+const battery6 = product("battery6");
 
 describe("catalogue evidence resolver", () => {
   test("verified field evidence only applies to the exact product and exact stored value", () => {
@@ -93,13 +94,13 @@ describe("catalogue evidence resolver", () => {
     });
 
     const resolved = resolveCompatibilityEvidence(
-      { motors: motors5, propellers: props5 },
+      { motors: motors5, propellers: props5, battery: battery6 },
       snapshot,
     );
     expect(resolved.technicalEvidence.motorPropeller?.manufacturerCompatibility).toBe("compatible");
 
     const wrongMotor = resolveCompatibilityEvidence(
-      { motors: motors3, propellers: props5 },
+      { motors: motors3, propellers: props5, battery: battery6 },
       snapshot,
     );
     expect(wrongMotor.technicalEvidence.motorPropeller).toBeUndefined();
@@ -123,7 +124,7 @@ describe("catalogue evidence resolver", () => {
       operatingConditions: { batteryCells: 6, propeller: props5.id },
     });
 
-    const resolved = resolveCompatibilityEvidence({ motors: motors5, esc: esc55 }, snapshot);
+    const resolved = resolveCompatibilityEvidence({ motors: motors5, esc: esc55, propellers: props5, battery: battery6 }, snapshot);
     expect(resolved.verification.motors).toContain("current");
     expect(resolved.verification.esc).toContain("escAmps");
     expect(resolved.technicalEvidence.motorEscCurrent).toBeDefined();
@@ -132,7 +133,7 @@ describe("catalogue evidence resolver", () => {
       ...snapshot.motorEscCurrent[0]!,
       escCurrentAmps: esc55.escAmps! + 1,
     };
-    const mismatched = resolveCompatibilityEvidence({ motors: motors5, esc: esc55 }, snapshot);
+    const mismatched = resolveCompatibilityEvidence({ motors: motors5, esc: esc55, propellers: props5, battery: battery6 }, snapshot);
     expect(mismatched.technicalEvidence.motorEscCurrent).toBeUndefined();
   });
 

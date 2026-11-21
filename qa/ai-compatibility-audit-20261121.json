@@ -1,0 +1,36 @@
+{
+  "passed": true,
+  "results": [
+    {
+      "width": 390,
+      "animatedSpinner": true,
+      "workerSearch": true,
+      "compactCollapsedReport": true,
+      "compatibilityChecklist": true,
+      "physicalFitScope": true,
+      "estimatedWeightAndSpeed": true,
+      "manualChangesRecalculate": true,
+      "fourAnswers": true,
+      "rangeGps": true,
+      "conflictsBlocked": true,
+      "noOverflow": true
+    },
+    {
+      "width": 1280,
+      "animatedSpinner": true,
+      "workerSearch": true,
+      "compactCollapsedReport": true,
+      "compatibilityChecklist": true,
+      "physicalFitScope": true,
+      "estimatedWeightAndSpeed": true,
+      "manualChangesRecalculate": true,
+      "fourAnswers": true,
+      "rangeGps": true,
+      "conflictsBlocked": true,
+      "noOverflow": true
+    }
+  ],
+  "localOnly": true,
+  "syntheticProducts": true,
+  "productionWrites": false
+}

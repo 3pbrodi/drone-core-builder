@@ -91,6 +91,12 @@ export type CatalogueEvidenceSnapshot = {
 export type ResolvedCompatibilityEvidence = {
   verification: CompatibilityVerification;
   technicalEvidence: CompatibilityTechnicalEvidence;
+  issues: CompatibilityEvidenceIssue[];
+};
+export type CompatibilityEvidenceIssue = {
+  kind: "conflict" | "conditions";
+  productIds: string[];
+  message: string;
 };
 
 function sameEvidenceValue(actual: unknown, expected: unknown): boolean {
@@ -123,63 +129,193 @@ function sameEvidenceValue(actual: unknown, expected: unknown): boolean {
   return false;
 }
 
-function isVerifiedFieldEvidence(evidence: CatalogueFieldEvidence, product: Product) {
-  return (
-    evidence.productId === product.id &&
-    evidence.verificationStatus === "verified" &&
-    evidence.exactModelAssociation &&
-    evidence.retrievedAt != null &&
-    evidence.verifiedAt != null &&
-    sameEvidenceValue(product[evidence.field], evidence.value)
+const primaryAuthority = (authority: CatalogueEvidenceAuthority) =>
+  authority === "manufacturer" || authority === "official_documentation";
+const positive = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v) && v > 0;
+function validDates(row: { retrievedAt?: string | null; verifiedAt?: string | null }, now: number) {
+  return [row.retrievedAt, row.verifiedAt].every(
+    (stamp) =>
+      typeof stamp === "string" &&
+      stamp.trim() !== "" &&
+      Number.isFinite(Date.parse(stamp)) &&
+      Date.parse(stamp) <= now + 300000,
   );
 }
-
+const units: Partial<Record<keyof Product, readonly string[]>> = {
+  weight: ["g", "gram", "grams"],
+  frameInches: ["in", "inch", "inches", "″", '"'],
+  propInches: ["in", "inch", "inches", "″", '"'],
+  voltage: ["s", "cell", "cells"],
+  minVoltage: ["s", "cell", "cells"],
+  maxVoltage: ["s", "cell", "cells"],
+  motorKv: ["kv", "rpm/v"],
+  current: ["a", "amp", "amps"],
+  escAmps: ["a", "amp", "amps"],
+  batteryMah: ["mah"],
+  cameraMinVoltageV: ["v", "volt", "volts"],
+  cameraMaxVoltageV: ["v", "volt", "volts"],
+  receiverMinVoltageV: ["v", "volt", "volts"],
+  receiverMaxVoltageV: ["v", "volt", "volts"],
+  deviceMinVoltageV: ["v", "volt", "volts"],
+  deviceMaxVoltageV: ["v", "volt", "volts"],
+  receiverFrequencyMinMhz: ["mhz"],
+  receiverFrequencyMaxMhz: ["mhz"],
+  vtxFrequencyMinMhz: ["mhz"],
+  vtxFrequencyMaxMhz: ["mhz"],
+  antennaFrequencyMinMhz: ["mhz"],
+  antennaFrequencyMaxMhz: ["mhz"],
+  cameraWidthMm: ["mm"],
+  cameraHeightMm: ["mm"],
+  cameraDepthMm: ["mm"],
+  receiverWidthMm: ["mm"],
+  receiverHeightMm: ["mm"],
+  receiverDepthMm: ["mm"],
+};
+function credibleField(row: CatalogueFieldEvidence, now: number) {
+  return (
+    row.verificationStatus === "verified" &&
+    row.exactModelAssociation &&
+    typeof row.sourceId === "string" &&
+    row.sourceId.trim() !== "" &&
+    (primaryAuthority(row.authority) || row.authority === "retailer") &&
+    validDates(row, now) &&
+    (row.unit == null ||
+      !units[row.field] ||
+      (typeof row.unit === "string" &&
+        units[row.field]!.includes(row.unit.trim().toLowerCase()))) &&
+    !(typeof row.value === "number" && !Number.isFinite(row.value))
+  );
+}
+/** Conditions are selection constraints, not merely a nonempty object. No fuzzy IDs. */
+function conditionsMatch(
+  conditions: CatalogueEvidenceObject,
+  selected: SelectedProducts,
+  requirePropeller: boolean,
+) {
+  if (!conditions || typeof conditions !== "object" || Array.isArray(conditions)) return false;
+  const cells = selected.battery?.voltage;
+  if (!positive(cells)) return false;
+  const exact = conditions["batteryCells"];
+  const minimum = conditions["minBatteryCells"],
+    maximum = conditions["maxBatteryCells"];
+  if (exact !== undefined) {
+    if (!positive(exact) || exact !== cells) return false;
+  } else if (
+    !positive(minimum) ||
+    !positive(maximum) ||
+    minimum > maximum ||
+    cells < minimum ||
+    cells > maximum
+  )
+    return false;
+  if (minimum !== undefined && (!positive(minimum) || cells < minimum)) return false;
+  if (maximum !== undefined && (!positive(maximum) || cells > maximum)) return false;
+  const propeller = conditions["propeller"],
+    propellerId = conditions["propellerId"],
+    propellers = conditions["propellers"];
+  if (
+    requirePropeller &&
+    propeller === undefined &&
+    propellerId === undefined &&
+    propellers === undefined
+  )
+    return false;
+  if (propeller !== undefined && propeller !== selected.propellers?.id) return false;
+  if (propellerId !== undefined && propellerId !== selected.propellers?.id) return false;
+  if (
+    propellers !== undefined &&
+    (!Array.isArray(propellers) ||
+      !propellers.every((p) => typeof p === "string") ||
+      !propellers.includes(selected.propellers?.id ?? ""))
+  )
+    return false;
+  if (conditions["motorKv"] !== undefined && conditions["motorKv"] !== selected.motors?.motorKv)
+    return false;
+  return true;
+}
 function pushVerifiedField(
   verification: CompatibilityVerification,
   category: Product["category"],
   field: keyof Product,
 ) {
   const current = verification[category] ?? [];
-  if (!current.includes(field)) {
-    verification[category] = [...current, field];
-  }
+  if (!current.includes(field)) verification[category] = [...current, field];
 }
-
 export function resolveCompatibilityEvidence(
   selected: SelectedProducts,
   snapshot: CatalogueEvidenceSnapshot,
+  now = Date.now(),
 ): ResolvedCompatibilityEvidence {
-  const verification: CompatibilityVerification = {};
-
+  const verification: CompatibilityVerification = {},
+    technicalEvidence: CompatibilityTechnicalEvidence = {},
+    issues: CompatibilityEvidenceIssue[] = [];
   for (const product of Object.values(selected)) {
     if (!product) continue;
-    for (const fieldEvidence of snapshot.fields) {
-      if (isVerifiedFieldEvidence(fieldEvidence, product)) {
-        pushVerifiedField(verification, product.category, fieldEvidence.field);
+    const groups = new Map<keyof Product, CatalogueFieldEvidence[]>();
+    for (const row of snapshot.fields)
+      if (row && row.productId === product.id && credibleField(row, now)) {
+        const rows = groups.get(row.field) ?? [];
+        rows.push(row);
+        groups.set(row.field, rows);
       }
+    for (const [field, rows] of groups) {
+      if (rows.some((row) => !sameEvidenceValue(product[field], row.value))) {
+        issues.push({
+          kind: "conflict",
+          productIds: [product.id],
+          message: `${product.name}: verified ${String(field)} evidence disagrees with the catalogue or another verified source.`,
+        });
+      } else pushVerifiedField(verification, product.category, field);
     }
   }
-
-  const technicalEvidence: CompatibilityTechnicalEvidence = {};
-  const motors = selected.motors;
-  const propellers = selected.propellers;
-  const esc = selected.esc;
-  const flightController = selected.flightController;
-
+  function consistent<T>(
+    rows: T[],
+    value: (row: T) => unknown,
+    productIds: string[],
+    label: string,
+  ): T | undefined {
+    if (rows.length && rows.some((row) => !sameEvidenceValue(value(rows[0]!), value(row)))) {
+      issues.push({
+        kind: "conflict",
+        productIds,
+        message: `Conflicting verified ${label} evidence; this combination requires review.`,
+      });
+      return undefined;
+    }
+    return rows[0];
+  }
+  const motors = selected.motors,
+    propellers = selected.propellers,
+    esc = selected.esc,
+    flightController = selected.flightController;
   if (motors && propellers) {
-    const pair = snapshot.motorPropeller.find(
+    const exact = snapshot.motorPropeller.filter(
       (item) =>
+        item &&
         item.motorId === motors.id &&
         item.propellerId === propellers.id &&
         item.verificationStatus === "verified" &&
         item.exactProductsVerified &&
-        item.retrievedAt != null &&
-        item.verifiedAt != null &&
-        Object.keys(item.operatingConditions).length > 0 &&
-        (item.authority === "manufacturer" || item.authority === "official_documentation"),
+        validDates(item, now) &&
+        primaryAuthority(item.authority),
     );
-
-    if (pair) {
+    const applicable = exact.filter((item) =>
+      conditionsMatch(item.operatingConditions, selected, false),
+    );
+    if (exact.length && !applicable.length)
+      issues.push({
+        kind: "conditions",
+        productIds: [motors.id, propellers.id],
+        message:
+          "Motor/propeller test evidence does not establish compatibility for the selected battery conditions.",
+      });
+    const pair = consistent(
+      applicable,
+      (row) => row.result,
+      [motors.id, propellers.id],
+      "motor/propeller",
+    );
+    if (pair)
       technicalEvidence.motorPropeller = {
         motorId: pair.motorId,
         propellerId: pair.propellerId,
@@ -187,44 +323,75 @@ export function resolveCompatibilityEvidence(
         manufacturerEvidenceVerified: true,
         operatingConditionsVerified: true,
       };
-    }
   }
-
   if (motors && esc) {
-    const currentEvidence = snapshot.motorEscCurrent.find(
+    const exact = snapshot.motorEscCurrent.filter(
       (item) =>
+        item &&
         item.motorId === motors.id &&
         item.escId === esc.id &&
         item.verificationStatus === "verified" &&
         item.exactProductsVerified &&
         item.ratingTypesVerified &&
         item.motorOperatingConditionsVerified &&
-        item.retrievedAt != null &&
-        item.verifiedAt != null &&
+        validDates(item, now) &&
         item.motorRatingType === "continuous" &&
         item.escRatingType === "continuous" &&
-        Object.keys(item.operatingConditions).length > 0 &&
-        Object.is(motors.current, item.motorCurrentAmps) &&
-        Object.is(esc.escAmps, item.escCurrentAmps),
+        positive(item.motorCurrentAmps) &&
+        positive(item.escCurrentAmps),
     );
-
-    if (currentEvidence) {
+    const applicable = exact.filter((item) =>
+      conditionsMatch(item.operatingConditions, selected, true),
+    );
+    if (exact.length && !applicable.length)
+      issues.push({
+        kind: "conditions",
+        productIds: [motors.id, esc.id],
+        message:
+          "Motor/ESC current evidence requires matching selected battery and exact propeller conditions.",
+      });
+    const current = consistent(
+      applicable,
+      (row) => [row.motorCurrentAmps, row.escCurrentAmps],
+      [motors.id, esc.id],
+      "continuous-current",
+    );
+    if (
+      current &&
+      (!Object.is(motors.current, current.motorCurrentAmps) ||
+        !Object.is(esc.escAmps, current.escCurrentAmps))
+    )
+      issues.push({
+        kind: "conflict",
+        productIds: [motors.id, esc.id],
+        message: "Verified current evidence disagrees with the selected catalogue current ratings.",
+      });
+    if (
+      current &&
+      !issues.some(
+        (issue) =>
+          issue.kind === "conflict" &&
+          issue.productIds.some((id) => id === motors.id || id === esc.id),
+      ) &&
+      Object.is(motors.current, current.motorCurrentAmps) &&
+      Object.is(esc.escAmps, current.escCurrentAmps)
+    ) {
       pushVerifiedField(verification, "motors", "current");
       pushVerifiedField(verification, "esc", "escAmps");
       technicalEvidence.motorEscCurrent = {
-        motorId: currentEvidence.motorId,
-        escId: currentEvidence.escId,
-        motorRatingType: currentEvidence.motorRatingType,
-        escRatingType: currentEvidence.escRatingType,
+        motorId: current.motorId,
+        escId: current.escId,
+        motorRatingType: current.motorRatingType,
+        escRatingType: current.escRatingType,
         ratingTypesVerified: true,
         motorOperatingConditionsVerified: true,
       };
     }
   }
-
   if (flightController && esc) {
-    const connection = snapshot.fcEscConnection.find(
+    const rows = snapshot.fcEscConnection.filter(
       (item) =>
+        item &&
         item.flightControllerId === flightController.id &&
         item.escId === esc.id &&
         item.verificationStatus === "verified" &&
@@ -234,12 +401,16 @@ export function resolveCompatibilityEvidence(
         item.wireOrderVerified &&
         item.signalCompatibilityVerified &&
         item.voltageCompatibilityVerified &&
-        item.retrievedAt != null &&
-        item.verifiedAt != null &&
-        (item.authority === "manufacturer" || item.authority === "official_documentation"),
+        validDates(item, now) &&
+        primaryAuthority(item.authority),
     );
-
-    if (connection) {
+    const connection = consistent(
+      rows,
+      (row) => row.result,
+      [flightController.id, esc.id],
+      "FC/ESC wiring",
+    );
+    if (connection)
       technicalEvidence.fcEscConnector = {
         flightControllerId: connection.flightControllerId,
         escId: connection.escId,
@@ -250,10 +421,8 @@ export function resolveCompatibilityEvidence(
         signalCompatibilityVerified: true,
         voltageCompatibilityVerified: true,
       };
-    }
   }
-
-  return { verification, technicalEvidence };
+  return { verification, technicalEvidence, issues };
 }
 
 export const emptyCatalogueEvidenceSnapshot = (): CatalogueEvidenceSnapshot => ({
