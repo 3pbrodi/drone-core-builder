@@ -1,51 +1,50 @@
-import { compatibilityCoverageGaps } from "@/lib/compatibility-coverage";
 import type { CompatibilityRuleResult, SelectedProducts } from "@/lib/build-calculations";
-import type {
-  CatalogueEvidenceSnapshot,
-  CompatibilityEvidenceIssue,
-  ResolvedCompatibilityEvidence,
+import {
+  resolveCompatibilityEvidence,
+  type CatalogueEvidenceSnapshot,
+  type CompatibilityEvidenceIssue,
+  type ResolvedCompatibilityEvidence,
 } from "@/lib/catalogue-evidence";
+import {
+  createCompatibilityValidation,
+  compatibilityValidationLabels,
+  type CompatibilityValidation,
+} from "@/lib/compatibility-validation";
 
-function sourceLink(raw?: string | null) {
-  try {
-    const url = new URL(raw ?? "");
-    return ["https:", "http:"].includes(url.protocol) && !url.username && !url.password
-      ? url.href
-      : null;
-  } catch {
-    return null;
-  }
-}
 export function CompatibilityChecks({
   rules,
   selected,
   evidence,
-  issues,
-  pairSources,
+  report,
 }: {
   rules: CompatibilityRuleResult[];
   selected: SelectedProducts;
   evidence: CatalogueEvidenceSnapshot;
   issues: CompatibilityEvidenceIssue[];
   pairSources: ResolvedCompatibilityEvidence["pairSources"];
+  report?: CompatibilityValidation;
 }) {
-  const applicable = rules.filter((rule) => rule.applicable),
-    passed = applicable.filter(
-      (rule) => rule.status === "pass" && rule.evidenceLevel === "verified",
-    ).length;
-  const gaps = compatibilityCoverageGaps(selected);
+  const validation =
+    report ??
+    createCompatibilityValidation(
+      selected,
+      evidence,
+      resolveCompatibilityEvidence(selected, evidence),
+      rules,
+    );
   return (
     <details
       aria-label="Compatibility checklist"
       className="mt-2 rounded-lg border border-border bg-card px-3 py-2 text-xs text-muted-foreground"
     >
       <summary className="cursor-pointer font-medium">
-        Compatibility checks · {passed}/{applicable.length + gaps.length} verified passes
+        Compatibility checks · {validation.counts["verified-compatible"]}/{validation.checks.length}{" "}
+        verified passes
       </summary>
       <div className="mt-3 space-y-3">
-        {issues.length > 0 && (
+        {validation.issues.length > 0 && (
           <ul className="list-disc space-y-1 pl-4">
-            {issues.map((issue, i) => (
+            {validation.issues.map((issue, i) => (
               <li key={i} className={issue.kind === "conflict" ? "text-destructive" : ""}>
                 {issue.message}
               </li>
@@ -53,99 +52,78 @@ export function CompatibilityChecks({
           </ul>
         )}
         <ul className="space-y-3">
-          {applicable.map((rule) => {
-            const sources = [
-              ...new Set([
-                ...evidence.fields
-                  .filter(
-                    (row) =>
-                      row.verificationStatus === "verified" &&
-                      rule.categories.some(
-                        (category) =>
-                          selected[category]?.id === row.productId &&
-                          Object.hasOwn(rule.evidence, `${category}.${row.field}`),
-                      ),
-                  )
-                  .map((row) => sourceLink(row.sourceUrl))
-                  .filter((url): url is string => Boolean(url)),
-                ...(pairSources[rule.code] ?? [])
-                  .map((row) => sourceLink(row.url))
-                  .filter((url): url is string => Boolean(url)),
-              ]),
-            ];
-            return (
-              <li
-                key={rule.code}
-                data-compatibility-check={rule.code}
-                className="space-y-1 border-l-2 border-border pl-3"
+          {validation.checks.map((check) => (
+            <li
+              key={check.code}
+              data-compatibility-check={check.code}
+              data-validation-status={check.status}
+              className="space-y-1 border-l-2 border-border pl-3"
+            >
+              <p
+                className={`font-medium ${check.status === "verified-compatible" ? "text-emerald-600" : check.status === "verified-incompatible" ? "text-destructive" : "text-foreground"}`}
               >
-                <p className="font-medium text-foreground">
-                  {rule.code.replaceAll("_", " ")} ·{" "}
-                  {rule.status === "pass" && rule.evidenceLevel === "verified"
-                    ? "Verified compatible"
-                    : rule.status === "fail" && rule.evidenceLevel === "verified"
-                      ? "Verified incompatible"
-                      : "Unverified"}
+                {check.label} · {compatibilityValidationLabels[check.status]}
+              </p>
+              <p>{check.explanation}</p>
+              {check.missingFields.length > 0 && <p>Missing: {check.missingFields.join(", ")}</p>}
+              {check.unverifiedFields.length > 0 && (
+                <p>Evidence needed: {check.unverifiedFields.join(", ")}</p>
+              )}
+              {check.sources.length > 0 && (
+                <ul className="space-y-1">
+                  {check.sources.map((source, i) => (
+                    <li key={`${source.sourceId}:${source.field}:${i}`} className="break-words">
+                      {source.url ? (
+                        <a
+                          href={source.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="underline"
+                        >
+                          Source · {new URL(source.url).hostname}
+                        </a>
+                      ) : (
+                        <span>Source ID: {source.sourceId}</span>
+                      )}
+                      {source.field && <span> · {source.field}</span>}
+                      {source.usage === "disputed" && (
+                        <span className="text-destructive"> · Conflicting evidence</span>
+                      )}
+                      {source.usage === "reference" && <span> · Reference only</span>}
+                      {source.retrievedAt && (
+                        <span>
+                          {" "}
+                          · Retrieved{" "}
+                          <time dateTime={source.retrievedAt}>
+                            {source.retrievedAt.slice(0, 10)}
+                          </time>
+                        </span>
+                      )}
+                      {source.scope && <p>{source.scope}</p>}
+                      {source.locator && <p>{source.locator}</p>}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {check.sourceReferenceUnavailable && (
+                <p>
+                  {check.status === "unverified"
+                    ? "A verified source reference for this check is missing."
+                    : "The native proof does not expose a public source reference."}
                 </p>
-                <p>{rule.explanation}</p>
-                {rule.missingFields.length > 0 && <p>Missing: {rule.missingFields.join(", ")}</p>}
-                {rule.unverifiedFields.length > 0 && (
-                  <p>Evidence needed: {rule.unverifiedFields.join(", ")}</p>
-                )}
-                {(pairSources[rule.code] ?? []).map((row) => (
-                  <p key={`${row.snapshotId}:${row.locator}`}>
-                    {row.scope} · {row.locator}
-                  </p>
-                ))}
-                {sources.length > 0 && (
-                  <p className="flex flex-wrap gap-3">
-                    {sources.map((url, i) => (
-                      <a
-                        key={url}
-                        href={url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="underline"
-                      >
-                        Source {i + 1}
-                      </a>
-                    ))}
-                  </p>
-                )}
-              </li>
-            );
-          })}
+              )}
+            </li>
+          ))}
         </ul>
-        {gaps.length > 0 && (
-          <ul className="space-y-2">
-            {gaps.map((gap) => (
-              <li key={gap.code} data-compatibility-gap={gap.code}>
-                <strong>{gap.code.replaceAll("_", " ")} · Unverified</strong>
-                <p>{gap.explanation}</p>
-              </li>
-            ))}
-          </ul>
-        )}
         <div className="space-y-1 border-t border-border pt-3">
           <h3 className="font-medium text-foreground">Additional review required</h3>
-          <p>Listed checks do not verify full physical installation or flight readiness.</p>
-          <ul className="list-disc space-y-1 pl-4">
-            <li>
-              Frame/stack mounting, camera clearance, motor shaft/propeller fit and battery
-              retention need exact mechanical dimensions.
-            </li>
-            <li>
-              Battery power connectors, VTX power/wiring and integrated ESC ratings need checks
-              where the catalogue lacks matching data.
-            </li>
-            <li>
-              Radio frequency bands, exact video ecosystem, firmware/setup and bench checks remain
-              necessary; a matching protocol label alone is insufficient.
-            </li>
-          </ul>
+          {validation.limitations.map((text) => (
+            <p key={text}>{text}</p>
+          ))}
           <p>
-            Pair sources appear when captured provenance is available. Older proofs may lack source
-            links; no missing links are invented.
+            Frame/stack clearances, fasteners, propeller shafts, battery retention, wiring and
+            actual firmware/setup require separate checks. Sources support only their documented
+            fields or exact pairing conditions.
           </p>
         </div>
       </div>

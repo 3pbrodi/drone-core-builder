@@ -12,11 +12,18 @@ const products = [
 ];
 const evidence = proofs(products),
   requests: unknown[] = [];
+let omitWiringEvidence = false;
 http
   .createServer((req, res) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Content-Type", "application/json");
     const url = new URL(req.url!, "http://127.0.0.1:4289");
+    if (url.pathname === "/__test/evidence" && req.method === "POST") {
+      const mode=url.searchParams.get("mode");
+      if (mode!=="complete" && mode!=="missing-wiring") {res.statusCode=400;return res.end(JSON.stringify({error:"Invalid fixture mode"}));}
+      omitWiringEvidence=mode==="missing-wiring";
+      return res.end(JSON.stringify({mode}));
+    }
     if (url.pathname === "/metrics") return res.end(JSON.stringify(requests));
     const q = JSON.parse(url.searchParams.get("query") ?? "{}");
     requests.push(q);
@@ -35,7 +42,7 @@ http
       motorEscCurrent: evidence.motorEscCurrent.filter(
         (e) => ids.has(e.motorId) && ids.has(e.escId),
       ),
-      fcEscConnection: evidence.fcEscConnection.filter(
+      fcEscConnection: omitWiringEvidence ? [] : evidence.fcEscConnection.filter(
         (e) => ids.has(e.flightControllerId) && ids.has(e.escId),
       ),
     };

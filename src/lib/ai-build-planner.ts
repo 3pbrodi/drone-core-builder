@@ -19,6 +19,10 @@ import {
   type BuildPerformanceEstimate,
 } from "./build-performance-estimates";
 import { compatibilityCoverageGaps } from "./compatibility-coverage";
+import {
+  validateBuildCompatibility,
+  type CompatibilityValidation,
+} from "./compatibility-validation";
 import { productOptionFacts } from "./product-option-facts";
 
 export type AiBuildAnswers = {
@@ -35,6 +39,7 @@ export type AiBuildPlan = {
   budget: number;
   complete: boolean;
   verified: boolean;
+  validation: CompatibilityValidation;
   notes: string[];
   reasons: { id: string; name: string; text: string }[];
   examined: number;
@@ -267,6 +272,7 @@ export function planAiBuild(
     budget: budget / 100,
     complete: false,
     verified: false,
+    validation: validateBuildCompatibility({}, evidence),
     notes: [],
     reasons: [],
     examined: 0,
@@ -674,15 +680,16 @@ export function planAiBuild(
         "; ",
       )}. ${productPurchaseQuantity(p!)} sales pack(s), ${(cost(p!) / 100).toFixed(2)} EUR. ${reasonFor(p!)}`,
   }));
+  const validation = validateBuildCompatibility(best.selected, evidence, categories);
   return {
     ...empty,
+    validation,
     selection,
     price: Math.round(selectionPriceSummary(best.selected).drone * 100) / 100,
     complete:
       missing.length === 0 &&
       requiredCategoriesForSelection(best.selected).every((c) => Boolean(best.selected[c])),
-    verified:
-      missing.length === 0 && coverageGaps.length === 0 && result.status === "verified-compatible",
+    verified: missing.length === 0 && validation.status === "verified-compatible",
     notes,
     reasons,
     examined,

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { estimateBuildPerformance } from "@/lib/build-performance-estimates";
 import { compatibilityCoverageGaps } from "@/lib/compatibility-coverage";
+import { createCompatibilityValidation } from "@/lib/compatibility-validation";
 import { CompatibilityChecks } from "./CompatibilityChecks";
 import { BuildPerformanceDetails } from "./BuildPerformanceDetails";
 import { Link } from "@tanstack/react-router";
@@ -166,6 +167,7 @@ export function BuildInterface({
   const hasEvidenceConflict=compatibilityEvidence.issues.some(issue=>issue.kind==='conflict');
   const integrationGaps=compatibilityCoverageGaps(selectedProducts);
   const stats=(hasEvidenceConflict||integrationGaps.length>0)&&evaluated.status==='verified-compatible'?{...evaluated,status:'potentially-compatible' as const,statusExplanation:'Conflicting verified evidence requires review.'}:evaluated;
+  const validation = createCompatibilityValidation(selectedProducts, loadedEvidence, compatibilityEvidence, stats.rules);
   const massCatalogue=useMemo(()=>[...new Map([...(estimationProducts??[]),...loadedProducts].map(p=>[p.id,p])).values()],[estimationProducts,loadedProducts]);
   const performanceEstimate=useMemo(()=>estimateBuildPerformance(selectedProducts,massCatalogue,hasEvidenceConflict||stats.rules.some(rule=>rule.applicable&&(rule.status==='fail'||rule.advisoryOutcome==='fail'))),[selectedProducts,massCatalogue,loadedEvidence]);
   const visibleSections = Object.fromEntries(
@@ -346,31 +348,14 @@ export function BuildInterface({
         </section>
         <BuildPerformanceDetails estimate={performanceEstimate} catalogue={massCatalogue}/>
         <div className="mt-3 flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted/20 p-3 text-xs font-medium">
-          {hasEvidenceConflict ? (<AlertTriangle className="size-5 shrink-0 text-destructive"/>) : stats.status === "verified-compatible" ? (
-            <BadgeCheck className="size-5 shrink-0 text-emerald-600" />
-          ) : stats.status === "incompatible" ? (
-            <AlertTriangle className="size-5 shrink-0 text-destructive" />
-          ) : (
-            <CircleHelp className="size-5 shrink-0 text-muted-foreground" />
-          )}
-          <span
-            className={
-              hasEvidenceConflict ? "text-destructive" : stats.status === "verified-compatible"
-                ? "text-emerald-600"
-                : stats.status === "incompatible"
-                  ? "text-destructive"
-                  : "text-muted-foreground"
-            }
-          >
-            {hasEvidenceConflict ? "Conflicting evidence — review required" : stats.status === "verified-compatible"
-              ? "Verified for listed checks"
-              : stats.status === "incompatible"
-                ? "Compatibility needs attention"
-                : "Potentially compatible"}
+          {validation.status === "verified-compatible" ? <BadgeCheck className="size-5 shrink-0 text-emerald-600"/> : validation.status === "verified-incompatible" ? <AlertTriangle className="size-5 shrink-0 text-destructive"/> : <CircleHelp className="size-5 shrink-0 text-muted-foreground"/>}
+          <span role="status" aria-live="polite" data-build-validation={validation.status} className={validation.status === "verified-compatible" ? "text-emerald-600" : validation.status === "verified-incompatible" ? "text-destructive" : "text-muted-foreground"}>
+            {validation.label} · listed checks
           </span>
           <span className="text-[11px] text-muted-foreground">Physical fit unverified</span>
         </div>
-        <CompatibilityChecks rules={stats.rules} selected={selectedProducts} evidence={loadedEvidence} issues={compatibilityEvidence.issues} pairSources={compatibilityEvidence.pairSources}/>
+        <p className="mt-1 text-xs text-muted-foreground">{validation.explanation}</p>
+        <CompatibilityChecks report={validation} rules={stats.rules} selected={selectedProducts} evidence={loadedEvidence} issues={compatibilityEvidence.issues} pairSources={compatibilityEvidence.pairSources}/>
         {(stats.warnings.length > 0 || stats.missing.length > 0) && (
           <div
             className={`mt-3 rounded-md border p-3 text-sm text-foreground ${stats.status === "incompatible" ? "border-destructive/30 bg-destructive/5" : "border-border bg-muted/30"}`}

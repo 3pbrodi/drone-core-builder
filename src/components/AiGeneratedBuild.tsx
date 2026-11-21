@@ -154,10 +154,12 @@ export function AiGeneratedBuild({ answers }: { answers: AiBuildAnswers }) {
           </div>
           <details className="mt-1 text-muted-foreground">
             <summary className="cursor-pointer">
-              Build details ·{" "}
-              {match.plan.verified ? "catalogue checks passed" : "compatibility needs verification"}
+              Initial build details · {match.plan.validation.label}
             </summary>
             <div className="mt-3 space-y-2">
+              <p>
+                {match.plan.validation.explanation} Scope: {match.plan.validation.scope}.
+              </p>
               <p>
                 Initial recommendation · {answers.priorities.join(" + ") || "Balanced use"} ·{" "}
                 {money(Math.max(0, answers.budget - match.plan.price))} budget remaining. Manual

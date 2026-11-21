@@ -1,0 +1,37 @@
+{
+  "completed": true,
+  "baseline": "888f075e190e274a8bfee1f08f9859353c704d59",
+  "branch": "feature/shared-drone-configurator",
+  "statuses": [
+    "verified-compatible",
+    "verified-incompatible",
+    "unverified"
+  ],
+  "scope": "listed catalogue checks",
+  "distinctNodeCasesPassed": 26,
+  "optionalNativeDatabaseCaseSkipped": 1,
+  "typecheck": "passed",
+  "build": "passed",
+  "existingAiFlowDesktopMobile": true,
+  "threeStatesSourcesAndRevocationDesktopMobile": true,
+  "sourceDatesAndKeyboard": true,
+  "fieldCredibilityGatesReused": true,
+  "conflictingSourcesDisputed": true,
+  "differentCellContextNotSupporting": true,
+  "legacyMissingPublicReferencesExplicit": true,
+  "physicalFitApproved": false,
+  "installedFirmwareApproved": false,
+  "productionReads": false,
+  "productionWrites": false,
+  "runtimeDeployment": false,
+  "websiteDeployment": false,
+  "newImages": 0,
+  "logSha256": {
+    "tests": "b0b20d84de302eccd8cc5d7b2a70e3f25e6606c8286d21c2c6be5fe9c07e26e6",
+    "corrected-fixture": "7f6308e0f4032e73797e05064dcb6e3d5e8f181537f00c3b74021c48ceda986b",
+    "types": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "build": "76868d497973953d13c6831f9b845c0392e8546925b3f5d9b93d4a7cdd4cf7b6",
+    "browser": "703725f9af33a7ea9940d357c40944fa9d9ce2cbfd819ff7f15521a81e7d91fa",
+    "states-browser-final": "6080dabc96ed738b9841c25ed760260d6137c174cb80837a85f7f90164f3d63d"
+  }
+}

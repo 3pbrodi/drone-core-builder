@@ -106,9 +106,19 @@ export type ResolvedCompatibilityEvidence = {
   technicalEvidence: CompatibilityTechnicalEvidence;
   issues: CompatibilityEvidenceIssue[];
   pairSources: Partial<Record<CompatibilityRuleCode, CataloguePairSource[]>>;
+  pairReviewSources: Partial<
+    Record<
+      CompatibilityRuleCode,
+      (CataloguePairSource & {
+        retrievedAt: string | null;
+        verifiedAt: string | null;
+      })[]
+    >
+  >;
 };
 export type CompatibilityEvidenceIssue = {
   kind: "conflict" | "conditions";
+  field?: keyof Product;
   productIds: string[];
   message: string;
 };
@@ -203,7 +213,7 @@ const units: Partial<Record<keyof Product, readonly string[]>> = {
   receiverHeightMm: ["mm"],
   receiverDepthMm: ["mm"],
 };
-function credibleField(row: CatalogueFieldEvidence, now: number) {
+export function isCredibleCatalogueFieldEvidence(row: CatalogueFieldEvidence, now: number) {
   return (
     row.verificationStatus === "verified" &&
     row.exactModelAssociation &&
@@ -282,11 +292,30 @@ export function resolveCompatibilityEvidence(
     technicalEvidence: CompatibilityTechnicalEvidence = {},
     issues: CompatibilityEvidenceIssue[] = [];
   const pairSources: ResolvedCompatibilityEvidence["pairSources"] = {};
+  const pairReviewSources: ResolvedCompatibilityEvidence["pairReviewSources"] = {};
+  const reviewSources = (
+    rows: {
+      provenance?: CataloguePairSource | undefined;
+      retrievedAt?: string | null;
+      verifiedAt?: string | null;
+    }[],
+  ) =>
+    rows.flatMap((row) =>
+      row.provenance
+        ? [
+            {
+              ...row.provenance,
+              retrievedAt: row.retrievedAt ?? null,
+              verifiedAt: row.verifiedAt ?? null,
+            },
+          ]
+        : [],
+    );
   for (const product of Object.values(selected)) {
     if (!product) continue;
     const groups = new Map<keyof Product, CatalogueFieldEvidence[]>();
     for (const row of snapshot.fields)
-      if (row && row.productId === product.id && credibleField(row, now)) {
+      if (row && row.productId === product.id && isCredibleCatalogueFieldEvidence(row, now)) {
         const rows = groups.get(row.field) ?? [];
         rows.push(row);
         groups.set(row.field, rows);
@@ -296,6 +325,7 @@ export function resolveCompatibilityEvidence(
         issues.push({
           kind: "conflict",
           productIds: [product.id],
+          field,
           message: `${product.name}: verified ${String(field)} evidence disagrees with the catalogue or another verified source.`,
         });
       } else pushVerifiedField(verification, product.category, field);
@@ -335,6 +365,9 @@ export function resolveCompatibilityEvidence(
     );
     const applicable = exact.filter((item) =>
       conditionsMatch(item.operatingConditions, selected, false),
+    );
+    pairReviewSources.MOTOR_PROPELLER_SIZE_GUIDANCE = reviewSources(
+      applicable.length ? applicable : exact,
     );
     if (exact.length && !applicable.length)
       issues.push({
@@ -448,6 +481,7 @@ export function resolveCompatibilityEvidence(
         (item.operatingConditions === undefined && !item.provenance) ||
         conditionsMatch(item.operatingConditions!, selected, false),
     );
+    pairReviewSources.FC_ESC_CONNECTOR = reviewSources(applicable.length ? applicable : rows);
     if (rows.length && !applicable.length)
       issues.push({
         kind: "conditions",
@@ -477,7 +511,7 @@ export function resolveCompatibilityEvidence(
       };
     }
   }
-  return { verification, technicalEvidence, issues, pairSources };
+  return { verification, technicalEvidence, issues, pairSources, pairReviewSources };
 }
 
 export const emptyCatalogueEvidenceSnapshot = (): CatalogueEvidenceSnapshot => ({
