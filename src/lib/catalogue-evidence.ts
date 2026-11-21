@@ -1,6 +1,7 @@
 import type { Product } from "./build-data";
 import type {
   CompatibilityTechnicalEvidence,
+  CompatibilityRuleCode,
   CompatibilityVerification,
   CurrentRatingType,
   SelectedProducts,
@@ -37,7 +38,17 @@ export type CatalogueFieldEvidence = {
   caveats?: string | null;
 };
 
+export type CataloguePairSource = {
+  sourceId: string;
+  snapshotId: string;
+  url: string;
+  sha256: string;
+  locator: string;
+  scope: string;
+};
+
 export type CatalogueMotorPropellerEvidence = {
+  provenance?: CataloguePairSource | undefined;
   motorId: string;
   propellerId: string;
   result: "compatible" | "incompatible";
@@ -66,6 +77,8 @@ export type CatalogueMotorEscCurrentEvidence = {
 };
 
 export type CatalogueFcEscConnectionEvidence = {
+  provenance?: CataloguePairSource | undefined;
+  operatingConditions?: CatalogueEvidenceObject | undefined;
   flightControllerId: string;
   escId: string;
   result: "compatible" | "incompatible";
@@ -92,6 +105,7 @@ export type ResolvedCompatibilityEvidence = {
   verification: CompatibilityVerification;
   technicalEvidence: CompatibilityTechnicalEvidence;
   issues: CompatibilityEvidenceIssue[];
+  pairSources: Partial<Record<CompatibilityRuleCode, CataloguePairSource[]>>;
 };
 export type CompatibilityEvidenceIssue = {
   kind: "conflict" | "conditions";
@@ -131,6 +145,24 @@ function sameEvidenceValue(actual: unknown, expected: unknown): boolean {
 
 const primaryAuthority = (authority: CatalogueEvidenceAuthority) =>
   authority === "manufacturer" || authority === "official_documentation";
+function validPairProvenance(row: { provenance?: CataloguePairSource | undefined }) {
+  if (row.provenance === undefined) return true; // Existing native verified proofs remain supported.
+  const p = row.provenance;
+  try {
+    const url = new URL(p.url);
+    return (
+      url.protocol === "https:" &&
+      !url.username &&
+      !url.password &&
+      [p.sourceId, p.snapshotId, p.locator, p.scope].every(
+        (v) => typeof v === "string" && v.trim() !== "",
+      ) &&
+      /^[a-f0-9]{64}$/.test(p.sha256)
+    );
+  } catch {
+    return false;
+  }
+}
 const positive = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v) && v > 0;
 function validDates(row: { retrievedAt?: string | null; verifiedAt?: string | null }, now: number) {
   return [row.retrievedAt, row.verifiedAt].every(
@@ -249,6 +281,7 @@ export function resolveCompatibilityEvidence(
   const verification: CompatibilityVerification = {},
     technicalEvidence: CompatibilityTechnicalEvidence = {},
     issues: CompatibilityEvidenceIssue[] = [];
+  const pairSources: ResolvedCompatibilityEvidence["pairSources"] = {};
   for (const product of Object.values(selected)) {
     if (!product) continue;
     const groups = new Map<keyof Product, CatalogueFieldEvidence[]>();
@@ -297,7 +330,8 @@ export function resolveCompatibilityEvidence(
         item.verificationStatus === "verified" &&
         item.exactProductsVerified &&
         validDates(item, now) &&
-        primaryAuthority(item.authority),
+        primaryAuthority(item.authority) &&
+        validPairProvenance(item),
     );
     const applicable = exact.filter((item) =>
       conditionsMatch(item.operatingConditions, selected, false),
@@ -315,7 +349,10 @@ export function resolveCompatibilityEvidence(
       [motors.id, propellers.id],
       "motor/propeller",
     );
-    if (pair)
+    if (pair) {
+      pairSources.MOTOR_PROPELLER_SIZE_GUIDANCE = applicable.flatMap((row) =>
+        row.provenance ? [row.provenance] : [],
+      );
       technicalEvidence.motorPropeller = {
         motorId: pair.motorId,
         propellerId: pair.propellerId,
@@ -323,6 +360,7 @@ export function resolveCompatibilityEvidence(
         manufacturerEvidenceVerified: true,
         operatingConditionsVerified: true,
       };
+    }
   }
   if (motors && esc) {
     const exact = snapshot.motorEscCurrent.filter(
@@ -402,15 +440,31 @@ export function resolveCompatibilityEvidence(
         item.signalCompatibilityVerified &&
         item.voltageCompatibilityVerified &&
         validDates(item, now) &&
-        primaryAuthority(item.authority),
+        primaryAuthority(item.authority) &&
+        validPairProvenance(item),
     );
+    const applicable = rows.filter(
+      (item) =>
+        (item.operatingConditions === undefined && !item.provenance) ||
+        conditionsMatch(item.operatingConditions!, selected, false),
+    );
+    if (rows.length && !applicable.length)
+      issues.push({
+        kind: "conditions",
+        productIds: [flightController.id, esc.id],
+        message:
+          "FC/ESC supplied-harness evidence requires the documented selected battery conditions.",
+      });
     const connection = consistent(
-      rows,
+      applicable,
       (row) => row.result,
       [flightController.id, esc.id],
       "FC/ESC wiring",
     );
-    if (connection)
+    if (connection) {
+      pairSources.FC_ESC_CONNECTOR = applicable.flatMap((row) =>
+        row.provenance ? [row.provenance] : [],
+      );
       technicalEvidence.fcEscConnector = {
         flightControllerId: connection.flightControllerId,
         escId: connection.escId,
@@ -421,8 +475,9 @@ export function resolveCompatibilityEvidence(
         signalCompatibilityVerified: true,
         voltageCompatibilityVerified: true,
       };
+    }
   }
-  return { verification, technicalEvidence, issues };
+  return { verification, technicalEvidence, issues, pairSources };
 }
 
 export const emptyCatalogueEvidenceSnapshot = (): CatalogueEvidenceSnapshot => ({

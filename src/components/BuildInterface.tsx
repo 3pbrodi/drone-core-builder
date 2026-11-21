@@ -370,7 +370,7 @@ export function BuildInterface({
           </span>
           <span className="text-[11px] text-muted-foreground">Physical fit unverified</span>
         </div>
-        <CompatibilityChecks rules={stats.rules} selected={selectedProducts} evidence={loadedEvidence} issues={compatibilityEvidence.issues}/>
+        <CompatibilityChecks rules={stats.rules} selected={selectedProducts} evidence={loadedEvidence} issues={compatibilityEvidence.issues} pairSources={compatibilityEvidence.pairSources}/>
         {(stats.warnings.length > 0 || stats.missing.length > 0) && (
           <div
             className={`mt-3 rounded-md border p-3 text-sm text-foreground ${stats.status === "incompatible" ? "border-destructive/30 bg-destructive/5" : "border-border bg-muted/30"}`}

@@ -20,7 +20,35 @@ export type SpecEvidenceRow = {
   caveats: string | null;
 };
 
-export type MotorPropellerEvidenceRow = {
+type PairProvenanceRow = {
+  source_id?: string;
+  source_snapshot_id?: string | null;
+  source_url?: string | null;
+  source_content_hash?: string | null;
+  source_locator?: string | null;
+  compatibility_scope?: string | null;
+};
+function pairProvenance(row: PairProvenanceRow) {
+  if (
+    [
+      row.source_snapshot_id,
+      row.source_url,
+      row.source_content_hash,
+      row.source_locator,
+      row.compatibility_scope,
+    ].every((v) => v == null)
+  )
+    return undefined;
+  return {
+    sourceId: row.source_id ?? "",
+    snapshotId: row.source_snapshot_id ?? "",
+    url: row.source_url ?? "",
+    sha256: row.source_content_hash ?? "",
+    locator: row.source_locator ?? "",
+    scope: row.compatibility_scope ?? "",
+  };
+}
+export type MotorPropellerEvidenceRow = PairProvenanceRow & {
   motor_product_id: string;
   propeller_product_id: string;
   result: "compatible" | "incompatible";
@@ -48,7 +76,8 @@ export type MotorEscCurrentEvidenceRow = {
   operating_conditions: CatalogueEvidenceObject;
 };
 
-export type FcEscConnectionEvidenceRow = {
+export type FcEscConnectionEvidenceRow = PairProvenanceRow & {
+  details?: CatalogueEvidenceObject;
   flight_controller_product_id: string;
   esc_product_id: string;
   result: "compatible" | "incompatible";
@@ -114,6 +143,7 @@ export function mapEvidenceRows({fields,motorPropellerRows,motorEscRows,fcEscRow
 
   const motorPropeller = motorPropellerRows.map(
     (row) => ({
+      provenance: pairProvenance(row),
       motorId: row.motor_product_id,
       propellerId: row.propeller_product_id,
       result: row.result,
@@ -146,6 +176,8 @@ export function mapEvidenceRows({fields,motorPropellerRows,motorEscRows,fcEscRow
 
   const fcEscConnection = fcEscRows.map(
     (row) => ({
+      provenance: pairProvenance(row),
+      operatingConditions: row.details?.["operatingConditions"] as CatalogueEvidenceObject | undefined,
       flightControllerId: row.flight_controller_product_id,
       escId: row.esc_product_id,
       result: row.result,

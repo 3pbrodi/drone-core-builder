@@ -1,0 +1,13 @@
+{
+  "passed": true,
+  "scope": "Disposable clone of existing local staging; migration and all fixtures rolled back, clone dropped",
+  "newWiringPairsRehearsed": 4,
+  "motorPropellerPairsRehearsed": 1,
+  "sourceDatabasePreserved": true,
+  "dossierSha256": "030d072a859cd098a1dfef386c5ac50286cfaf80e5b2bd738a227d5eea23cca9",
+  "migration": "20261121201229_catalogue_pair_evidence_review.sql",
+  "migrationSha256": "5bc4be67716e3ec2e7091e3723108353f5c166cdab5b938933bcdcd2badcb2fb",
+  "persistentApprovalsAdded": 0,
+  "productionWrites": false,
+  "imagesAdded": 0
+}

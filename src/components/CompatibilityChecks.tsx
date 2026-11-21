@@ -3,6 +3,7 @@ import type { CompatibilityRuleResult, SelectedProducts } from "@/lib/build-calc
 import type {
   CatalogueEvidenceSnapshot,
   CompatibilityEvidenceIssue,
+  ResolvedCompatibilityEvidence,
 } from "@/lib/catalogue-evidence";
 
 function sourceLink(raw?: string | null) {
@@ -20,11 +21,13 @@ export function CompatibilityChecks({
   selected,
   evidence,
   issues,
+  pairSources,
 }: {
   rules: CompatibilityRuleResult[];
   selected: SelectedProducts;
   evidence: CatalogueEvidenceSnapshot;
   issues: CompatibilityEvidenceIssue[];
+  pairSources: ResolvedCompatibilityEvidence["pairSources"];
 }) {
   const applicable = rules.filter((rule) => rule.applicable),
     passed = applicable.filter(
@@ -52,8 +55,8 @@ export function CompatibilityChecks({
         <ul className="space-y-3">
           {applicable.map((rule) => {
             const sources = [
-              ...new Set(
-                evidence.fields
+              ...new Set([
+                ...evidence.fields
                   .filter(
                     (row) =>
                       row.verificationStatus === "verified" &&
@@ -65,7 +68,10 @@ export function CompatibilityChecks({
                   )
                   .map((row) => sourceLink(row.sourceUrl))
                   .filter((url): url is string => Boolean(url)),
-              ),
+                ...(pairSources[rule.code] ?? [])
+                  .map((row) => sourceLink(row.url))
+                  .filter((url): url is string => Boolean(url)),
+              ]),
             ];
             return (
               <li
@@ -86,6 +92,11 @@ export function CompatibilityChecks({
                 {rule.unverifiedFields.length > 0 && (
                   <p>Evidence needed: {rule.unverifiedFields.join(", ")}</p>
                 )}
+                {(pairSources[rule.code] ?? []).map((row) => (
+                  <p key={`${row.snapshotId}:${row.locator}`}>
+                    {row.scope} · {row.locator}
+                  </p>
+                ))}
                 {sources.length > 0 && (
                   <p className="flex flex-wrap gap-3">
                     {sources.map((url, i) => (
@@ -133,8 +144,8 @@ export function CompatibilityChecks({
             </li>
           </ul>
           <p>
-            Pair-test source links are not included in the current public evidence response; no
-            missing source links are invented.
+            Pair sources appear when captured provenance is available. Older proofs may lack source
+            links; no missing links are invented.
           </p>
         </div>
       </div>
