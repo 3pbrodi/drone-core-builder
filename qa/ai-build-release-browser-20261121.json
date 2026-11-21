@@ -1,0 +1,87 @@
+{
+  "passed": true,
+  "results": [
+    {
+      "width": 390,
+      "scenario": "valid",
+      "status": "verified-compatible",
+      "scope": "listed checks only"
+    },
+    {
+      "width": 390,
+      "scenario": "wiring mismatch",
+      "status": "verified-incompatible",
+      "reviewNotice": true,
+      "checklistNavigation": true,
+      "noOverflow": true
+    },
+    {
+      "width": 390,
+      "scenario": "unsupported pairing",
+      "status": "unverified",
+      "reviewNotice": true,
+      "checklistNavigation": true,
+      "noOverflow": true
+    },
+    {
+      "width": 390,
+      "scenario": "missing dimensions",
+      "status": "unverified",
+      "reviewNotice": true,
+      "checklistNavigation": true,
+      "noOverflow": true
+    },
+    {
+      "width": 390,
+      "scenario": "revoked proof",
+      "status": "unverified",
+      "reviewNotice": true,
+      "checklistNavigation": true,
+      "noOverflow": true
+    },
+    {
+      "width": 1280,
+      "scenario": "valid",
+      "status": "verified-compatible",
+      "scope": "listed checks only"
+    },
+    {
+      "width": 1280,
+      "scenario": "wiring mismatch",
+      "status": "verified-incompatible",
+      "reviewNotice": true,
+      "checklistNavigation": true,
+      "noOverflow": true
+    },
+    {
+      "width": 1280,
+      "scenario": "unsupported pairing",
+      "status": "unverified",
+      "reviewNotice": true,
+      "checklistNavigation": true,
+      "noOverflow": true
+    },
+    {
+      "width": 1280,
+      "scenario": "missing dimensions",
+      "status": "unverified",
+      "reviewNotice": true,
+      "checklistNavigation": true,
+      "noOverflow": true
+    },
+    {
+      "width": 1280,
+      "scenario": "revoked proof",
+      "status": "unverified",
+      "reviewNotice": true,
+      "checklistNavigation": true,
+      "noOverflow": true
+    }
+  ],
+  "scenariosPerViewport": 5,
+  "withdrawnRowRemovalAndRestoration": true,
+  "loopbackOnly": true,
+  "syntheticData": true,
+  "productionReads": false,
+  "productionWrites": false
+}

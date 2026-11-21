@@ -1,0 +1,78 @@
+{
+  "passed": true,
+  "captureFileSha256": "c4a00e1b2cda5655c47489948b7bc14239bd43d9ef672190adb25c5fa9badfbe",
+  "products": 133,
+  "results": [
+    {
+      "priorities": [
+        "beginner"
+      ],
+      "budget": 400,
+      "lastRecordedTotal": 320.74,
+      "complete": true,
+      "verified": false,
+      "status": "unverified",
+      "selectedProducts": 10,
+      "unresolvedChecks": [
+        "MOTOR_PROPELLER_SIZE_GUIDANCE",
+        "MOTOR_ESC_CURRENT"
+      ],
+      "missingCategories": []
+    },
+    {
+      "priorities": [
+        "parkour"
+      ],
+      "budget": 800,
+      "lastRecordedTotal": 306.31,
+      "complete": true,
+      "verified": false,
+      "status": "unverified",
+      "selectedProducts": 10,
+      "unresolvedChecks": [
+        "MOTOR_PROPELLER_SIZE_GUIDANCE",
+        "MOTOR_ESC_CURRENT"
+      ],
+      "missingCategories": []
+    },
+    {
+      "priorities": [
+        "footage"
+      ],
+      "budget": 900,
+      "lastRecordedTotal": 312.43,
+      "complete": true,
+      "verified": false,
+      "status": "unverified",
+      "selectedProducts": 10,
+      "unresolvedChecks": [
+        "MOTOR_PROPELLER_SIZE_GUIDANCE",
+        "MOTOR_ESC_CURRENT"
+      ],
+      "missingCategories": []
+    },
+    {
+      "priorities": [
+        "range"
+      ],
+      "budget": 1200,
+      "lastRecordedTotal": 406.33,
+      "complete": true,
+      "verified": false,
+      "status": "unverified",
+      "selectedProducts": 11,
+      "unresolvedChecks": [
+        "MOTOR_PROPELLER_SIZE_GUIDANCE",
+        "MOTOR_ESC_CURRENT",
+        "GPS_FC_INTEGRATION"
+      ],
+      "missingCategories": []
+    }
+  ],
+  "inputFactsAndTimestampsUnchanged": true,
+  "offlineOnly": true,
+  "productionReads": false,
+  "productionWrites": false,
+  "fullMechanicalFitApproved": false,
+  "installedFirmwareApproved": false
+}

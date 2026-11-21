@@ -1,5 +1,6 @@
 // Loopback-only synthetic catalogue for AI flow checks; no external/database access.
 import http from "node:http";
+import {releaseScenario,releaseModes,type ReleaseMode} from "./ai-build-release-scenarios";
 import { fixture, proofs } from "./ai-build-fixture-data";
 const { products: base, make } = fixture();
 const products = [
@@ -12,37 +13,38 @@ const products = [
 ];
 const evidence = proofs(products),
   requests: unknown[] = [];
-let omitWiringEvidence = false;
+let mode:ReleaseMode = "complete";
 http
   .createServer((req, res) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Content-Type", "application/json");
     const url = new URL(req.url!, "http://127.0.0.1:4289");
     if (url.pathname === "/__test/evidence" && req.method === "POST") {
-      const mode=url.searchParams.get("mode");
-      if (mode!=="complete" && mode!=="missing-wiring") {res.statusCode=400;return res.end(JSON.stringify({error:"Invalid fixture mode"}));}
-      omitWiringEvidence=mode==="missing-wiring";
+      const requested=url.searchParams.get("mode");
+      if (!releaseModes.includes(requested as ReleaseMode)) {res.statusCode=400;return res.end(JSON.stringify({error:"Invalid fixture mode"}));}
+      mode=requested as ReleaseMode;
       return res.end(JSON.stringify({mode}));
     }
     if (url.pathname === "/metrics") return res.end(JSON.stringify(requests));
     const q = JSON.parse(url.searchParams.get("query") ?? "{}");
     requests.push(q);
+    const scenario=releaseScenario(products,evidence,mode);
     const own =
         q.mode === "ids"
-          ? products.filter((p) => (q.ids ?? []).includes(p.id))
-          : products.filter((p) => !q.category || p.category === q.category),
+          ? scenario.products.filter((p) => (q.ids ?? []).includes(p.id))
+          : scenario.products.filter((p) => !q.category || p.category === q.category),
       page = q.page ?? 1,
       selected = q.mode === "ids" ? own : own.slice((page - 1) * 50, page * 50),
       ids = new Set([...selected.map((p) => p.id), ...(q.selectedIds ?? [])]);
     const proof = {
-      fields: evidence.fields.filter((e) => ids.has(e.productId)),
-      motorPropeller: evidence.motorPropeller.filter(
+      fields: scenario.evidence.fields.filter((e) => ids.has(e.productId)),
+      motorPropeller: scenario.evidence.motorPropeller.filter(
         (e) => ids.has(e.motorId) && ids.has(e.propellerId),
       ),
-      motorEscCurrent: evidence.motorEscCurrent.filter(
+      motorEscCurrent: scenario.evidence.motorEscCurrent.filter(
         (e) => ids.has(e.motorId) && ids.has(e.escId),
       ),
-      fcEscConnection: omitWiringEvidence ? [] : evidence.fcEscConnection.filter(
+      fcEscConnection: scenario.evidence.fcEscConnection.filter(
         (e) => ids.has(e.flightControllerId) && ids.has(e.escId),
       ),
     };

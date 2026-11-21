@@ -1,0 +1,52 @@
+{
+  "localGatePassed": true,
+  "releasePrepared": true,
+  "testedApplicationCommit": "ce9981f9a8a826a6290c8d7d6068ecf52f33dcdf",
+  "branch": "feature/shared-drone-configurator",
+  "applicationSourceChanges": 0,
+  "nodeTestsPassed": 38,
+  "nodeFailures": 0,
+  "nodeSkipped": 0,
+  "matrixScenarios": [
+    "valid",
+    "mismatched-wiring",
+    "unsupported-combination",
+    "missing-dimensions",
+    "revoked-evidence"
+  ],
+  "browserScenarioOutcomes": 10,
+  "viewports": [
+    390,
+    1280
+  ],
+  "nativeLocalApprovalReadoutRevocationPassed": true,
+  "nativeCloneDropped": true,
+  "stagingAndSequencesPreserved": true,
+  "typecheck": "passed",
+  "build": "passed",
+  "offlineCapturedProducts": 133,
+  "offlineProfileReplays": 4,
+  "sourceFactsAndObservationTimesUnchanged": true,
+  "readyScope": "Evidence-aware proposal UI with explicit unresolved checks; hosted target acceptance remains",
+  "hardwareVerifiedReleaseReady": false,
+  "openEvidenceRequirements": [
+    "Exact selected motor/propeller configuration",
+    "Comparable continuous motor/ESC ratings under selected operating conditions",
+    "GPS/FC integration for range proposal",
+    "Complete mechanical fit/fasteners/clearances",
+    "Actual installed firmware/setup"
+  ],
+  "revocationDelivery": "Fresh-read verification; existing API cache30/60 seconds and no live subscription",
+  "productionReads": false,
+  "productionWrites": false,
+  "runtimeDeployment": false,
+  "websiteDeployment": false,
+  "imagesAdded": 0,
+  "logSha256": {
+    "tests": "d31d83de89090d7c9763c4ef98d777cc4a0313ba1106adc4f86a01f944ff5e7d",
+    "types": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "build": "fa66a57f68df3b3ca730b747a67cb2095c96ee20c96ba7427a10f6fb7f9bb8f9",
+    "browser": "5829b793f127c848141355658aabbb6e8630c677b7c10053b4471f760eb09a17",
+    "snapshot": "0f7deae9843cf11e2e1f263df8bdf02d5784e6965a5966c9139ec15524225098"
+  }
+}
